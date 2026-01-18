@@ -91,6 +91,17 @@ const parseExcelFile = async (file: File): Promise<CSVRow[]> => {
       }
     }
 
+    // Skip summary rows (Total, Subtotal, Grand Total, etc.)
+    const rowValues = Object.values(rowObj).join(' ').toLowerCase();
+    const isSummaryRow = rowValues.includes('subtotal') ||
+                         rowValues.includes('grand total') ||
+                         (ownerKey && (
+                           rowObj[ownerKey].toLowerCase() === 'total' ||
+                           rowObj[ownerKey].toLowerCase() === 'subtotal' ||
+                           rowObj[ownerKey].toLowerCase().includes('grand total')
+                         ));
+    if (isSummaryRow) continue;
+
     // Only add rows that have some meaningful data
     if (Object.values(rowObj).some(v => v && v !== '')) {
       rows.push(rowObj);

@@ -272,7 +272,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams }) =>
 
             <tr className="bg-gradient-to-r from-gray-800 to-gray-900">
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-white">
-                {selectedTeam === 'all' ? 'TOTAL' : 'TEAM TOTAL'}
+                {selectedTeam === 'all' ? 'Department Total' : 'Team Total'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">—</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-white text-center font-bold">
