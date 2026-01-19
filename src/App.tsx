@@ -323,48 +323,111 @@ function App() {
       // Count non-converted leads and total leads from the Non-Converted file
       const nonConvertedAgentCol = filteredNonConvertedRows.length > 0 ? findAgentColumn(filteredNonConvertedRows[0]) : null;
       console.log('Non-Converted agent column found:', nonConvertedAgentCol);
+      console.log('Non-Converted file columns:', filteredNonConvertedRows.length > 0 ? Object.keys(filteredNonConvertedRows[0]) : 'no rows');
 
       // For non-converted, we need to count non-validated leads and total leads per agent
       const nonConvertedCounts = new Map<string, { nonValidated: number; total: number }>();
       if (nonConvertedAgentCol && filteredNonConvertedRows.length > 0) {
-        // Find the column that indicates validation status (look for "validated" or similar)
         const firstRow = filteredNonConvertedRows[0];
-        const validatedColKey = Object.keys(firstRow).find(k =>
-          k.toLowerCase().includes('validated') || k.toLowerCase().includes('status') || k.toLowerCase().includes('converted')
-        );
+        const allColumns = Object.keys(firstRow);
 
-        console.log('Validated column key found:', validatedColKey);
-        if (validatedColKey && filteredNonConvertedRows.length > 0) {
-          // Log some sample values to understand the data
-          const sampleValues = filteredNonConvertedRows.slice(0, 5).map(r => r[validatedColKey]);
-          console.log('Sample validated column values:', sampleValues);
+        // Look for columns that contain count data (for summary-style reports)
+        // Non-validated count column: look for "non validated", "non-validated", "non converted", etc.
+        const nonValidatedCountCol = allColumns.find(k => {
+          const lower = k.toLowerCase();
+          return (lower.includes('non') && (lower.includes('validated') || lower.includes('converted'))) ||
+                 lower.includes('not validated') || lower.includes('not converted');
+        });
+
+        // Total count column: look for "total", "record count", "lead count", etc.
+        const totalCountCol = allColumns.find(k => {
+          const lower = k.toLowerCase();
+          return lower.includes('total') || lower.includes('record count') || lower.includes('lead count') ||
+                 (lower.includes('count') && !lower.includes('non'));
+        });
+
+        console.log('Non-validated count column:', nonValidatedCountCol);
+        console.log('Total count column:', totalCountCol);
+
+        if (filteredNonConvertedRows.length > 0) {
+          console.log('Sample row:', filteredNonConvertedRows[0]);
         }
 
-        for (const row of filteredNonConvertedRows) {
-          const agent = row[nonConvertedAgentCol];
-          if (agent) {
-            const current = nonConvertedCounts.get(agent) || { nonValidated: 0, total: 0 };
-            current.total += 1;
+        // If we found count columns, this is a summary report - read the counts directly
+        if (nonValidatedCountCol && totalCountCol) {
+          console.log('Using summary report format (count columns found)');
+          for (const row of filteredNonConvertedRows) {
+            const agent = row[nonConvertedAgentCol];
+            if (agent) {
+              const nonValidatedCount = parseInt(row[nonValidatedCountCol] || '0', 10) || 0;
+              const totalCount = parseInt(row[totalCountCol] || '0', 10) || 0;
 
-            // Check if this lead is validated or non-validated
-            if (validatedColKey) {
-              const validatedValue = row[validatedColKey]?.toLowerCase().trim() || '';
-              // Count as NON-VALIDATED only if it explicitly says no/false/0/non-validated/not validated
-              const isNonValidated = validatedValue === 'no' || validatedValue === 'false' || validatedValue === '0' ||
-                                     validatedValue === 'n' || validatedValue.includes('non') || validatedValue.includes('not');
-
-              // Only count as non-validated if explicitly marked as such
-              if (isNonValidated) {
-                current.nonValidated += 1;
-              }
-              // If value is empty, yes, true, or anything else, don't count as non-validated
-            } else {
-              // If no validation column found, check if this is a "non-converted leads" file
-              // where every row IS a non-converted lead (the file only contains non-converted)
-              // Don't automatically assume all are non-validated - leave at 0
+              const current = nonConvertedCounts.get(agent) || { nonValidated: 0, total: 0 };
+              current.nonValidated += nonValidatedCount;
+              current.total += totalCount;
+              nonConvertedCounts.set(agent, current);
             }
+          }
+        } else if (nonValidatedCountCol) {
+          // Only non-validated count column found - might need to find total differently
+          console.log('Only non-validated count column found, looking for total in different way');
 
-            nonConvertedCounts.set(agent, current);
+          // Look for a "validated" count column to calculate total
+          const validatedCountCol = allColumns.find(k => {
+            const lower = k.toLowerCase();
+            return (lower.includes('validated') || lower.includes('converted')) &&
+                   !lower.includes('non') && !lower.includes('not');
+          });
+
+          for (const row of filteredNonConvertedRows) {
+            const agent = row[nonConvertedAgentCol];
+            if (agent) {
+              const nonValidatedCount = parseInt(row[nonValidatedCountCol] || '0', 10) || 0;
+              const validatedCount = validatedCountCol ? (parseInt(row[validatedCountCol] || '0', 10) || 0) : 0;
+              const totalCount = nonValidatedCount + validatedCount;
+
+              const current = nonConvertedCounts.get(agent) || { nonValidated: 0, total: 0 };
+              current.nonValidated += nonValidatedCount;
+              current.total += totalCount > 0 ? totalCount : nonValidatedCount; // Fallback to non-validated if no total
+              nonConvertedCounts.set(agent, current);
+            }
+          }
+        } else {
+          // No count columns found - this is a detail report where each row is a lead
+          console.log('Using detail report format (counting rows)');
+
+          // Find the column that indicates validation status
+          const validatedColKey = allColumns.find(k =>
+            k.toLowerCase().includes('validated') || k.toLowerCase().includes('status') || k.toLowerCase().includes('converted')
+          );
+
+          console.log('Validated status column found:', validatedColKey);
+          if (validatedColKey && filteredNonConvertedRows.length > 0) {
+            const sampleValues = filteredNonConvertedRows.slice(0, 10).map(r => r[validatedColKey]);
+            console.log('Sample validated column values:', sampleValues);
+          }
+
+          for (const row of filteredNonConvertedRows) {
+            const agent = row[nonConvertedAgentCol];
+            if (agent) {
+              const current = nonConvertedCounts.get(agent) || { nonValidated: 0, total: 0 };
+              current.total += 1;
+
+              if (validatedColKey) {
+                const validatedValue = row[validatedColKey]?.toLowerCase().trim() || '';
+                // Count as NON-VALIDATED if it contains indicators of non-validation
+                const isNonValidated = validatedValue === 'no' || validatedValue === 'false' || validatedValue === '0' ||
+                                       validatedValue === 'n' || validatedValue.includes('non') || validatedValue.includes('not') ||
+                                       validatedValue === '' || validatedValue === 'null' || validatedValue === 'na' ||
+                                       validatedValue === 'n/a';
+
+                if (isNonValidated) {
+                  current.nonValidated += 1;
+                }
+              }
+
+              nonConvertedCounts.set(agent, current);
+            }
           }
         }
       }
