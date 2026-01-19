@@ -4,10 +4,75 @@ import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { TeamManagement } from './components/TeamManagement';
 import { TeamComparison } from './components/TeamComparison';
+import { DateRangeFilter } from './components/DateRangeFilter';
 import type { Team, Metrics, FileUploadState } from './types';
 import { findAgentColumn, countByAgent } from './utils/csvParser';
 import type { CSVRow } from './utils/csvParser';
 import { loadTeams, saveTeams } from './utils/storage';
+
+// Helper to parse date from various formats (Excel serial, string formats)
+const parseDate = (value: string): Date | null => {
+  if (!value || value.trim() === '') return null;
+
+  // Try parsing as Excel serial number (days since 1900-01-01)
+  const numValue = parseFloat(value);
+  if (!isNaN(numValue) && numValue > 1000 && numValue < 100000) {
+    // Excel serial date - convert to JS Date
+    const excelEpoch = new Date(1899, 11, 30); // Excel epoch is Dec 30, 1899
+    const jsDate = new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+    if (!isNaN(jsDate.getTime())) return jsDate;
+  }
+
+  // Try parsing as standard date string
+  const parsed = new Date(value);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  // Try MM/DD/YYYY format
+  const parts = value.split('/');
+  if (parts.length === 3) {
+    const month = parseInt(parts[0], 10) - 1;
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
+    if (!isNaN(date.getTime())) return date;
+  }
+
+  return null;
+};
+
+// Helper to find date column in a row
+const findDateColumn = (row: CSVRow, patterns: string[]): string | null => {
+  const keys = Object.keys(row);
+  for (const pattern of patterns) {
+    const found = keys.find(k => k.toLowerCase().includes(pattern.toLowerCase()));
+    if (found) return found;
+  }
+  return null;
+};
+
+// Helper to filter rows by date range
+const filterRowsByDate = (
+  rows: CSVRow[],
+  dateColumn: string | null,
+  startDate: string,
+  endDate: string
+): CSVRow[] => {
+  if (!dateColumn || (!startDate && !endDate)) return rows;
+
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999); // Include entire end day
+
+  return rows.filter(row => {
+    const dateValue = row[dateColumn];
+    const rowDate = parseDate(dateValue);
+    if (!rowDate) return true; // Keep rows without valid dates
+
+    if (start && rowDate < start) return false;
+    if (end && rowDate > end) return false;
+    return true;
+  });
+};
 
 // Helper to parse Excel files with header detection
 const parseExcelFile = async (file: File): Promise<CSVRow[]> => {
@@ -123,6 +188,8 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
     setTeams(loadTeams());
@@ -167,9 +234,33 @@ function App() {
         throw new Error('Trips file appears to be empty or invalid. Please check that the file contains data.');
       }
 
-      const tripsAgentCol = findAgentColumn(tripsRows[0]);
-      const quotesAgentCol = quotesRows.length > 0 ? findAgentColumn(quotesRows[0]) : null;
-      const passthroughsAgentCol = passthroughsRows.length > 0 ? findAgentColumn(passthroughsRows[0]) : null;
+      // Find date columns for each file type
+      const tripsDateCol = tripsRows.length > 0
+        ? findDateColumn(tripsRows[0], ['created date', 'trip: created date'])
+        : null;
+      const quotesDateCol = quotesRows.length > 0
+        ? findDateColumn(quotesRows[0], ['quote first sent', 'first sent date', 'created date'])
+        : null;
+      const passthroughsDateCol = passthroughsRows.length > 0
+        ? findDateColumn(passthroughsRows[0], ['passthrough to sales date', 'passthrough date', 'created date'])
+        : null;
+      const hotPassDateCol = hotPassRows.length > 0
+        ? findDateColumn(hotPassRows[0], ['created date', 'trip: created date'])
+        : null;
+
+      console.log('Date columns found - Trips:', tripsDateCol, 'Quotes:', quotesDateCol, 'Passthroughs:', passthroughsDateCol, 'Hot Pass:', hotPassDateCol);
+
+      // Filter rows by date range
+      const filteredTripsRows = filterRowsByDate(tripsRows, tripsDateCol, startDate, endDate);
+      const filteredQuotesRows = filterRowsByDate(quotesRows, quotesDateCol, startDate, endDate);
+      const filteredPassthroughsRows = filterRowsByDate(passthroughsRows, passthroughsDateCol, startDate, endDate);
+      const filteredHotPassRows = filterRowsByDate(hotPassRows, hotPassDateCol, startDate, endDate);
+
+      console.log('Filtered counts - Trips:', filteredTripsRows.length, 'Quotes:', filteredQuotesRows.length, 'Passthroughs:', filteredPassthroughsRows.length, 'Hot Pass:', filteredHotPassRows.length);
+
+      const tripsAgentCol = findAgentColumn(filteredTripsRows[0] || tripsRows[0]);
+      const quotesAgentCol = filteredQuotesRows.length > 0 ? findAgentColumn(filteredQuotesRows[0]) : null;
+      const passthroughsAgentCol = filteredPassthroughsRows.length > 0 ? findAgentColumn(filteredPassthroughsRows[0]) : null;
 
       console.log('Agent columns found - Trips:', tripsAgentCol, 'Quotes:', quotesAgentCol, 'Passthroughs:', passthroughsAgentCol);
 
@@ -178,20 +269,20 @@ function App() {
         throw new Error(`Could not identify agent column in Trips file. Available columns: ${availableColumns}`);
       }
 
-      const tripsCounts = countByAgent(tripsRows, tripsAgentCol);
+      const tripsCounts = countByAgent(filteredTripsRows, tripsAgentCol);
       const quotesCounts = quotesAgentCol
-        ? countByAgent(quotesRows, quotesAgentCol)
+        ? countByAgent(filteredQuotesRows, quotesAgentCol)
         : new Map<string, number>();
       const passthroughsCounts = passthroughsAgentCol
-        ? countByAgent(passthroughsRows, passthroughsAgentCol)
+        ? countByAgent(filteredPassthroughsRows, passthroughsAgentCol)
         : new Map<string, number>();
 
       // Count hot passes from the Hot Pass file (trips per agent)
-      const hotPassAgentCol = hotPassRows.length > 0 ? findAgentColumn(hotPassRows[0]) : null;
+      const hotPassAgentCol = filteredHotPassRows.length > 0 ? findAgentColumn(filteredHotPassRows[0]) : null;
       console.log('Hot Pass agent column found:', hotPassAgentCol);
 
       const hotPassCounts = hotPassAgentCol
-        ? countByAgent(hotPassRows, hotPassAgentCol)
+        ? countByAgent(filteredHotPassRows, hotPassAgentCol)
         : new Map<string, number>();
 
       console.log('Hot Pass counts:', Object.fromEntries(hotPassCounts));
@@ -229,7 +320,12 @@ function App() {
     } finally {
       setIsProcessing(false);
     }
-  }, [files]);
+  }, [files, startDate, endDate]);
+
+  const handleClearDateFilter = useCallback(() => {
+    setStartDate('');
+    setEndDate('');
+  }, []);
 
   const allAgentNames = metrics.map((m) => m.agentName);
   const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass;
@@ -297,6 +393,14 @@ function App() {
             }
           />
         </div>
+
+        <DateRangeFilter
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          onClear={handleClearDateFilter}
+        />
 
         <div className="flex justify-center mb-8">
           <button
