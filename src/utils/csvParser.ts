@@ -53,14 +53,19 @@ const parseCSVLine = (line: string): string[] => {
 export const findAgentColumn = (row: CSVRow): string | null => {
   const keys = Object.keys(row);
 
-  // First priority: look for GTT-specific or Salesforce columns
+  // First priority: internal _agent field (from grouped report parsing)
+  if (row['_agent'] !== undefined) {
+    return '_agent';
+  }
+
+  // Second priority: look for GTT-specific or Salesforce columns
   for (const key of keys) {
     if (key.includes('gtt owner') || key.includes('owner name') || key.includes('last gtt action by')) {
       return key;
     }
   }
 
-  // Second priority: exact matches
+  // Third priority: exact matches
   const possibleNames = [
     'agent',
     'agent name',
@@ -82,7 +87,7 @@ export const findAgentColumn = (row: CSVRow): string | null => {
     }
   }
 
-  // Third priority: partial matches
+  // Fourth priority: partial matches
   for (const key of keys) {
     if (key.includes('agent') || key.includes('owner') || key.includes('rep')) {
       return key;

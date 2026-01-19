@@ -145,16 +145,39 @@ const parseExcelFile = async (file: File): Promise<CSVRow[]> => {
 
     // Handle grouped format: if owner/agent name column is empty, use previous
     const ownerKey = headers.find(h =>
+      h.includes('gtt owner') ||
       h.includes('owner name') ||
       h.includes('agent') ||
       h.includes('last gtt action by')
     );
+
+    // Check if this row is a group header (agent name row) - typically has few non-empty cells
+    const nonEmptyValues = Object.values(rowObj).filter(v => v && v !== '');
+    const firstValue = rowObj[headers[0]] || '';
+    const looksLikeGroupHeader = nonEmptyValues.length <= 2 &&
+                                  firstValue.length > 3 &&
+                                  (firstValue.includes(' ') || firstValue.includes(',')) &&
+                                  !firstValue.match(/^\d/) &&
+                                  !firstValue.toLowerCase().includes('total') &&
+                                  !firstValue.toLowerCase().includes('subtotal');
+
+    if (looksLikeGroupHeader) {
+      // This is a group header row - the first value is the agent name
+      currentAgent = firstValue;
+      continue; // Skip this row, don't add it as data
+    }
+
     if (ownerKey) {
       if (rowObj[ownerKey] && rowObj[ownerKey] !== '') {
         currentAgent = rowObj[ownerKey];
       } else {
         rowObj[ownerKey] = currentAgent;
       }
+    }
+
+    // If no owner column found but we have a current agent, add it to the row
+    if (!ownerKey && currentAgent) {
+      rowObj['_agent'] = currentAgent;
     }
 
     // Skip summary rows (Total, Subtotal, Grand Total, etc.)
