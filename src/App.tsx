@@ -320,9 +320,10 @@ function App() {
 
       console.log('Bookings counts:', Object.fromEntries(bookingsCounts));
 
-      // Count non-converted leads and total leads from the Non-Converted file
+      // Count non-converted (non-validated) leads from the Non-Converted file
       // File structure: grouped by GTT Owner, then by validation status (Non Validated / Converted)
-      const nonConvertedCounts = new Map<string, { nonValidated: number; total: number }>();
+      // The TOTAL for percentage calculation comes from TRIPS, not this file
+      const nonConvertedCounts = new Map<string, number>();
 
       if (files.nonConverted) {
         const buffer = await files.nonConverted.arrayBuffer();
@@ -337,7 +338,7 @@ function App() {
         rawData.slice(0, 15).forEach((row, i) => console.log(`Row ${i}:`, row));
 
         let currentAgent = '';
-        let currentValidationGroup = ''; // 'non validated' or 'converted'
+        let inNonValidatedGroup = false;
 
         for (let i = 0; i < rawData.length; i++) {
           const row = rawData[i];
@@ -358,19 +359,18 @@ function App() {
           // Check for validation status group headers
           if (firstNonEmptyLower === 'non validated' || firstNonEmptyLower === 'not validated' ||
               firstNonEmptyLower.match(/^non[\s-]?validated$/)) {
-            currentValidationGroup = 'non validated';
+            inNonValidatedGroup = true;
             console.log(`[Group] Non Validated for: ${currentAgent}`);
             continue;
           }
 
           if (firstNonEmptyLower === 'converted' || firstNonEmptyLower === 'validated') {
-            currentValidationGroup = 'converted';
+            inNonValidatedGroup = false;
             console.log(`[Group] Converted for: ${currentAgent}`);
             continue;
           }
 
           // Check if this is an agent name (GTT Owner) row
-          // Agent rows typically have just the name in one cell, or name with minimal other data
           if (nonEmptyCells <= 2 && firstNonEmpty.length > 3) {
             const looksLikeName = (firstNonEmpty.includes(' ') || firstNonEmpty.includes(',')) &&
                                   !firstNonEmpty.match(/^\d/) &&
@@ -384,27 +384,24 @@ function App() {
 
             if (looksLikeName) {
               currentAgent = firstNonEmpty;
-              currentValidationGroup = ''; // Reset for new agent
+              inNonValidatedGroup = false; // Reset for new agent
               console.log(`[Agent] ${currentAgent}`);
               continue;
             }
           }
 
-          // This is a data row - count it if we have agent and validation group
-          if (currentAgent && currentValidationGroup && nonEmptyCells >= 3) {
-            const current = nonConvertedCounts.get(currentAgent) || { nonValidated: 0, total: 0 };
-            current.total += 1;
-            if (currentValidationGroup === 'non validated') {
-              current.nonValidated += 1;
-            }
-            nonConvertedCounts.set(currentAgent, current);
+          // This is a data row - count it only if in Non Validated group
+          if (currentAgent && inNonValidatedGroup && nonEmptyCells >= 3) {
+            const current = nonConvertedCounts.get(currentAgent) || 0;
+            nonConvertedCounts.set(currentAgent, current + 1);
           }
         }
 
         console.log('=== NON-CONVERTED RESULTS ===');
-        nonConvertedCounts.forEach((data, agent) => {
-          const pct = data.total > 0 ? ((data.nonValidated / data.total) * 100).toFixed(1) : '0.0';
-          console.log(`${agent}: ${data.nonValidated} non-validated / ${data.total} total = ${pct}%`);
+        nonConvertedCounts.forEach((count, agent) => {
+          const trips = tripsCounts.get(agent) || 0;
+          const pct = trips > 0 ? ((count / trips) * 100).toFixed(1) : '0.0';
+          console.log(`${agent}: ${count} non-validated / ${trips} trips = ${pct}%`);
         });
       }
 
@@ -423,7 +420,7 @@ function App() {
           const passthroughs = passthroughsCounts.get(agentName) || 0;
           const hotPasses = hotPassCounts.get(agentName) || 0;
           const bookings = bookingsCounts.get(agentName) || 0;
-          const nonConvertedData = nonConvertedCounts.get(agentName) || { nonValidated: 0, total: 0 };
+          const nonConvertedLeads = nonConvertedCounts.get(agentName) || 0;
 
           return {
             agentName,
@@ -432,13 +429,13 @@ function App() {
             passthroughs,
             hotPasses,
             bookings,
-            nonConvertedLeads: nonConvertedData.nonValidated,
-            totalLeads: nonConvertedData.total,
+            nonConvertedLeads,
+            totalLeads: trips, // Total comes from Trips file (GTT Owner column)
             quotesFromTrips: trips > 0 ? (quotes / trips) * 100 : 0,
             passthroughsFromTrips: trips > 0 ? (passthroughs / trips) * 100 : 0,
             quotesFromPassthroughs: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
             hotPassRate: passthroughs > 0 ? (hotPasses / passthroughs) * 100 : 0,
-            nonConvertedRate: nonConvertedData.total > 0 ? (nonConvertedData.nonValidated / nonConvertedData.total) * 100 : 0,
+            nonConvertedRate: trips > 0 ? (nonConvertedLeads / trips) * 100 : 0, // % = Non-Validated / Trips
           };
         })
         .sort((a, b) => a.agentName.localeCompare(b.agentName));
