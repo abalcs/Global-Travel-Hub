@@ -21,10 +21,14 @@ export interface Metrics {
   quotes: number;
   passthroughs: number;
   hotPasses: number;
+  bookings: number;
+  nonConvertedLeads: number;
+  totalLeads: number;
   quotesFromTrips: number;
   passthroughsFromTrips: number;
   quotesFromPassthroughs: number;
   hotPassRate: number;
+  nonConvertedRate: number;
 }
 
 export interface FileUploadState {
@@ -32,6 +36,8 @@ export interface FileUploadState {
   trips: File | null;
   quotes: File | null;
   hotPass: File | null;
+  bookings: File | null;
+  nonConverted: File | null;
 }
 
 export interface SeniorDesignation {

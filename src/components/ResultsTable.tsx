@@ -9,7 +9,7 @@ interface ResultsTableProps {
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors';
 
-type SortColumn = 'quotesFromTrips' | 'passthroughsFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | null;
+type SortColumn = 'quotesFromTrips' | 'passthroughsFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
 type SortDirection = 'asc' | 'desc';
 
 const formatPercent = (value: number): string => {
@@ -80,8 +80,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       quotes: acc.quotes + m.quotes,
       passthroughs: acc.passthroughs + m.passthroughs,
       hotPasses: acc.hotPasses + m.hotPasses,
+      bookings: acc.bookings + m.bookings,
+      nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
+      totalLeads: acc.totalLeads + m.totalLeads,
     }),
-    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0 }
+    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0 }
   );
 
   const totalMetrics = {
@@ -89,6 +92,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     passthroughsFromTrips: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
     quotesFromPassthroughs: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
     hotPassRate: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
+    nonConvertedRate: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
   };
 
   const teamAggregates = teams.map((team) => {
@@ -99,8 +103,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
         quotes: acc.quotes + m.quotes,
         passthroughs: acc.passthroughs + m.passthroughs,
         hotPasses: acc.hotPasses + m.hotPasses,
+        bookings: acc.bookings + m.bookings,
+        nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
+        totalLeads: acc.totalLeads + m.totalLeads,
       }),
-      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0 }
+      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0 }
     );
 
     return {
@@ -110,10 +117,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       quotes: teamTotals.quotes,
       passthroughs: teamTotals.passthroughs,
       hotPasses: teamTotals.hotPasses,
+      bookings: teamTotals.bookings,
       quotesFromTrips: teamTotals.trips > 0 ? (teamTotals.quotes / teamTotals.trips) * 100 : 0,
       passthroughsFromTrips: teamTotals.trips > 0 ? (teamTotals.passthroughs / teamTotals.trips) * 100 : 0,
       quotesFromPassthroughs: teamTotals.passthroughs > 0 ? (teamTotals.quotes / teamTotals.passthroughs) * 100 : 0,
       hotPassRate: teamTotals.passthroughs > 0 ? (teamTotals.hotPasses / teamTotals.passthroughs) * 100 : 0,
+      nonConvertedRate: teamTotals.totalLeads > 0 ? (teamTotals.nonConvertedLeads / teamTotals.totalLeads) * 100 : 0,
     };
   });
 
@@ -246,6 +255,24 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <SortIcon column="hotPassRate" />
                 </div>
               </th>
+              <th
+                className="px-6 py-3 text-center text-xs font-semibold text-cyan-600 uppercase tracking-wider cursor-pointer hover:bg-cyan-50 transition-colors"
+                onClick={() => handleSort('bookings')}
+              >
+                <div className="flex items-center justify-center">
+                  Bookings
+                  <SortIcon column="bookings" />
+                </div>
+              </th>
+              <th
+                className="px-6 py-3 text-center text-xs font-semibold text-rose-600 uppercase tracking-wider cursor-pointer hover:bg-rose-50 transition-colors"
+                onClick={() => handleSort('nonConvertedRate')}
+              >
+                <div className="flex items-center justify-center">
+                  % Non-Conv
+                  <SortIcon column="nonConvertedRate" />
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -296,6 +323,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-orange-600 text-center">
                     {formatPercent(m.hotPassRate)}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-cyan-600 text-center">
+                    {m.bookings}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-rose-600 text-center">
+                    {formatPercent(m.nonConvertedRate)}
+                  </td>
                 </tr>
               );
             })}
@@ -303,7 +336,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
             {selectedTeam === 'all' && teamAggregates.length > 0 && (
               <>
                 <tr className="bg-indigo-50">
-                  <td colSpan={9} className="px-6 py-2 text-xs font-semibold text-indigo-600 uppercase">
+                  <td colSpan={11} className="px-6 py-2 text-xs font-semibold text-indigo-600 uppercase">
                     Team Totals
                   </td>
                 </tr>
@@ -333,6 +366,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-700 text-center">
                       {formatPercent(ta.hotPassRate)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-cyan-700 text-center">
+                      {ta.bookings}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-rose-700 text-center">
+                      {formatPercent(ta.nonConvertedRate)}
                     </td>
                   </tr>
                 ))}
@@ -364,6 +403,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-300 text-center">
                 {formatPercent(totalMetrics.hotPassRate)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-cyan-300 text-center">
+                {totals.bookings}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-rose-300 text-center">
+                {formatPercent(totalMetrics.nonConvertedRate)}
               </td>
             </tr>
           </tbody>

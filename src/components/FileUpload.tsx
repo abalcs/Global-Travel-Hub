@@ -5,7 +5,7 @@ interface FileUploadProps {
   file: File | null;
   onFileSelect: (file: File | null) => void;
   icon: React.ReactNode;
-  color: 'blue' | 'green' | 'purple' | 'orange';
+  color: 'blue' | 'green' | 'purple' | 'orange' | 'cyan' | 'rose';
 }
 
 const colorClasses = {
@@ -32,6 +32,18 @@ const colorClasses = {
     bg: 'bg-orange-50',
     text: 'text-orange-600',
     icon: 'text-orange-500',
+  },
+  cyan: {
+    border: 'border-cyan-300 hover:border-cyan-400',
+    bg: 'bg-cyan-50',
+    text: 'text-cyan-600',
+    icon: 'text-cyan-500',
+  },
+  rose: {
+    border: 'border-rose-300 hover:border-rose-400',
+    bg: 'bg-rose-50',
+    text: 'text-rose-600',
+    icon: 'text-rose-500',
   },
 };
 

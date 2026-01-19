@@ -7,7 +7,7 @@ interface TeamComparisonProps {
   seniors: string[];
 }
 
-type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'hotPass';
+type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'hotPass' | 'bookings' | 'nonConverted';
 
 const formatPercent = (value: number): string => {
   if (isNaN(value) || !isFinite(value)) return '0.0%';
@@ -30,8 +30,11 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
         quotes: acc.quotes + m.quotes,
         passthroughs: acc.passthroughs + m.passthroughs,
         hotPasses: acc.hotPasses + m.hotPasses,
+        bookings: acc.bookings + m.bookings,
+        nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
+        totalLeads: acc.totalLeads + m.totalLeads,
       }),
-      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0 }
+      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0 }
     );
 
     return {
@@ -39,10 +42,12 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       trips: totals.trips,
       quotes: totals.quotes,
       passthroughs: totals.passthroughs,
+      bookings: totals.bookings,
       tq: totals.trips > 0 ? (totals.quotes / totals.trips) * 100 : 0,
       tp: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
       pq: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
       hotPass: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
+      nonConverted: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
     };
   };
 
@@ -63,8 +68,11 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
         quotes: acc.quotes + m.quotes,
         passthroughs: acc.passthroughs + m.passthroughs,
         hotPasses: acc.hotPasses + m.hotPasses,
+        bookings: acc.bookings + m.bookings,
+        nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
+        totalLeads: acc.totalLeads + m.totalLeads,
       }),
-      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0 }
+      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0 }
     );
 
     return {
@@ -73,10 +81,12 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       trips: totals.trips,
       quotes: totals.quotes,
       passthroughs: totals.passthroughs,
+      bookings: totals.bookings,
       tq: totals.trips > 0 ? (totals.quotes / totals.trips) * 100 : 0,
       tp: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
       pq: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
       hotPass: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
+      nonConverted: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
     };
   });
 
@@ -154,6 +164,8 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
             <SortButton label="T>P" sortKeyVal="tp" color="green" />
             <SortButton label="P>Q" sortKeyVal="pq" color="purple" />
             <SortButton label="Hot Pass" sortKeyVal="hotPass" color="orange" />
+            <SortButton label="Bookings" sortKeyVal="bookings" color="cyan" />
+            <SortButton label="% Non-Conv" sortKeyVal="nonConverted" color="rose" />
           </div>
 
           {/* Team Comparison */}
@@ -220,7 +232,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-4 gap-2 text-center">
+                    <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-6 gap-2 text-center">
                       <div>
                         <div className="text-lg font-bold text-blue-600">{formatPercent(team.tq)}</div>
                         <div className="text-xs text-gray-500">T&gt;Q</div>
@@ -236,6 +248,14 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                       <div>
                         <div className="text-lg font-bold text-orange-600">{formatPercent(team.hotPass)}</div>
                         <div className="text-xs text-gray-500">Hot Pass</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-cyan-600">{team.bookings}</div>
+                        <div className="text-xs text-gray-500">Bookings</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-rose-600">{formatPercent(team.nonConverted)}</div>
+                        <div className="text-xs text-gray-500">% Non-Conv</div>
                       </div>
                     </div>
                   </div>
@@ -305,7 +325,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-amber-200 grid grid-cols-4 gap-2 text-center">
+                  <div className="mt-4 pt-4 border-t border-amber-200 grid grid-cols-6 gap-2 text-center">
                     <div>
                       <div className="text-lg font-bold text-blue-600">{formatPercent(seniorData.tq)}</div>
                       <div className="text-xs text-gray-500">T&gt;Q</div>
@@ -321,6 +341,14 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                     <div>
                       <div className="text-lg font-bold text-orange-600">{formatPercent(seniorData.hotPass)}</div>
                       <div className="text-xs text-gray-500">Hot Pass</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-cyan-600">{seniorData.bookings}</div>
+                      <div className="text-xs text-gray-500">Bookings</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-rose-600">{formatPercent(seniorData.nonConverted)}</div>
+                      <div className="text-xs text-gray-500">% Non-Conv</div>
                     </div>
                   </div>
                 </div>
@@ -371,7 +399,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-4 gap-2 text-center">
+                  <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-6 gap-2 text-center">
                     <div>
                       <div className="text-lg font-bold text-blue-600">{formatPercent(nonSeniorData.tq)}</div>
                       <div className="text-xs text-gray-500">T&gt;Q</div>
@@ -387,6 +415,14 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                     <div>
                       <div className="text-lg font-bold text-orange-600">{formatPercent(nonSeniorData.hotPass)}</div>
                       <div className="text-xs text-gray-500">Hot Pass</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-cyan-600">{nonSeniorData.bookings}</div>
+                      <div className="text-xs text-gray-500">Bookings</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-rose-600">{formatPercent(nonSeniorData.nonConverted)}</div>
+                      <div className="text-xs text-gray-500">% Non-Conv</div>
                     </div>
                   </div>
                 </div>

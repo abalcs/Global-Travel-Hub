@@ -183,6 +183,8 @@ function App() {
     trips: null,
     quotes: null,
     hotPass: null,
+    bookings: null,
+    nonConverted: null,
   });
 
   const [teams, setTeams] = useState<Team[]>([]);
@@ -218,8 +220,8 @@ function App() {
   );
 
   const processFiles = useCallback(async () => {
-    if (!files.trips || !files.quotes || !files.passthroughs || !files.hotPass) {
-      setError('Please upload all four files');
+    if (!files.trips || !files.quotes || !files.passthroughs || !files.hotPass || !files.bookings || !files.nonConverted) {
+      setError('Please upload all six files');
       return;
     }
 
@@ -227,17 +229,21 @@ function App() {
     setError(null);
 
     try {
-      const [tripsRows, quotesRows, passthroughsRows, hotPassRows] = await Promise.all([
+      const [tripsRows, quotesRows, passthroughsRows, hotPassRows, bookingsRows, nonConvertedRows] = await Promise.all([
         parseExcelFile(files.trips),
         parseExcelFile(files.quotes),
         parseExcelFile(files.passthroughs),
         parseExcelFile(files.hotPass),
+        parseExcelFile(files.bookings),
+        parseExcelFile(files.nonConverted),
       ]);
 
       console.log('Trips rows:', tripsRows.length, 'First row:', tripsRows[0]);
       console.log('Quotes rows:', quotesRows.length, 'First row:', quotesRows[0]);
       console.log('Passthroughs rows:', passthroughsRows.length, 'First row:', passthroughsRows[0]);
       console.log('Hot Pass rows:', hotPassRows.length, 'First row:', hotPassRows[0]);
+      console.log('Bookings rows:', bookingsRows.length, 'First row:', bookingsRows[0]);
+      console.log('Non-Converted rows:', nonConvertedRows.length, 'First row:', nonConvertedRows[0]);
 
       if (tripsRows.length === 0) {
         throw new Error('Trips file appears to be empty or invalid. Please check that the file contains data.');
@@ -256,16 +262,24 @@ function App() {
       const hotPassDateCol = hotPassRows.length > 0
         ? findDateColumn(hotPassRows[0], ['created date', 'trip: created date'])
         : null;
+      const bookingsDateCol = bookingsRows.length > 0
+        ? findDateColumn(bookingsRows[0], ['created date', 'booking date', 'date'])
+        : null;
+      const nonConvertedDateCol = nonConvertedRows.length > 0
+        ? findDateColumn(nonConvertedRows[0], ['created date', 'date'])
+        : null;
 
-      console.log('Date columns found - Trips:', tripsDateCol, 'Quotes:', quotesDateCol, 'Passthroughs:', passthroughsDateCol, 'Hot Pass:', hotPassDateCol);
+      console.log('Date columns found - Trips:', tripsDateCol, 'Quotes:', quotesDateCol, 'Passthroughs:', passthroughsDateCol, 'Hot Pass:', hotPassDateCol, 'Bookings:', bookingsDateCol, 'Non-Converted:', nonConvertedDateCol);
 
       // Filter rows by date range
       const filteredTripsRows = filterRowsByDate(tripsRows, tripsDateCol, startDate, endDate);
       const filteredQuotesRows = filterRowsByDate(quotesRows, quotesDateCol, startDate, endDate);
       const filteredPassthroughsRows = filterRowsByDate(passthroughsRows, passthroughsDateCol, startDate, endDate);
       const filteredHotPassRows = filterRowsByDate(hotPassRows, hotPassDateCol, startDate, endDate);
+      const filteredBookingsRows = filterRowsByDate(bookingsRows, bookingsDateCol, startDate, endDate);
+      const filteredNonConvertedRows = filterRowsByDate(nonConvertedRows, nonConvertedDateCol, startDate, endDate);
 
-      console.log('Filtered counts - Trips:', filteredTripsRows.length, 'Quotes:', filteredQuotesRows.length, 'Passthroughs:', filteredPassthroughsRows.length, 'Hot Pass:', filteredHotPassRows.length);
+      console.log('Filtered counts - Trips:', filteredTripsRows.length, 'Quotes:', filteredQuotesRows.length, 'Passthroughs:', filteredPassthroughsRows.length, 'Hot Pass:', filteredHotPassRows.length, 'Bookings:', filteredBookingsRows.length, 'Non-Converted:', filteredNonConvertedRows.length);
 
       const tripsAgentCol = findAgentColumn(filteredTripsRows[0] || tripsRows[0]);
       const quotesAgentCol = filteredQuotesRows.length > 0 ? findAgentColumn(filteredQuotesRows[0]) : null;
@@ -296,10 +310,62 @@ function App() {
 
       console.log('Hot Pass counts:', Object.fromEntries(hotPassCounts));
 
+      // Count bookings from the Bookings file
+      const bookingsAgentCol = filteredBookingsRows.length > 0 ? findAgentColumn(filteredBookingsRows[0]) : null;
+      console.log('Bookings agent column found:', bookingsAgentCol);
+
+      const bookingsCounts = bookingsAgentCol
+        ? countByAgent(filteredBookingsRows, bookingsAgentCol)
+        : new Map<string, number>();
+
+      console.log('Bookings counts:', Object.fromEntries(bookingsCounts));
+
+      // Count non-converted leads and total leads from the Non-Converted file
+      const nonConvertedAgentCol = filteredNonConvertedRows.length > 0 ? findAgentColumn(filteredNonConvertedRows[0]) : null;
+      console.log('Non-Converted agent column found:', nonConvertedAgentCol);
+
+      // For non-converted, we need to count non-validated leads and total leads per agent
+      const nonConvertedCounts = new Map<string, { nonValidated: number; total: number }>();
+      if (nonConvertedAgentCol && filteredNonConvertedRows.length > 0) {
+        // Find the column that indicates validation status (look for "validated" or similar)
+        const firstRow = filteredNonConvertedRows[0];
+        const validatedColKey = Object.keys(firstRow).find(k =>
+          k.toLowerCase().includes('validated') || k.toLowerCase().includes('status') || k.toLowerCase().includes('converted')
+        );
+
+        for (const row of filteredNonConvertedRows) {
+          const agent = row[nonConvertedAgentCol];
+          if (agent) {
+            const current = nonConvertedCounts.get(agent) || { nonValidated: 0, total: 0 };
+            current.total += 1;
+
+            // Check if this lead is non-validated (the value should indicate non-validated status)
+            if (validatedColKey) {
+              const validatedValue = row[validatedColKey]?.toLowerCase() || '';
+              // Count as non-validated if it's empty, "no", "false", "0", or contains "non" or "not"
+              if (!validatedValue || validatedValue === 'no' || validatedValue === 'false' || validatedValue === '0' ||
+                  validatedValue.includes('non') || validatedValue.includes('not') || validatedValue === 'n') {
+                current.nonValidated += 1;
+              }
+            } else {
+              // If no validation column found, count all as the data structure we have
+              // Each row represents a non-converted lead
+              current.nonValidated += 1;
+            }
+
+            nonConvertedCounts.set(agent, current);
+          }
+        }
+      }
+
+      console.log('Non-Converted counts:', Object.fromEntries(nonConvertedCounts));
+
       const allAgents = new Set([
         ...tripsCounts.keys(),
         ...quotesCounts.keys(),
         ...passthroughsCounts.keys(),
+        ...bookingsCounts.keys(),
+        ...nonConvertedCounts.keys(),
       ]);
 
       const calculatedMetrics: Metrics[] = Array.from(allAgents)
@@ -308,6 +374,8 @@ function App() {
           const quotes = quotesCounts.get(agentName) || 0;
           const passthroughs = passthroughsCounts.get(agentName) || 0;
           const hotPasses = hotPassCounts.get(agentName) || 0;
+          const bookings = bookingsCounts.get(agentName) || 0;
+          const nonConvertedData = nonConvertedCounts.get(agentName) || { nonValidated: 0, total: 0 };
 
           return {
             agentName,
@@ -315,10 +383,14 @@ function App() {
             quotes,
             passthroughs,
             hotPasses,
+            bookings,
+            nonConvertedLeads: nonConvertedData.nonValidated,
+            totalLeads: nonConvertedData.total,
             quotesFromTrips: trips > 0 ? (quotes / trips) * 100 : 0,
             passthroughsFromTrips: trips > 0 ? (passthroughs / trips) * 100 : 0,
             quotesFromPassthroughs: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
             hotPassRate: passthroughs > 0 ? (hotPasses / passthroughs) * 100 : 0,
+            nonConvertedRate: nonConvertedData.total > 0 ? (nonConvertedData.nonValidated / nonConvertedData.total) * 100 : 0,
           };
         })
         .sort((a, b) => a.agentName.localeCompare(b.agentName));
@@ -340,6 +412,8 @@ function App() {
       trips: null,
       quotes: null,
       hotPass: null,
+      bookings: null,
+      nonConverted: null,
     });
   }, []);
 
@@ -349,7 +423,7 @@ function App() {
   }, []);
 
   const allAgentNames = metrics.map((m) => m.agentName);
-  const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass;
+  const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -363,7 +437,7 @@ function App() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <FileUpload
             label="Trips"
             file={files.trips}
@@ -410,6 +484,30 @@ function App() {
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+              </svg>
+            }
+          />
+
+          <FileUpload
+            label="Bookings"
+            file={files.bookings}
+            onFileSelect={handleFileSelect('bookings')}
+            color="cyan"
+            icon={
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            }
+          />
+
+          <FileUpload
+            label="% Non-Converted"
+            file={files.nonConverted}
+            onFileSelect={handleFileSelect('nonConverted')}
+            color="rose"
+            icon={
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
             }
           />
