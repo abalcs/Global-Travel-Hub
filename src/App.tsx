@@ -333,24 +333,35 @@ function App() {
           k.toLowerCase().includes('validated') || k.toLowerCase().includes('status') || k.toLowerCase().includes('converted')
         );
 
+        console.log('Validated column key found:', validatedColKey);
+        if (validatedColKey && filteredNonConvertedRows.length > 0) {
+          // Log some sample values to understand the data
+          const sampleValues = filteredNonConvertedRows.slice(0, 5).map(r => r[validatedColKey]);
+          console.log('Sample validated column values:', sampleValues);
+        }
+
         for (const row of filteredNonConvertedRows) {
           const agent = row[nonConvertedAgentCol];
           if (agent) {
             const current = nonConvertedCounts.get(agent) || { nonValidated: 0, total: 0 };
             current.total += 1;
 
-            // Check if this lead is non-validated (the value should indicate non-validated status)
+            // Check if this lead is validated or non-validated
             if (validatedColKey) {
-              const validatedValue = row[validatedColKey]?.toLowerCase() || '';
-              // Count as non-validated if it's empty, "no", "false", "0", or contains "non" or "not"
-              if (!validatedValue || validatedValue === 'no' || validatedValue === 'false' || validatedValue === '0' ||
-                  validatedValue.includes('non') || validatedValue.includes('not') || validatedValue === 'n') {
+              const validatedValue = row[validatedColKey]?.toLowerCase().trim() || '';
+              // Count as NON-VALIDATED only if it explicitly says no/false/0/non-validated/not validated
+              const isNonValidated = validatedValue === 'no' || validatedValue === 'false' || validatedValue === '0' ||
+                                     validatedValue === 'n' || validatedValue.includes('non') || validatedValue.includes('not');
+
+              // Only count as non-validated if explicitly marked as such
+              if (isNonValidated) {
                 current.nonValidated += 1;
               }
+              // If value is empty, yes, true, or anything else, don't count as non-validated
             } else {
-              // If no validation column found, count all as the data structure we have
-              // Each row represents a non-converted lead
-              current.nonValidated += 1;
+              // If no validation column found, check if this is a "non-converted leads" file
+              // where every row IS a non-converted lead (the file only contains non-converted)
+              // Don't automatically assume all are non-validated - leave at 0
             }
 
             nonConvertedCounts.set(agent, current);
