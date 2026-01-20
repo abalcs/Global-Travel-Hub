@@ -9,7 +9,7 @@ interface ResultsTableProps {
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors';
 
-type SortColumn = 'quotesFromTrips' | 'passthroughsFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
+type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'quotesFromTrips' | 'passthroughsFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
 type SortDirection = 'asc' | 'desc';
 
 const formatPercent = (value: number): string => {
@@ -210,14 +210,32 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Team
               </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Trips
+              <th
+                className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('trips')}
+              >
+                <div className="flex items-center justify-center">
+                  Trips
+                  <SortIcon column="trips" />
+                </div>
               </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Quotes
+              <th
+                className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('quotes')}
+              >
+                <div className="flex items-center justify-center">
+                  Quotes
+                  <SortIcon column="quotes" />
+                </div>
               </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Passthroughs
+              <th
+                className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={() => handleSort('passthroughs')}
+              >
+                <div className="flex items-center justify-center">
+                  Passthroughs
+                  <SortIcon column="passthroughs" />
+                </div>
               </th>
               <th
                 className="px-6 py-3 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"

@@ -111,21 +111,53 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
     }
   };
 
-  const SortButton = ({ label, sortKeyVal, color = 'gray' }: { label: string; sortKeyVal: SortKey; color?: string }) => (
-    <button
-      onClick={() => handleSort(sortKeyVal)}
-      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-        sortKey === sortKeyVal
-          ? `bg-${color}-600 text-white`
-          : `bg-${color}-100 text-${color}-700 hover:bg-${color}-200`
-      }`}
-    >
-      {label}
-      {sortKey === sortKeyVal && (
-        <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>
-      )}
-    </button>
-  );
+  const colorClasses: Record<string, { active: string; inactive: string }> = {
+    gray: {
+      active: 'bg-gray-600 text-white',
+      inactive: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+    },
+    blue: {
+      active: 'bg-blue-600 text-white',
+      inactive: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+    },
+    green: {
+      active: 'bg-green-600 text-white',
+      inactive: 'bg-green-100 text-green-700 hover:bg-green-200',
+    },
+    purple: {
+      active: 'bg-purple-600 text-white',
+      inactive: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
+    },
+    orange: {
+      active: 'bg-orange-600 text-white',
+      inactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+    },
+    cyan: {
+      active: 'bg-cyan-600 text-white',
+      inactive: 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200',
+    },
+    rose: {
+      active: 'bg-rose-600 text-white',
+      inactive: 'bg-rose-100 text-rose-700 hover:bg-rose-200',
+    },
+  };
+
+  const SortButton = ({ label, sortKeyVal, color = 'gray' }: { label: string; sortKeyVal: SortKey; color?: string }) => {
+    const classes = colorClasses[color] || colorClasses.gray;
+    return (
+      <button
+        onClick={() => handleSort(sortKeyVal)}
+        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          sortKey === sortKeyVal ? classes.active : classes.inactive
+        }`}
+      >
+        {label}
+        {sortKey === sortKeyVal && (
+          <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
