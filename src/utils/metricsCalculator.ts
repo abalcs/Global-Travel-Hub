@@ -142,6 +142,153 @@ export const countByAgentOptimized = (
   return { total, byDate };
 };
 
+// Build a map of trip names to their dates
+export const buildTripDateMap = (
+  tripsRows: CSVRow[],
+  tripNameCol: string | null,
+  dateColumn: string | null
+): Map<string, string> => {
+  const tripDateMap = new Map<string, string>();
+  if (!tripNameCol || !dateColumn) return tripDateMap;
+
+  for (const row of tripsRows) {
+    const tripName = (row[tripNameCol] || '').trim().toLowerCase();
+    const dateValue = row[dateColumn];
+    if (tripName && dateValue) {
+      const dateStr = parseDate(dateValue);
+      if (dateStr) {
+        tripDateMap.set(tripName, dateStr);
+      }
+    }
+  }
+  return tripDateMap;
+};
+
+// Count non-converted with date filtering (special logic for grouped format)
+// Can filter by direct date column OR by matching trip names to trip dates
+export const countNonConvertedOptimized = (
+  rows: CSVRow[],
+  dateColumn: string | null,
+  startDate: string,
+  endDate: string,
+  tripDateMap?: Map<string, string>
+): Map<string, number> => {
+  const counts = new Map<string, number>();
+
+  if (rows.length === 0) return counts;
+
+  // Find columns
+  const keys = Object.keys(rows[0] || {});
+  const leadOwnerCol = keys.find(k =>
+    k.includes('lead owner') || k.includes('_agent')
+  );
+  const nonValidatedCol = keys.find(k =>
+    k.includes('non validated reason')
+  );
+  const tripNameCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('trip name') ||
+      lower.includes('trip:') ||
+      lower === 'trip' ||
+      lower.includes('opportunity') ||
+      lower.includes('lead name') ||
+      lower === 'name';
+  });
+
+  if (!leadOwnerCol || !nonValidatedCol) return counts;
+
+  const startTime = startDate ? new Date(startDate).getTime() : null;
+  const endTime = endDate ? new Date(endDate + 'T23:59:59').getTime() : null;
+  const hasDateFilter = startTime || endTime;
+
+  // Debug logging
+  console.log('countNonConvertedOptimized - dateColumn:', dateColumn);
+  console.log('countNonConvertedOptimized - hasDateFilter:', hasDateFilter);
+  console.log('countNonConvertedOptimized - startTime:', startTime, 'endTime:', endTime);
+
+  // Log sample raw date values
+  if (dateColumn && rows.length > 0) {
+    const sampleRawDates = rows.slice(0, 5).map(r => r[dateColumn]).filter(d => d);
+    console.log('Sample raw date values from column:', sampleRawDates);
+    if (sampleRawDates.length > 0) {
+      const testParsed = parseDate(sampleRawDates[0]);
+      console.log('First date parsed as:', testParsed);
+    }
+  }
+
+  let currentAgent = '';
+  let debugParsedCount = 0;
+  let debugInRangeCount = 0;
+  let debugOutOfRangeCount = 0;
+  let debugNoDateCount = 0;
+
+  for (const row of rows) {
+    const leadOwner = (row[leadOwnerCol] || '').trim();
+    const nonValidatedReason = (row[nonValidatedCol] || '').trim();
+
+    // Track current agent (grouped report format)
+    if (leadOwner && leadOwner !== '') {
+      currentAgent = leadOwner;
+    }
+
+    // Only count if there's a non-validated reason
+    if (!currentAgent || !nonValidatedReason || nonValidatedReason === '') {
+      continue;
+    }
+
+    // Apply date filter
+    if (hasDateFilter) {
+      let dateStr: string | null = null;
+
+      // First try: direct date column
+      if (dateColumn && row[dateColumn]) {
+        dateStr = parseDate(row[dateColumn]);
+        if (dateStr) debugParsedCount++;
+      }
+
+      // Second try: match trip name to trip dates
+      if (!dateStr && tripNameCol && tripDateMap && tripDateMap.size > 0) {
+        const tripName = (row[tripNameCol] || '').trim().toLowerCase();
+        if (tripName) {
+          dateStr = tripDateMap.get(tripName) || null;
+        }
+      }
+
+      // Apply date filter if we found a date
+      if (dateStr) {
+        const rowTime = new Date(dateStr).getTime();
+        if (startTime && rowTime < startTime) {
+          debugOutOfRangeCount++;
+          continue;
+        }
+        if (endTime && rowTime > endTime) {
+          debugOutOfRangeCount++;
+          continue;
+        }
+        debugInRangeCount++;
+      } else {
+        // No date found - can't filter this row, so skip it when date filter is active
+        debugNoDateCount++;
+        continue;
+      }
+    }
+
+    counts.set(currentAgent, (counts.get(currentAgent) || 0) + 1);
+  }
+
+  // Log debug info
+  if (hasDateFilter) {
+    console.log('countNonConvertedOptimized results:');
+    console.log('  - Dates parsed successfully:', debugParsedCount);
+    console.log('  - In date range:', debugInRangeCount);
+    console.log('  - Out of date range:', debugOutOfRangeCount);
+    console.log('  - No date found:', debugNoDateCount);
+    console.log('  - Final count:', Array.from(counts.values()).reduce((a, b) => a + b, 0));
+  }
+
+  return counts;
+};
+
 // Calculate all metrics in a single pass
 export const calculateMetrics = (
   tripsCounts: Map<string, number>,
@@ -149,8 +296,7 @@ export const calculateMetrics = (
   passthroughsCounts: Map<string, number>,
   hotPassCounts: Map<string, number>,
   bookingsCounts: Map<string, number>,
-  nonConvertedCounts: Map<string, number>,
-  unfilteredTripsCounts: Map<string, number>
+  nonConvertedCounts: Map<string, number>
 ): Metrics[] => {
   // Get all unique agents
   const allAgents = new Set<string>();
@@ -179,8 +325,6 @@ export const calculateMetrics = (
       }
     }
 
-    const unfilteredTrips = unfilteredTripsCounts.get(agentName) || 0;
-
     metrics.push({
       agentName,
       trips,
@@ -189,12 +333,12 @@ export const calculateMetrics = (
       hotPasses,
       bookings,
       nonConvertedLeads: nonConvertedCount,
-      totalLeads: unfilteredTrips,
+      totalLeads: trips, // Use filtered trips count for the date range
       quotesFromTrips: trips > 0 ? (quotes / trips) * 100 : 0,
       passthroughsFromTrips: trips > 0 ? (passthroughs / trips) * 100 : 0,
       quotesFromPassthroughs: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
       hotPassRate: passthroughs > 0 ? (hotPasses / passthroughs) * 100 : 0,
-      nonConvertedRate: unfilteredTrips > 0 ? (nonConvertedCount / unfilteredTrips) * 100 : 0,
+      nonConvertedRate: trips > 0 ? (nonConvertedCount / trips) * 100 : 0, // Use filtered trips
     });
   }
 

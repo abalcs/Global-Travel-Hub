@@ -1,5 +1,4 @@
 import type { Team, Metrics, TimeSeriesData, ChartConfig, AgentAnalysis } from '../types';
-import type { CSVRow } from './csvParser';
 
 const TEAMS_STORAGE_KEY = 'kpi-report-teams';
 const SENIORS_STORAGE_KEY = 'kpi-report-seniors';
@@ -8,16 +7,6 @@ const TIMESERIES_STORAGE_KEY = 'kpi-report-timeseries';
 const CHART_CONFIG_STORAGE_KEY = 'kpi-report-chart-config';
 const ANTHROPIC_API_KEY_STORAGE_KEY = 'kpi-report-anthropic-api-key';
 const AGENT_ANALYSIS_STORAGE_KEY = 'kpi-report-agent-analysis';
-const RAW_DATA_STORAGE_KEY = 'kpi-report-raw-data';
-
-export interface RawParsedData {
-  trips: CSVRow[];
-  quotes: CSVRow[];
-  passthroughs: CSVRow[];
-  hotPass: CSVRow[];
-  bookings: CSVRow[];
-  nonConverted: CSVRow[];
-}
 
 export const loadTeams = (): Team[] => {
   try {
@@ -190,36 +179,5 @@ export const clearAgentAnalyses = (): void => {
     localStorage.removeItem(AGENT_ANALYSIS_STORAGE_KEY);
   } catch (error) {
     console.error('Failed to clear agent analyses from storage:', error);
-  }
-};
-
-export const loadRawParsedData = (): RawParsedData | null => {
-  try {
-    const stored = localStorage.getItem(RAW_DATA_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (error) {
-    console.error('Failed to load raw parsed data from storage:', error);
-  }
-  return null;
-};
-
-export const saveRawParsedData = (data: RawParsedData): void => {
-  try {
-    localStorage.setItem(RAW_DATA_STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error('Failed to save raw parsed data to storage:', error);
-    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-      console.warn('Storage quota exceeded! Data too large for localStorage.');
-    }
-  }
-};
-
-export const clearRawParsedData = (): void => {
-  try {
-    localStorage.removeItem(RAW_DATA_STORAGE_KEY);
-  } catch (error) {
-    console.error('Failed to clear raw parsed data from storage:', error);
   }
 };

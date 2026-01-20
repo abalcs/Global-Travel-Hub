@@ -17,6 +17,8 @@ import {
   findAgentColumn,
   findDateColumn,
   countByAgentOptimized,
+  countNonConvertedOptimized,
+  buildTripDateMap,
   calculateMetrics,
   buildTimeSeriesOptimized
 } from './utils/metricsCalculator';
@@ -36,7 +38,6 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
-  const [storedNonConvertedCounts, setStoredNonConvertedCounts] = useState<Record<string, number>>({});
   const [activeView, setActiveView] = useState<'summary' | 'trends'>('summary');
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
@@ -96,7 +97,6 @@ function App() {
       let hotPassRows: CSVRow[];
       let bookingsRows: CSVRow[];
       let nonConvertedRows: CSVRow[];
-      let nonConvertedCounts: Record<string, number> = {};
 
       if (hasAllFiles) {
         // Use Web Worker for parallel file parsing
@@ -119,7 +119,6 @@ function App() {
         hotPassRows = result.hotPass;
         bookingsRows = result.bookings;
         nonConvertedRows = result.nonConverted;
-        nonConvertedCounts = result.nonConvertedCounts;
 
         // Save raw data for future use
         const newRawData: RawParsedData = {
@@ -132,7 +131,6 @@ function App() {
         };
         saveRawDataToDB(newRawData);
         setRawParsedData(newRawData);
-        setStoredNonConvertedCounts(nonConvertedCounts);
       } else {
         // Use stored raw data
         tripsRows = rawParsedData!.trips;
@@ -141,35 +139,6 @@ function App() {
         hotPassRows = rawParsedData!.hotPass;
         bookingsRows = rawParsedData!.bookings;
         nonConvertedRows = rawParsedData!.nonConverted;
-
-        // Use stored non-converted counts or calculate from rows
-        if (Object.keys(storedNonConvertedCounts).length > 0) {
-          nonConvertedCounts = storedNonConvertedCounts;
-        } else {
-          // Extract from rows
-          const leadOwnerCol = Object.keys(nonConvertedRows[0] || {}).find(k =>
-            k.includes('lead owner') || k.includes('_agent')
-          );
-          const nonValidatedCol = Object.keys(nonConvertedRows[0] || {}).find(k =>
-            k.includes('non validated reason')
-          );
-
-          if (leadOwnerCol && nonValidatedCol) {
-            let currentAgent = '';
-            for (const row of nonConvertedRows) {
-              const leadOwner = (row[leadOwnerCol] || '').trim();
-              const nonValidatedReason = (row[nonValidatedCol] || '').trim();
-
-              if (leadOwner && leadOwner !== '') {
-                currentAgent = leadOwner;
-              }
-
-              if (currentAgent && nonValidatedReason && nonValidatedReason !== '') {
-                nonConvertedCounts[currentAgent] = (nonConvertedCounts[currentAgent] || 0) + 1;
-              }
-            }
-          }
-        }
       }
 
       if (tripsRows.length === 0) {
@@ -194,9 +163,53 @@ function App() {
       const hotPassDateCol = hotPassRows.length > 0 ? findDateColumn(hotPassRows[0], ['created date', 'trip: created date']) : null;
       const bookingsDateCol = bookingsRows.length > 0 ? findDateColumn(bookingsRows[0], ['created date', 'booking date', 'date']) : null;
 
+      // Find trip name column in trips for linking to non-converted
+      const tripKeys = Object.keys(tripsRows[0] || {});
+      console.log('Trips columns:', tripKeys);
+      const tripNameColInTrips = tripKeys.find(k => {
+        const lower = k.toLowerCase();
+        return lower.includes('trip name') ||
+          lower === 'trip' ||
+          lower === 'name' ||
+          lower.includes('opportunity');
+      });
+      console.log('Trip name column in trips:', tripNameColInTrips);
+      console.log('Trips date column:', tripsDateCol);
+
+      // Build trip date map for non-converted filtering
+      const tripDateMap = buildTripDateMap(tripsRows, tripNameColInTrips || null, tripsDateCol);
+      console.log('Trip date map size:', tripDateMap.size);
+      if (tripDateMap.size > 0) {
+        const sampleEntries = Array.from(tripDateMap.entries()).slice(0, 3);
+        console.log('Sample trip date map entries:', sampleEntries);
+      }
+
+      // Try to find date column in non-converted file
+      let nonConvertedDateCol: string | null = null;
+      if (nonConvertedRows.length > 0) {
+        const ncColumns = Object.keys(nonConvertedRows[0]);
+        console.log('Non-converted columns:', ncColumns);
+
+        // First try direct date patterns (order matters - more specific first)
+        // Note: Don't use generic 'date' pattern as it matches 'validated' in 'non validated reason'
+        nonConvertedDateCol = findDateColumn(nonConvertedRows[0], [
+          'last modified', 'modified date', 'created date', 'lead created date',
+          'trip created date', 'trip: created date', 'close date', 'timestamp'
+        ]);
+
+        console.log('Non-converted date column found:', nonConvertedDateCol);
+
+        // Show sample dates from non-converted file
+        if (nonConvertedDateCol) {
+          const dateCol = nonConvertedDateCol; // TypeScript narrowing
+          const sampleDates = nonConvertedRows.slice(0, 5).map(r => r[dateCol]);
+          console.log('Sample non-converted date values:', sampleDates);
+          console.log('Date filter range:', startDate, 'to', endDate);
+        }
+      }
+
       // Optimized counting with date filtering in single pass
       const tripsResult = countByAgentOptimized(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
-      const unfilteredTripsResult = countByAgentOptimized(tripsRows, tripsAgentCol, null, '', '');
 
       const quotesResult = quotesAgentCol
         ? countByAgentOptimized(quotesRows, quotesAgentCol, quotesDateCol, startDate, endDate)
@@ -214,8 +227,14 @@ function App() {
         ? countByAgentOptimized(bookingsRows, bookingsAgentCol, bookingsDateCol, startDate, endDate)
         : { total: new Map<string, number>(), byDate: new Map<string, Map<string, number>>() };
 
-      // Convert non-converted counts to Map
-      const nonConvertedCountsMap = new Map(Object.entries(nonConvertedCounts));
+      // Count non-converted with date filtering (uses direct date column or trip date map)
+      const nonConvertedCountsMap = countNonConvertedOptimized(
+        nonConvertedRows,
+        nonConvertedDateCol,
+        startDate,
+        endDate,
+        tripDateMap
+      );
 
       // Calculate metrics
       const calculatedMetrics = calculateMetrics(
@@ -224,8 +243,7 @@ function App() {
         passthroughsResult.total,
         hotPassResult.total,
         bookingsResult.total,
-        nonConvertedCountsMap,
-        unfilteredTripsResult.total
+        nonConvertedCountsMap
       );
 
       setMetrics(calculatedMetrics);
@@ -246,7 +264,7 @@ function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while processing files');
     }
-  }, [files, startDate, endDate, rawParsedData, storedNonConvertedCounts, processFilesWithWorker, seniors]);
+  }, [files, startDate, endDate, rawParsedData, processFilesWithWorker, seniors]);
 
   const handleClearData = useCallback(() => {
     setMetrics([]);
@@ -254,7 +272,6 @@ function App() {
     setTimeSeriesData(null);
     clearTimeSeriesData();
     setRawParsedData(null);
-    setStoredNonConvertedCounts({});
     clearRawDataFromDB();
     setFiles({
       passthroughs: null,
