@@ -1,73 +1,117 @@
-# React + TypeScript + Vite
+# GTT KPI Report Generator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern web application for analyzing travel agent performance metrics. Upload Excel reports, visualize key performance indicators, compare teams, track trends over time, and generate professional PowerPoint presentations.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Data Analysis
+- **Multi-file Processing** — Upload and analyze 6 different report types: Trips, Quotes, Passthroughs, Hot Pass, Bookings, and Non-Converted leads
+- **Date Range Filtering** — Filter all metrics by custom date ranges
+- **Automatic Agent Detection** — Intelligently identifies agent columns across different file formats
 
-## React Compiler
+### Performance Metrics
+| Metric | Description |
+|--------|-------------|
+| T>Q % | Trip to Quote conversion rate |
+| T>P % | Trip to Passthrough rate |
+| P>Q % | Passthrough to Quote conversion rate |
+| Hot Pass % | Hot passes relative to passthroughs |
+| Non-Converted % | Lead non-conversion rate |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Team Management
+- Create and manage teams of agents
+- Designate senior vs. non-senior agents
+- Compare performance across teams with visual charts
 
-## Expanding the ESLint configuration
+### Visualization
+- **Summary View** — Comprehensive tables with sortable metrics for all agents
+- **Trends View** — Time-series charts showing performance over time
+- **Team Comparison** — Side-by-side bar charts comparing team performance
+- **Agent Analytics** — Individual agent performance analysis
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Export
+- Generate PowerPoint presentations with department and team breakdowns
+- Export-ready charts and tables
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Performance Optimizations
+- Web Worker for parallel file processing
+- IndexedDB storage for persistent raw data
+- Optimized algorithms for large datasets
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Tech Stack
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **React 19** — UI framework
+- **TypeScript** — Type safety
+- **Vite** — Build tool and dev server
+- **Tailwind CSS 4** — Styling
+- **Recharts** — Data visualization
+- **SheetJS (xlsx)** — Excel file parsing
+- **PptxGenJS** — PowerPoint generation
+- **IndexedDB** — Client-side data persistence
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/GTT_KPI_Report.git
+cd GTT_KPI_Report
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Building for Production
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
+npm run preview
 ```
+
+## Usage
+
+1. **Upload Files** — Drag and drop or click to upload the 6 required Excel files
+2. **Set Date Range** (optional) — Filter data to a specific time period
+3. **Analyze Data** — Click the "Analyze Data" button to process files
+4. **Configure Teams** — Create teams and assign agents
+5. **Designate Seniors** — Mark senior agents for comparative analysis
+6. **Explore Results** — Switch between Summary and Trends views
+7. **Export** — Generate a PowerPoint presentation of your findings
+
+## File Requirements
+
+The application expects Excel files (.xlsx, .xls, or .csv) with the following data:
+
+| File | Required Columns |
+|------|------------------|
+| Trips | Agent name, Created date |
+| Quotes | Agent name, Quote first sent date |
+| Passthroughs | Agent name, Passthrough date |
+| Hot Pass | Agent name, Created date |
+| Bookings | Agent name, Booking date |
+| Non-Converted | Agent name (linked via trip name) |
+
+The application automatically detects common column name variations.
+
+## Data Persistence
+
+- Team configurations and senior designations are saved to localStorage
+- Parsed raw data is stored in IndexedDB for instant reprocessing with different date filters
+- Use "Clear Data" to reset all stored information
+
+## License
+
+MIT
+
+---
+
+Built with React + TypeScript + Vite
