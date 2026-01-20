@@ -6,26 +6,29 @@ export interface RegressionResult {
   rSquared: number;
   predictedValues: number[];
   type: 'linear' | 'log-linear';
+  validPointCount: number;
 }
 
 /**
  * Calculate linear regression: y = a + bx
+ * Returns predicted values for ALL indices (0 to n-1), not just valid points
  */
-export function linearRegression(xValues: number[], yValues: number[]): RegressionResult | null {
-  const n = xValues.length;
-  if (n < 2) return null;
-
-  // Filter out invalid values
+export function linearRegression(
+  yValues: (number | undefined | null)[],
+  totalPoints: number
+): RegressionResult | null {
+  // Collect valid pairs with their original indices
   const validPairs: { x: number; y: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    if (typeof yValues[i] === 'number' && !isNaN(yValues[i]) && yValues[i] !== null) {
-      validPairs.push({ x: xValues[i], y: yValues[i] });
+  for (let i = 0; i < yValues.length; i++) {
+    const y = yValues[i];
+    if (typeof y === 'number' && !isNaN(y) && y !== null && y !== undefined) {
+      validPairs.push({ x: i, y });
     }
   }
 
-  if (validPairs.length < 2) return null;
+  if (validPairs.length < 3) return null;
 
-  const validN = validPairs.length;
+  const n = validPairs.length;
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
 
   for (const { x, y } of validPairs) {
@@ -35,13 +38,13 @@ export function linearRegression(xValues: number[], yValues: number[]): Regressi
     sumX2 += x * x;
   }
 
-  const meanX = sumX / validN;
-  const meanY = sumY / validN;
+  const meanX = sumX / n;
+  const meanY = sumY / n;
 
-  const denominator = sumX2 - (sumX * sumX) / validN;
+  const denominator = sumX2 - (sumX * sumX) / n;
   if (Math.abs(denominator) < 1e-10) return null;
 
-  const slope = (sumXY - (sumX * sumY) / validN) / denominator;
+  const slope = (sumXY - (sumX * sumY) / n) / denominator;
   const intercept = meanY - slope * meanX;
 
   // Calculate R-squared
@@ -54,31 +57,35 @@ export function linearRegression(xValues: number[], yValues: number[]): Regressi
 
   const rSquared = ssTot > 0 ? 1 - ssRes / ssTot : 0;
 
-  // Generate predicted values for all x points
-  const predictedValues = xValues.map(x => intercept + slope * x);
+  // Generate predicted values for ALL points (0 to totalPoints-1)
+  const predictedValues: number[] = [];
+  for (let i = 0; i < totalPoints; i++) {
+    predictedValues.push(intercept + slope * i);
+  }
 
-  return { slope, intercept, rSquared, predictedValues, type: 'linear' };
+  return { slope, intercept, rSquared, predictedValues, type: 'linear', validPointCount: n };
 }
 
 /**
  * Calculate log-linear (exponential) regression: y = a * e^(bx)
  * Linearized: ln(y) = ln(a) + bx
  */
-export function logLinearRegression(xValues: number[], yValues: number[]): RegressionResult | null {
-  const n = xValues.length;
-  if (n < 2) return null;
-
-  // Filter out invalid and non-positive values (can't take log of 0 or negative)
+export function logLinearRegression(
+  yValues: (number | undefined | null)[],
+  totalPoints: number
+): RegressionResult | null {
+  // Collect valid pairs (y > 0 for log)
   const validPairs: { x: number; y: number; lnY: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    if (typeof yValues[i] === 'number' && !isNaN(yValues[i]) && yValues[i] > 0) {
-      validPairs.push({ x: xValues[i], y: yValues[i], lnY: Math.log(yValues[i]) });
+  for (let i = 0; i < yValues.length; i++) {
+    const y = yValues[i];
+    if (typeof y === 'number' && !isNaN(y) && y > 0) {
+      validPairs.push({ x: i, y, lnY: Math.log(y) });
     }
   }
 
-  if (validPairs.length < 2) return null;
+  if (validPairs.length < 3) return null;
 
-  const validN = validPairs.length;
+  const n = validPairs.length;
   let sumX = 0, sumLnY = 0, sumXLnY = 0, sumX2 = 0;
 
   for (const { x, lnY } of validPairs) {
@@ -88,19 +95,19 @@ export function logLinearRegression(xValues: number[], yValues: number[]): Regre
     sumX2 += x * x;
   }
 
-  const meanX = sumX / validN;
-  const meanLnY = sumLnY / validN;
+  const meanX = sumX / n;
+  const meanLnY = sumLnY / n;
 
-  const denominator = sumX2 - (sumX * sumX) / validN;
+  const denominator = sumX2 - (sumX * sumX) / n;
   if (Math.abs(denominator) < 1e-10) return null;
 
-  const b = (sumXLnY - (sumX * sumLnY) / validN) / denominator;
+  const b = (sumXLnY - (sumX * sumLnY) / n) / denominator;
   const lnA = meanLnY - b * meanX;
   const a = Math.exp(lnA);
 
   // Calculate R-squared on original scale
   let ssTot = 0, ssRes = 0;
-  const meanY = validPairs.reduce((sum, p) => sum + p.y, 0) / validN;
+  const meanY = validPairs.reduce((sum, p) => sum + p.y, 0) / n;
 
   for (const { x, y } of validPairs) {
     const predicted = a * Math.exp(b * x);
@@ -110,29 +117,31 @@ export function logLinearRegression(xValues: number[], yValues: number[]): Regre
 
   const rSquared = ssTot > 0 ? 1 - ssRes / ssTot : 0;
 
-  // Generate predicted values for all x points
-  const predictedValues = xValues.map(x => a * Math.exp(b * x));
+  // Generate predicted values for ALL points
+  const predictedValues: number[] = [];
+  for (let i = 0; i < totalPoints; i++) {
+    predictedValues.push(a * Math.exp(b * i));
+  }
 
-  return { slope: b, intercept: a, rSquared, predictedValues, type: 'log-linear' };
+  return { slope: b, intercept: a, rSquared, predictedValues, type: 'log-linear', validPointCount: n };
 }
 
 /**
  * Get the best regression fit (linear or log-linear) with R² >= threshold
- * Returns both if both meet threshold, prefers log-linear if both are similar
  */
 export function getBestRegression(
-  xValues: number[],
-  yValues: number[],
-  rSquaredThreshold: number = 0.95
+  yValues: (number | undefined | null)[],
+  totalPoints: number,
+  rSquaredThreshold: number = 0.5
 ): RegressionResult | null {
-  const linear = linearRegression(xValues, yValues);
-  const logLinear = logLinearRegression(xValues, yValues);
+  const linear = linearRegression(yValues, totalPoints);
+  const logLinear = logLinearRegression(yValues, totalPoints);
 
   // Filter by threshold
   const meetsThreshold = (r: RegressionResult | null) => r && r.rSquared >= rSquaredThreshold;
 
+  // If both meet threshold, pick the one with higher R²
   if (meetsThreshold(logLinear) && meetsThreshold(linear)) {
-    // Both meet threshold, prefer log-linear (as requested)
     return logLinear!.rSquared >= linear!.rSquared ? logLinear : linear;
   }
 
@@ -148,36 +157,19 @@ export function getBestRegression(
 export function calculateSeriesRegression(
   chartData: Record<string, unknown>[],
   seriesKey: string,
-  rSquaredThreshold: number = 0.95
+  rSquaredThreshold: number = 0.5
 ): RegressionResult | null {
-  const xValues: number[] = [];
-  const yValues: number[] = [];
+  const totalPoints = chartData.length;
+  if (totalPoints < 3) return null;
 
-  chartData.forEach((point, index) => {
+  // Extract y values, preserving indices
+  const yValues: (number | undefined | null)[] = chartData.map((point) => {
     const value = point[seriesKey];
     if (typeof value === 'number' && !isNaN(value)) {
-      xValues.push(index);
-      yValues.push(value);
+      return value;
     }
+    return undefined;
   });
 
-  if (xValues.length < 3) return null;
-
-  return getBestRegression(xValues, yValues, rSquaredThreshold);
-}
-
-/**
- * Generate trend line data points for Recharts
- */
-export function generateTrendLineData(
-  chartData: Record<string, unknown>[],
-  seriesKey: string,
-  regression: RegressionResult
-): Record<string, unknown>[] {
-  const trendKey = `${seriesKey}_trend`;
-
-  return chartData.map((point, index) => ({
-    ...point,
-    [trendKey]: regression.predictedValues[index],
-  }));
+  return getBestRegression(yValues, totalPoints, rSquaredThreshold);
 }

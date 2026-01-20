@@ -59,9 +59,9 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     };
   });
 
-  // Regression state
+  // Regression state - default to 50% which is more realistic for noisy daily data
   const [showTrendLines, setShowTrendLines] = useState(false);
-  const [rSquaredThreshold, setRSquaredThreshold] = useState(0.95);
+  const [rSquaredThreshold, setRSquaredThreshold] = useState(0.10);
 
   // Save config when it changes
   useEffect(() => {
@@ -358,12 +358,12 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                 <span className="text-xs text-slate-400">R² ≥</span>
                 <input
                   type="range"
-                  min={0.5}
+                  min={0}
                   max={0.99}
                   step={0.01}
                   value={rSquaredThreshold}
                   onChange={(e) => setRSquaredThreshold(parseFloat(e.target.value))}
-                  className="w-20 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  className="w-24 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
                 <span className="text-xs text-emerald-400 font-mono w-12">
                   {(rSquaredThreshold * 100).toFixed(0)}%
@@ -636,48 +636,64 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       </div>
 
       {/* R² Statistics Panel */}
-      {showTrendLines && regressions.size > 0 && (
+      {showTrendLines && (
         <div className="bg-slate-900/50 rounded-xl p-4">
           <h3 className="text-sm font-medium text-slate-300 mb-3">
             Regression Analysis (R² ≥ {(rSquaredThreshold * 100).toFixed(0)}%)
+            {regressions.size > 0 && (
+              <span className="ml-2 text-emerald-400">— {regressions.size} trend line{regressions.size !== 1 ? 's' : ''} shown</span>
+            )}
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {Array.from(regressions.entries()).map(([key, regression]) => {
-              const parts = key.split('_');
-              const metric = parts[parts.length - 1];
-              const name = parts.slice(0, -1).join('_');
-              const displayName = name === 'dept' ? 'Department'
-                : name === 'senior' ? 'Senior Avg'
-                : name === 'nonsenior' ? 'Non-Senior Avg'
-                : name;
+          {regressions.size > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {Array.from(regressions.entries()).map(([key, regression]) => {
+                const parts = key.split('_');
+                const metric = parts[parts.length - 1];
+                const name = parts.slice(0, -1).join('_');
+                const displayName = name === 'dept' ? 'Department'
+                  : name === 'senior' ? 'Senior Avg'
+                  : name === 'nonsenior' ? 'Non-Senior Avg'
+                  : name;
 
-              return (
-                <div
-                  key={key}
-                  className="bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-700/50"
-                >
-                  <div className="text-xs text-slate-400 truncate">
-                    {displayName} ({METRIC_LABELS[metric as MetricKey]})
+                // Calculate trend direction as % change over the period
+                const firstPredicted = regression.predictedValues[0];
+                const lastPredicted = regression.predictedValues[regression.predictedValues.length - 1];
+                const percentChange = firstPredicted > 0
+                  ? ((lastPredicted - firstPredicted) / firstPredicted) * 100
+                  : 0;
+
+                return (
+                  <div
+                    key={key}
+                    className="bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-700/50"
+                  >
+                    <div className="text-xs text-slate-400 truncate">
+                      {displayName} ({METRIC_LABELS[metric as MetricKey]})
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-semibold text-emerald-400">
+                        R²: {(regression.rSquared * 100).toFixed(1)}%
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {regression.type === 'log-linear' ? 'exp' : 'linear'}
+                      </span>
+                    </div>
+                    <div className="text-xs mt-1">
+                      <span className={percentChange >= 0 ? 'text-green-400' : 'text-red-400'}>
+                        {percentChange >= 0 ? '↗' : '↘'} {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% over period
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {regression.validPointCount} data points
+                    </div>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-semibold text-emerald-400">
-                      {(regression.rSquared * 100).toFixed(1)}%
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      {regression.type === 'log-linear' ? 'exp' : 'linear'}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {regression.slope > 0 ? '↗' : '↘'} {regression.slope > 0 ? '+' : ''}{regression.slope.toFixed(3)}/day
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {regressions.size === 0 && (
+                );
+              })}
+            </div>
+          ) : (
             <p className="text-slate-500 text-sm">
               No series meet the R² threshold of {(rSquaredThreshold * 100).toFixed(0)}%.
-              Try lowering the threshold.
+              Try lowering the threshold slider to see more trend lines.
             </p>
           )}
         </div>
