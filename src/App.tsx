@@ -316,12 +316,17 @@ function App() {
       }
 
       const tripsCounts = countByAgent(filteredTripsRows, tripsAgentCol);
+      // Also count unfiltered trips for non-converted percentage calculation
+      // (Non-converted file can't be date-filtered, so use unfiltered trips for consistency)
+      const unfilteredTripsCounts = countByAgent(tripsRows, tripsAgentCol);
+
       console.log('=== TRIPS COUNTS ===');
       console.log('Trips agent column:', tripsAgentCol);
+      console.log('Filtered trips count:', filteredTripsRows.length, 'Unfiltered trips count:', tripsRows.length);
       console.log('Sample agents from Trips:', Array.from(tripsCounts.entries()).slice(0, 5));
       tripsCounts.forEach((count, agent) => {
         if (agent.toLowerCase().includes('pappas') || agent.toLowerCase().includes('adrianna')) {
-          console.log(`Trips for ${agent}: ${count}`);
+          console.log(`Trips for ${agent}: ${count} (unfiltered: ${unfilteredTripsCounts.get(agent) || 0})`);
         }
       });
 
@@ -352,9 +357,12 @@ function App() {
 
       console.log('Bookings counts:', Object.fromEntries(bookingsCounts));
 
-      // Count non-converted (non-validated) leads from the Non-Converted file
-      // File structure: grouped by GTT Owner, then by validation status (Non Validated / Converted)
-      // The TOTAL for percentage calculation comes from TRIPS, not this file
+      // Count non-converted leads from the Non-Converted file
+      // This is a grouped Salesforce report where:
+      // - Lead Owner column shows agent name only on first row of their group
+      // - Subsequent rows have blank Lead Owner but belong to the same agent
+      // - Count rows per agent where Non Validated Reason has a value
+      // - Then divide by total trips for that agent
       const nonConvertedCounts = new Map<string, number>();
 
       if (files.nonConverted) {
@@ -366,75 +374,63 @@ function App() {
 
         console.log('=== NON-CONVERTED FILE DEBUG ===');
         console.log('Total raw rows:', rawData.length);
-        console.log('First 15 rows:');
-        rawData.slice(0, 15).forEach((row, i) => console.log(`Row ${i}:`, row));
 
-        let currentAgent = '';
-        let inNonValidatedGroup = false;
+        // Find header row with Lead Owner and Non Validated Reason columns
+        let headerRowIdx = -1;
+        let leadOwnerColIdx = -1;
+        let nonValidatedReasonColIdx = -1;
 
-        for (let i = 0; i < rawData.length; i++) {
+        for (let i = 0; i < Math.min(30, rawData.length); i++) {
           const row = rawData[i];
-          if (!row || row.every(cell => cell === null || cell === '')) continue;
+          if (!row) continue;
+          const rowStr = row.join('|').toLowerCase();
 
-          const rowStr = row.map(c => String(c || '').trim()).join('|').toLowerCase();
-
-          // Skip filter/header rows and totals
-          if (rowStr.includes('contains ') || rowStr.includes('equals ') ||
-              rowStr.includes('subtotal') || rowStr.includes('grand total')) continue;
-
-          // Get all cell values
-          const cells = row.map(c => String(c || '').trim());
-          const nonEmptyCells = cells.filter(c => c !== '').length;
-          const firstNonEmpty = cells.find(c => c !== '') || '';
-          const firstNonEmptyLower = firstNonEmpty.toLowerCase();
-
-          // Check for validation status group headers
-          if (firstNonEmptyLower === 'non validated' || firstNonEmptyLower === 'not validated' ||
-              firstNonEmptyLower.match(/^non[\s-]?validated$/)) {
-            inNonValidatedGroup = true;
-            console.log(`[Group] Non Validated for: ${currentAgent}`);
-            continue;
-          }
-
-          if (firstNonEmptyLower === 'converted' || firstNonEmptyLower === 'validated') {
-            inNonValidatedGroup = false;
-            console.log(`[Group] Converted for: ${currentAgent}`);
-            continue;
-          }
-
-          // Check if this is an agent name (GTT Owner) row
-          if (nonEmptyCells <= 2 && firstNonEmpty.length > 3) {
-            const looksLikeName = (firstNonEmpty.includes(' ') || firstNonEmpty.includes(',')) &&
-                                  !firstNonEmpty.match(/^\d/) &&
-                                  !firstNonEmptyLower.includes('validated') &&
-                                  !firstNonEmptyLower.includes('converted') &&
-                                  !firstNonEmptyLower.includes('total') &&
-                                  !firstNonEmptyLower.includes('lead') &&
-                                  !firstNonEmptyLower.includes('account') &&
-                                  !firstNonEmptyLower.includes('created') &&
-                                  !firstNonEmptyLower.includes('gtt owner');
-
-            if (looksLikeName) {
-              currentAgent = firstNonEmpty;
-              inNonValidatedGroup = false; // Reset for new agent
-              console.log(`[Agent] ${currentAgent}`);
-              continue;
+          // Look for row containing both "lead owner" and "non validated reason"
+          if (rowStr.includes('lead owner') && rowStr.includes('non validated reason')) {
+            headerRowIdx = i;
+            for (let j = 0; j < row.length; j++) {
+              const cell = String(row[j] || '').toLowerCase();
+              if (cell.includes('lead owner')) leadOwnerColIdx = j;
+              if (cell.includes('non validated reason')) nonValidatedReasonColIdx = j;
             }
-          }
-
-          // This is a data row - count it only if in Non Validated group
-          if (currentAgent && inNonValidatedGroup && nonEmptyCells >= 3) {
-            const current = nonConvertedCounts.get(currentAgent) || 0;
-            nonConvertedCounts.set(currentAgent, current + 1);
+            break;
           }
         }
 
-        console.log('=== NON-CONVERTED RESULTS ===');
-        nonConvertedCounts.forEach((count, agent) => {
-          const trips = tripsCounts.get(agent) || 0;
-          const pct = trips > 0 ? ((count / trips) * 100).toFixed(1) : '0.0';
-          console.log(`${agent}: ${count} non-validated / ${trips} trips = ${pct}%`);
-        });
+        console.log('Header row index:', headerRowIdx);
+        console.log('Lead Owner column index:', leadOwnerColIdx);
+        console.log('Non Validated Reason column index:', nonValidatedReasonColIdx);
+
+        if (headerRowIdx >= 0 && leadOwnerColIdx >= 0 && nonValidatedReasonColIdx >= 0) {
+          let currentAgent = '';
+
+          for (let i = headerRowIdx + 1; i < rawData.length; i++) {
+            const row = rawData[i];
+            if (!row) continue;
+
+            const leadOwner = String(row[leadOwnerColIdx] || '').trim();
+            const nonValidatedReason = String(row[nonValidatedReasonColIdx] || '').trim();
+
+            // If Lead Owner is populated, update current agent
+            if (leadOwner && leadOwner !== '') {
+              currentAgent = leadOwner;
+            }
+
+            // Count if there's a non-validated reason and we have an agent
+            if (currentAgent && nonValidatedReason && nonValidatedReason !== '') {
+              nonConvertedCounts.set(currentAgent, (nonConvertedCounts.get(currentAgent) || 0) + 1);
+            }
+          }
+
+          console.log('=== NON-CONVERTED COUNTS ===');
+          nonConvertedCounts.forEach((count, agent) => {
+            const trips = unfilteredTripsCounts.get(agent) || 0;
+            const pct = trips > 0 ? ((count / trips) * 100).toFixed(1) : '0.0';
+            console.log(`${agent}: ${count} non-converted / ${trips} unfiltered trips = ${pct}%`);
+          });
+        } else {
+          console.log('Could not find required columns in Non-Converted file');
+        }
       }
 
       const allAgents = new Set([
@@ -445,6 +441,9 @@ function App() {
         ...nonConvertedCounts.keys(),
       ]);
 
+      console.log('=== ALL AGENTS ===');
+      console.log('All agent names:', Array.from(allAgents));
+
       const calculatedMetrics: Metrics[] = Array.from(allAgents)
         .map((agentName) => {
           const trips = tripsCounts.get(agentName) || 0;
@@ -452,7 +451,27 @@ function App() {
           const passthroughs = passthroughsCounts.get(agentName) || 0;
           const hotPasses = hotPassCounts.get(agentName) || 0;
           const bookings = bookingsCounts.get(agentName) || 0;
-          const nonConvertedLeads = nonConvertedCounts.get(agentName) || 0;
+
+          // Try to find matching agent in nonConvertedCounts (handle slight name variations)
+          let nonConvertedCount = nonConvertedCounts.get(agentName) || 0;
+          if (nonConvertedCount === 0) {
+            // Try to find a close match (case-insensitive, trimmed)
+            const agentNameLower = agentName.toLowerCase().trim();
+            for (const [key, value] of nonConvertedCounts.entries()) {
+              if (key.toLowerCase().trim() === agentNameLower) {
+                nonConvertedCount = value;
+                break;
+              }
+            }
+          }
+
+          // Use unfiltered trips for non-converted percentage (non-converted file can't be date-filtered)
+          const unfilteredTrips = unfilteredTripsCounts.get(agentName) || 0;
+
+          // Debug log for specific agents
+          if (agentName.toLowerCase().includes('pappas') || agentName.toLowerCase().includes('adrianna')) {
+            console.log(`[Metrics] ${agentName}: nonConverted=${nonConvertedCount}, trips=${trips}, unfilteredTrips=${unfilteredTrips}`);
+          }
 
           return {
             agentName,
@@ -461,13 +480,13 @@ function App() {
             passthroughs,
             hotPasses,
             bookings,
-            nonConvertedLeads,
-            totalLeads: trips, // Total comes from Trips file (GTT Owner column)
+            nonConvertedLeads: nonConvertedCount,
+            totalLeads: unfilteredTrips, // Use unfiltered trips for non-converted percentage
             quotesFromTrips: trips > 0 ? (quotes / trips) * 100 : 0,
             passthroughsFromTrips: trips > 0 ? (passthroughs / trips) * 100 : 0,
             quotesFromPassthroughs: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
             hotPassRate: passthroughs > 0 ? (hotPasses / passthroughs) * 100 : 0,
-            nonConvertedRate: trips > 0 ? (nonConvertedLeads / trips) * 100 : 0, // % = Non-Validated / Trips
+            nonConvertedRate: unfilteredTrips > 0 ? (nonConvertedCount / unfilteredTrips) * 100 : 0,
           };
         })
         .sort((a, b) => a.agentName.localeCompare(b.agentName));
