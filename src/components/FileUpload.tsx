@@ -10,40 +10,46 @@ interface FileUploadProps {
 
 const colorClasses = {
   blue: {
-    border: 'border-blue-300 hover:border-blue-400',
-    bg: 'bg-blue-50',
-    text: 'text-blue-600',
-    icon: 'text-blue-500',
+    border: 'border-blue-500/30 hover:border-blue-400/50',
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-400',
+    icon: 'text-blue-400',
+    activeBg: 'bg-blue-500/20',
   },
   green: {
-    border: 'border-green-300 hover:border-green-400',
-    bg: 'bg-green-50',
-    text: 'text-green-600',
-    icon: 'text-green-500',
+    border: 'border-emerald-500/30 hover:border-emerald-400/50',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-400',
+    icon: 'text-emerald-400',
+    activeBg: 'bg-emerald-500/20',
   },
   purple: {
-    border: 'border-purple-300 hover:border-purple-400',
-    bg: 'bg-purple-50',
-    text: 'text-purple-600',
-    icon: 'text-purple-500',
+    border: 'border-purple-500/30 hover:border-purple-400/50',
+    bg: 'bg-purple-500/10',
+    text: 'text-purple-400',
+    icon: 'text-purple-400',
+    activeBg: 'bg-purple-500/20',
   },
   orange: {
-    border: 'border-orange-300 hover:border-orange-400',
-    bg: 'bg-orange-50',
-    text: 'text-orange-600',
-    icon: 'text-orange-500',
+    border: 'border-orange-500/30 hover:border-orange-400/50',
+    bg: 'bg-orange-500/10',
+    text: 'text-orange-400',
+    icon: 'text-orange-400',
+    activeBg: 'bg-orange-500/20',
   },
   cyan: {
-    border: 'border-cyan-300 hover:border-cyan-400',
-    bg: 'bg-cyan-50',
-    text: 'text-cyan-600',
-    icon: 'text-cyan-500',
+    border: 'border-cyan-500/30 hover:border-cyan-400/50',
+    bg: 'bg-cyan-500/10',
+    text: 'text-cyan-400',
+    icon: 'text-cyan-400',
+    activeBg: 'bg-cyan-500/20',
   },
   rose: {
-    border: 'border-rose-300 hover:border-rose-400',
-    bg: 'bg-rose-50',
-    text: 'text-rose-600',
-    icon: 'text-rose-500',
+    border: 'border-rose-500/30 hover:border-rose-400/50',
+    bg: 'bg-rose-500/10',
+    text: 'text-rose-400',
+    icon: 'text-rose-400',
+    activeBg: 'bg-rose-500/20',
   },
 };
 
@@ -83,7 +89,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all duration-200 cursor-pointer ${colors.border} ${colors.bg}`}
+      className={`relative flex items-center gap-3 p-3 border rounded-lg transition-all duration-200 cursor-pointer ${colors.border} ${file ? colors.activeBg : colors.bg}`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onClick={() => document.getElementById(`file-${label}`)?.click()}
@@ -96,27 +102,36 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onChange={handleFileInput}
       />
 
-      <div className={`mb-3 ${colors.icon}`}>
-        {icon}
+      <div className={`flex-shrink-0 ${colors.icon}`}>
+        <div className="w-8 h-8 [&>svg]:w-8 [&>svg]:h-8">
+          {icon}
+        </div>
       </div>
 
-      <h3 className={`text-lg font-semibold mb-1 ${colors.text}`}>{label}</h3>
+      <div className="flex-1 min-w-0">
+        <h3 className={`text-sm font-medium ${colors.text}`}>{label}</h3>
+        {file ? (
+          <p className="text-xs text-slate-400 truncate">{file.name}</p>
+        ) : (
+          <p className="text-xs text-slate-500">Click or drop file</p>
+        )}
+      </div>
 
       {file ? (
-        <div className="text-center">
-          <p className="text-sm text-gray-600 truncate max-w-[180px]">{file.name}</p>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onFileSelect(null);
-            }}
-            className="mt-2 text-xs text-red-500 hover:text-red-700 underline"
-          >
-            Remove
-          </button>
-        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onFileSelect(null);
+          }}
+          className="flex-shrink-0 p-1 text-slate-400 hover:text-red-400 transition-colors"
+          title="Remove file"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       ) : (
-        <p className="text-sm text-gray-500">Drop Excel file or click to upload</p>
+        <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 ${colors.border}`} />
       )}
     </div>
   );
