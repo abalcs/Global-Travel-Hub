@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -12,6 +12,7 @@ import type { TimeSeriesData, ChartConfig, MetricKey } from '../types';
 import { mergeSeriesForChart, getAgentColor, getAllDates, isPercentMetric, isCountMetric, PERCENT_METRICS, COUNT_METRICS } from '../utils/timeSeriesUtils';
 import { loadChartConfig, saveChartConfig } from '../utils/storage';
 import { calculateSeriesRegression, type RegressionResult } from '../utils/regression';
+import { decimateChartData } from '../utils/decimation';
 
 interface TrendsViewProps {
   timeSeriesData: TimeSeriesData;
@@ -35,6 +36,10 @@ const METRIC_LABELS: Record<MetricKey, string> = {
 const ALL_PERCENT_METRICS: MetricKey[] = [...PERCENT_METRICS];
 const ALL_COUNT_METRICS: MetricKey[] = [...COUNT_METRICS];
 
+// Performance constants
+const MAX_DATA_POINTS = 150; // Decimate data if more points than this
+const MAX_SERIES_WARNING = 50; // Warn if more than this many series
+
 export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors }) => {
   const allDates = useMemo(() => getAllDates(timeSeriesData), [timeSeriesData]);
   const allAgents = useMemo(
@@ -42,14 +47,24 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     [timeSeriesData]
   );
 
+  // PERF: Memoize agent-to-index mapping for O(1) color lookups
+  const agentIndexMap = useMemo(
+    () => new Map(allAgents.map((agent, index) => [agent, index])),
+    [allAgents]
+  );
+
+  // Helper to get agent color in O(1)
+  const getAgentColorFast = useCallback(
+    (agent: string) => getAgentColor(agentIndexMap.get(agent) ?? 0),
+    [agentIndexMap]
+  );
+
   // Build agent -> dates map for efficient date range lookups
   // Only count dates where agent had actual activity (trips > 0)
   const agentDateRanges = useMemo(() => {
-    console.log('=== Building agentDateRanges ===');
-    console.log('Number of agents in timeSeriesData:', timeSeriesData.agents.length);
-    console.log('allDates sample:', allDates.slice(0, 5), '... total:', allDates.length);
-
     const ranges = new Map<string, { minIdx: number; maxIdx: number }>();
+    // Pre-build date index map for O(1) lookups
+    const dateIndexMap = new Map(allDates.map((d, i) => [d, i]));
 
     timeSeriesData.agents.forEach((agent) => {
       // Only include dates where the agent had actual activity
@@ -58,27 +73,18 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
         .map((m) => m.date)
         .sort();
 
-      console.log(`Agent "${agent.agentName}": ${agentDates.length} active days out of ${agent.dailyMetrics.length} total`);
-
       if (agentDates.length > 0) {
         const minDate = agentDates[0];
         const maxDate = agentDates[agentDates.length - 1];
-        const minIdx = allDates.indexOf(minDate);
-        const maxIdx = allDates.indexOf(maxDate);
+        const minIdx = dateIndexMap.get(minDate);
+        const maxIdx = dateIndexMap.get(maxDate);
 
-        console.log(`  -> min=${minDate} (idx ${minIdx}), max=${maxDate} (idx ${maxIdx})`);
-
-        if (minIdx !== -1 && maxIdx !== -1) {
+        if (minIdx !== undefined && maxIdx !== undefined) {
           ranges.set(agent.agentName, { minIdx, maxIdx });
-        } else {
-          console.warn(`Agent "${agent.agentName}" has invalid date indices: minIdx=${minIdx}, maxIdx=${maxIdx}`);
         }
-      } else {
-        console.warn(`Agent "${agent.agentName}" has no active days`);
       }
     });
 
-    console.log('Total ranges built:', ranges.size);
     return ranges;
   }, [timeSeriesData, allDates]);
 
@@ -121,10 +127,47 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
   // UI state for collapsible sections
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
+  // PERF: Debounced date range for slider - updates immediately for UI, debounced for chart
+  const [debouncedDateRange, setDebouncedDateRange] = useState({
+    start: config.dateRangeStart,
+    end: config.dateRangeEnd,
+  });
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Update debounced date range with delay
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedDateRange({
+        start: config.dateRangeStart,
+        end: config.dateRangeEnd,
+      });
+    }, 150); // 150ms debounce
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [config.dateRangeStart, config.dateRangeEnd]);
+
   // Save config when it changes
   useEffect(() => {
     saveChartConfig(config);
   }, [config]);
+
+  // Calculate total series count for performance warning
+  const totalSeriesCount = useMemo(() => {
+    let count = config.selectedAgents.length * config.selectedMetrics.length;
+    if (config.showDeptAvg) count += config.selectedMetrics.length;
+    if (config.showSeniorAvg) count += config.selectedMetrics.length;
+    if (config.showNonSeniorAvg) count += config.selectedMetrics.length;
+    return count;
+  }, [config.selectedAgents.length, config.selectedMetrics.length, config.showDeptAvg, config.showSeniorAvg, config.showNonSeniorAvg]);
+
+  const showPerformanceWarning = totalSeriesCount > MAX_SERIES_WARNING;
 
   // Calculate the date range for the currently selected agents
   const selectedAgentsDateRange = useMemo(() => {
@@ -153,46 +196,45 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
   // Fit date range to selected agents
   const fitDateRangeToSelection = useCallback(() => {
-    console.log('=== Fit to Selection Debug ===');
-    console.log('Selected agents:', config.selectedAgents);
-    console.log('All dates length:', allDates.length);
-    console.log('Agent date ranges map:', Object.fromEntries(agentDateRanges));
-    console.log('Selected agents date range:', selectedAgentsDateRange);
-    console.log('Current config:', { start: config.dateRangeStart, end: config.dateRangeEnd });
-
-    if (config.selectedAgents.length === 0) {
-      console.log('No agents selected, aborting');
-      return;
-    }
-
-    // Log each selected agent's range
-    for (const agentName of config.selectedAgents) {
-      const range = agentDateRanges.get(agentName);
-      console.log(`Agent "${agentName}" range:`, range);
-    }
-
-    console.log('Setting new range:', { start: selectedAgentsDateRange.minIdx, end: selectedAgentsDateRange.maxIdx });
+    if (config.selectedAgents.length === 0) return;
 
     setConfig((prev) => ({
       ...prev,
       dateRangeStart: selectedAgentsDateRange.minIdx,
       dateRangeEnd: selectedAgentsDateRange.maxIdx,
     }));
-  }, [config.selectedAgents, selectedAgentsDateRange, allDates.length, agentDateRanges, config.dateRangeStart, config.dateRangeEnd]);
+  }, [config.selectedAgents.length, selectedAgentsDateRange]);
 
-  // Prepare chart data
-  const chartData = useMemo(() => {
-    return mergeSeriesForChart(
+  // Prepare chart data with decimation for performance
+  const { chartData, isDecimated, originalPointCount } = useMemo(() => {
+    const rawData = mergeSeriesForChart(
       timeSeriesData,
       config.selectedAgents,
       config.selectedMetrics,
       config.showDeptAvg,
       config.showSeniorAvg,
       config.showNonSeniorAvg,
-      config.dateRangeStart,
-      config.dateRangeEnd
+      debouncedDateRange.start,
+      debouncedDateRange.end
     );
-  }, [timeSeriesData, config]);
+
+    const originalCount = rawData.length;
+
+    // Apply LTTB decimation if too many data points
+    if (rawData.length > MAX_DATA_POINTS) {
+      const decimated = decimateChartData(
+        rawData as { date: string; [key: string]: unknown }[],
+        MAX_DATA_POINTS
+      );
+      return {
+        chartData: decimated,
+        isDecimated: true,
+        originalPointCount: originalCount,
+      };
+    }
+
+    return { chartData: rawData, isDecimated: false, originalPointCount: originalCount };
+  }, [timeSeriesData, config.selectedAgents, config.selectedMetrics, config.showDeptAvg, config.showSeniorAvg, config.showNonSeniorAvg, debouncedDateRange]);
 
   // Calculate regressions for all visible series
   const regressions = useMemo(() => {
@@ -316,7 +358,40 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     };
   }, [config.selectedMetrics]);
 
-  // Calculate Y-axis domains for both metric types
+  // PERF: Pre-build data keys to avoid repeated string concatenation
+  const dataKeys = useMemo(() => {
+    const percentKeys: string[] = [];
+    const countKeys: string[] = [];
+
+    // Agent keys
+    for (const agent of config.selectedAgents) {
+      for (const metric of selectedPercentMetrics) {
+        percentKeys.push(`${agent}_${metric}`);
+      }
+      for (const metric of selectedCountMetrics) {
+        countKeys.push(`${agent}_${metric}`);
+      }
+    }
+
+    // Average keys
+    const avgSources: string[] = [];
+    if (config.showDeptAvg) avgSources.push('dept');
+    if (config.showSeniorAvg) avgSources.push('senior');
+    if (config.showNonSeniorAvg) avgSources.push('nonsenior');
+
+    for (const source of avgSources) {
+      for (const metric of selectedPercentMetrics) {
+        percentKeys.push(`${source}_${metric}`);
+      }
+      for (const metric of selectedCountMetrics) {
+        countKeys.push(`${source}_${metric}`);
+      }
+    }
+
+    return { percentKeys, countKeys };
+  }, [config.selectedAgents, config.showDeptAvg, config.showSeniorAvg, config.showNonSeniorAvg, selectedPercentMetrics, selectedCountMetrics]);
+
+  // Calculate Y-axis domains for both metric types - optimized with pre-built keys
   const yAxisConfig = useMemo(() => {
     if (chartDataWithTrends.length === 0) {
       return {
@@ -331,41 +406,18 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     const percentValues: number[] = [];
     const countValues: number[] = [];
 
+    // Single pass through data with pre-built keys
     for (const point of chartDataWithTrends) {
-      // Agent values
-      for (const agent of config.selectedAgents) {
-        for (const metric of selectedPercentMetrics) {
-          const value = point[`${agent}_${metric}`] as number | undefined;
-          if (value !== undefined && value !== null && !isNaN(value)) {
-            percentValues.push(value);
-          }
-        }
-        for (const metric of selectedCountMetrics) {
-          const value = point[`${agent}_${metric}`] as number | undefined;
-          if (value !== undefined && value !== null && !isNaN(value)) {
-            countValues.push(value);
-          }
+      for (const key of dataKeys.percentKeys) {
+        const value = point[key] as number | undefined;
+        if (typeof value === 'number' && !isNaN(value)) {
+          percentValues.push(value);
         }
       }
-      // Average values
-      const avgSources = [
-        config.showDeptAvg ? 'dept' : null,
-        config.showSeniorAvg ? 'senior' : null,
-        config.showNonSeniorAvg ? 'nonsenior' : null,
-      ].filter(Boolean);
-
-      for (const source of avgSources) {
-        for (const metric of selectedPercentMetrics) {
-          const value = point[`${source}_${metric}`] as number | undefined;
-          if (value !== undefined && value !== null && !isNaN(value)) {
-            percentValues.push(value);
-          }
-        }
-        for (const metric of selectedCountMetrics) {
-          const value = point[`${source}_${metric}`] as number | undefined;
-          if (value !== undefined && value !== null && !isNaN(value)) {
-            countValues.push(value);
-          }
+      for (const key of dataKeys.countKeys) {
+        const value = point[key] as number | undefined;
+        if (typeof value === 'number' && !isNaN(value)) {
+          countValues.push(value);
         }
       }
     }
@@ -381,7 +433,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       percentActualMax: percentResult.actualMax,
       countActualMax: countResult.actualMax,
     };
-  }, [chartDataWithTrends, config, selectedPercentMetrics, selectedCountMetrics, calculateDomain]);
+  }, [chartDataWithTrends, dataKeys, calculateDomain]);
 
   // Toggle agent selection
   const toggleAgent = useCallback((agentName: string) => {
@@ -787,6 +839,22 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
         </div>
       </div>
 
+      {/* Performance indicators */}
+      {(showPerformanceWarning || isDecimated) && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          {showPerformanceWarning && (
+            <span className="px-2 py-1 bg-amber-900/50 text-amber-300 rounded">
+              {totalSeriesCount} series selected - consider reducing for better performance
+            </span>
+          )}
+          {isDecimated && (
+            <span className="px-2 py-1 bg-blue-900/50 text-blue-300 rounded">
+              Showing {chartData.length} of {originalPointCount} data points (optimized)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Chart */}
       <div className="bg-slate-900/50 rounded-xl p-4">
         {chartDataWithTrends.length === 0 || config.selectedAgents.length === 0 ? (
@@ -896,7 +964,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     dataKey={`${agent}_${metric}`}
                     name={`${agent}_${metric}`}
                     yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
-                    stroke={getAgentColor(allAgents.indexOf(agent))}
+                    stroke={getAgentColorFast(agent)}
                     strokeWidth={2}
                     dot={false}
                     activeDot={{ r: 4 }}
@@ -980,7 +1048,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                         dataKey={`${key}_trend`}
                         name={`${key}_trend`}
                         yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
-                        stroke={getAgentColor(allAgents.indexOf(agent))}
+                        stroke={getAgentColorFast(agent)}
                         strokeWidth={2}
                         strokeDasharray="4 2"
                         strokeOpacity={0.7}
