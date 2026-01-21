@@ -135,28 +135,26 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     return { minIdx, maxIdx };
   }, [config.selectedAgents, agentDateRanges, allDates.length]);
 
-  // Track previous selected agents to detect changes
-  const [prevSelectedAgents, setPrevSelectedAgents] = useState<string[]>([]);
+  // Track previous selected agents to detect changes (use serialized string for reliable comparison)
+  const [prevAgentsKey, setPrevAgentsKey] = useState<string>('');
 
   // Auto-adjust date range when agents are selected
   useEffect(() => {
-    // Check if selectedAgents actually changed (not just reference)
-    const agentsChanged =
-      prevSelectedAgents.length !== config.selectedAgents.length ||
-      prevSelectedAgents.some((a, i) => a !== config.selectedAgents[i]);
+    const currentAgentsKey = [...config.selectedAgents].sort().join(',');
 
-    if (agentsChanged && config.selectedAgents.length > 0) {
-      setPrevSelectedAgents([...config.selectedAgents]);
-      // Auto-adjust the date range to fit the selected agents
-      setConfig((prev) => ({
-        ...prev,
-        dateRangeStart: selectedAgentsDateRange.minIdx,
-        dateRangeEnd: selectedAgentsDateRange.maxIdx,
-      }));
-    } else if (agentsChanged) {
-      setPrevSelectedAgents([...config.selectedAgents]);
+    if (currentAgentsKey !== prevAgentsKey) {
+      setPrevAgentsKey(currentAgentsKey);
+
+      // Only auto-adjust if there are selected agents
+      if (config.selectedAgents.length > 0) {
+        setConfig((prev) => ({
+          ...prev,
+          dateRangeStart: selectedAgentsDateRange.minIdx,
+          dateRangeEnd: selectedAgentsDateRange.maxIdx,
+        }));
+      }
     }
-  }, [config.selectedAgents, selectedAgentsDateRange, prevSelectedAgents]);
+  }, [config.selectedAgents, selectedAgentsDateRange, prevAgentsKey]);
 
   // Prepare chart data
   const chartData = useMemo(() => {
