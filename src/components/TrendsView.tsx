@@ -43,6 +43,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
   );
 
   // Build agent -> dates map for efficient date range lookups
+  // Only count dates where agent had actual activity (trips > 0)
   const agentDateRanges = useMemo(() => {
     console.log('=== Building agentDateRanges ===');
     console.log('Number of agents in timeSeriesData:', timeSeriesData.agents.length);
@@ -51,10 +52,13 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     const ranges = new Map<string, { minIdx: number; maxIdx: number }>();
 
     timeSeriesData.agents.forEach((agent) => {
+      // Only include dates where the agent had actual activity
       const agentDates = agent.dailyMetrics
-        .filter((m) => m.date !== 'unknown')
+        .filter((m) => m.date !== 'unknown' && m.trips > 0)
         .map((m) => m.date)
         .sort();
+
+      console.log(`Agent "${agent.agentName}": ${agentDates.length} active days out of ${agent.dailyMetrics.length} total`);
 
       if (agentDates.length > 0) {
         const minDate = agentDates[0];
@@ -62,7 +66,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
         const minIdx = allDates.indexOf(minDate);
         const maxIdx = allDates.indexOf(maxDate);
 
-        console.log(`Agent "${agent.agentName}": dates ${agentDates.length}, min=${minDate} (idx ${minIdx}), max=${maxDate} (idx ${maxIdx})`);
+        console.log(`  -> min=${minDate} (idx ${minIdx}), max=${maxDate} (idx ${maxIdx})`);
 
         if (minIdx !== -1 && maxIdx !== -1) {
           ranges.set(agent.agentName, { minIdx, maxIdx });
@@ -70,7 +74,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
           console.warn(`Agent "${agent.agentName}" has invalid date indices: minIdx=${minIdx}, maxIdx=${maxIdx}`);
         }
       } else {
-        console.warn(`Agent "${agent.agentName}" has no valid dates`);
+        console.warn(`Agent "${agent.agentName}" has no active days`);
       }
     });
 
