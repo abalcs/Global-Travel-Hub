@@ -354,7 +354,29 @@ function App() {
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Global Travel Hub</h1>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              Global Travel Hub
+              <svg className="w-7 h-7" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="globeOcean" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#3b82f6"/>
+                    <stop offset="100%" stopColor="#1e40af"/>
+                  </linearGradient>
+                  <linearGradient id="globeLand" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#22c55e"/>
+                    <stop offset="100%" stopColor="#16a34a"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="46" fill="url(#globeOcean)" stroke="#60a5fa" strokeWidth="2"/>
+                <path d="M20 25 Q25 20 35 22 Q40 25 42 30 Q38 35 35 40 Q30 42 25 38 Q20 35 18 30 Z" fill="url(#globeLand)"/>
+                <path d="M30 50 Q35 48 38 52 Q40 60 38 70 Q35 75 30 72 Q28 65 28 58 Z" fill="url(#globeLand)"/>
+                <path d="M50 22 Q55 20 60 25 Q58 30 55 35 Q52 32 50 28 Z" fill="url(#globeLand)"/>
+                <path d="M52 40 Q58 38 62 45 Q60 55 58 65 Q55 70 50 68 Q48 60 50 50 Z" fill="url(#globeLand)"/>
+                <path d="M62 20 Q70 18 78 22 Q82 28 80 35 Q75 40 68 38 Q65 32 62 25 Z" fill="url(#globeLand)"/>
+                <path d="M72 55 Q78 52 82 58 Q80 65 75 68 Q70 65 72 58 Z" fill="url(#globeLand)"/>
+                <ellipse cx="35" cy="30" rx="12" ry="10" fill="white" opacity="0.15"/>
+              </svg>
+            </h1>
             <p className="text-sm text-slate-400">Analyze agent performance metrics</p>
           </div>
           {metrics.length > 0 && (
