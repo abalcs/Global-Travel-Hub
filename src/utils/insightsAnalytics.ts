@@ -115,6 +115,48 @@ export interface BookingCorrelation {
   description: string;
 }
 
+export type RegionalTimeframe = 'week' | 'month' | 'quarter' | 'ytd' | 'all';
+
+export interface RegionalPerformance {
+  region: string;
+  trips: number;
+  passthroughs: number;
+  tpRate: number;
+}
+
+export interface AgentRegionalPerformance {
+  agentName: string;
+  topRegions: RegionalPerformance[];
+  bottomRegions: RegionalPerformance[];
+  totalTrips: number;
+  totalPassthroughs: number;
+  overallTpRate: number;
+}
+
+export interface DepartmentRegionalPerformance {
+  topRegions: RegionalPerformance[];
+  bottomRegions: RegionalPerformance[];
+  allRegions: RegionalPerformance[];
+  totalTrips: number;
+  totalPassthroughs: number;
+  overallTpRate: number;
+}
+
+export interface RegionalTrendPoint {
+  period: string;
+  periodStart: Date;
+  region: string;
+  tpRate: number;
+  trips: number;
+  passthroughs: number;
+}
+
+export interface RegionalTrendData {
+  periods: string[];
+  topRegionsByPeriod: Map<string, RegionalPerformance[]>;
+  allTrends: RegionalTrendPoint[];
+}
+
 export interface InsightsData {
   // Passthrough patterns
   passthroughsByDay: DayAnalysis[];
@@ -146,6 +188,12 @@ export interface InsightsData {
   totalNonValidated: number;
   totalBookings: number;
   totalHotPass: number;
+
+  // Regional performance
+  hasRegionalData: boolean;
+  departmentRegionalPerformance: DepartmentRegionalPerformance | null;
+  agentRegionalPerformance: AgentRegionalPerformance[];
+  regionalTrends: RegionalTrendData | null;
 }
 
 // ============ Analysis Functions ============
@@ -358,6 +406,330 @@ export const analyzeNonValidatedByAgent = (nonConverted: CSVRow[]): AgentNonVali
     .sort((a, b) => b.total - a.total);
 };
 
+// ============ Regional Performance Analysis ============
+
+const getTimeframeStartDate = (timeframe: RegionalTimeframe): Date | null => {
+  const now = new Date();
+  switch (timeframe) {
+    case 'week':
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    case 'quarter':
+      return new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+    case 'ytd':
+      return new Date(now.getFullYear(), 0, 1);
+    case 'all':
+      return null;
+    default:
+      return null;
+  }
+};
+
+const parseDate = (value: string): Date | null => {
+  if (!value || value.trim() === '') return null;
+
+  // Try Excel serial number
+  const numValue = parseFloat(value);
+  if (!isNaN(numValue) && numValue > 1000 && numValue < 100000) {
+    const excelEpoch = new Date(1899, 11, 30);
+    return new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+  }
+
+  // Try standard date string
+  const parsed = new Date(value);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  return null;
+};
+
+const isWithinTimeframe = (dateStr: string, startDate: Date | null): boolean => {
+  if (!startDate) return true; // 'all' timeframe
+  const date = parseDate(dateStr);
+  if (!date) return false;
+  return date >= startDate;
+};
+
+export const analyzeRegionalPerformance = (
+  trips: CSVRow[],
+  timeframe: RegionalTimeframe = 'all'
+): DepartmentRegionalPerformance => {
+  if (trips.length === 0) {
+    return {
+      topRegions: [],
+      bottomRegions: [],
+      allRegions: [],
+      totalTrips: 0,
+      totalPassthroughs: 0,
+      overallTpRate: 0,
+    };
+  }
+
+  const startDate = getTimeframeStartDate(timeframe);
+
+  // Find relevant columns
+  const regionCol = findColumn(trips[0], ['original interest', 'region', 'country', 'destination']);
+  const passthroughDateCol = findColumn(trips[0], ['passthrough to sales date', 'passthrough date']);
+  const dateCol = findColumn(trips[0], ['created date', 'trip: created date', 'date']);
+
+  if (!regionCol) {
+    return {
+      topRegions: [],
+      bottomRegions: [],
+      allRegions: [],
+      totalTrips: 0,
+      totalPassthroughs: 0,
+      overallTpRate: 0,
+    };
+  }
+
+  // Group by region
+  const regionStats: Record<string, { trips: number; passthroughs: number }> = {};
+
+  for (const row of trips) {
+    const region = (row[regionCol] || '').trim();
+    if (!region || region.length < 2) continue;
+
+    // Check timeframe filter
+    const rowDate = dateCol ? row[dateCol] : '';
+    if (!isWithinTimeframe(rowDate, startDate)) continue;
+
+    if (!regionStats[region]) {
+      regionStats[region] = { trips: 0, passthroughs: 0 };
+    }
+
+    regionStats[region].trips++;
+
+    // Check if there's a passthrough date (indicates a passthrough)
+    if (passthroughDateCol) {
+      const passthroughDate = (row[passthroughDateCol] || '').trim();
+      if (passthroughDate && passthroughDate.length > 0) {
+        regionStats[region].passthroughs++;
+      }
+    }
+  }
+
+  // Convert to array and calculate rates
+  const allRegions: RegionalPerformance[] = Object.entries(regionStats)
+    .filter(([_, stats]) => stats.trips >= 3) // Minimum threshold for meaningful rate
+    .map(([region, stats]) => ({
+      region,
+      trips: stats.trips,
+      passthroughs: stats.passthroughs,
+      tpRate: stats.trips > 0 ? (stats.passthroughs / stats.trips) * 100 : 0,
+    }))
+    .sort((a, b) => b.tpRate - a.tpRate);
+
+  const totalTrips = allRegions.reduce((sum, r) => sum + r.trips, 0);
+  const totalPassthroughs = allRegions.reduce((sum, r) => sum + r.passthroughs, 0);
+
+  return {
+    topRegions: allRegions.slice(0, 5),
+    bottomRegions: allRegions.slice(-5).reverse(),
+    allRegions,
+    totalTrips,
+    totalPassthroughs,
+    overallTpRate: totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0,
+  };
+};
+
+export const analyzeRegionalPerformanceByAgent = (
+  trips: CSVRow[],
+  timeframe: RegionalTimeframe = 'all'
+): AgentRegionalPerformance[] => {
+  if (trips.length === 0) return [];
+
+  const startDate = getTimeframeStartDate(timeframe);
+
+  // Find relevant columns
+  const regionCol = findColumn(trips[0], ['original interest', 'region', 'country', 'destination']);
+  const passthroughDateCol = findColumn(trips[0], ['passthrough to sales date', 'passthrough date']);
+  const dateCol = findColumn(trips[0], ['created date', 'trip: created date', 'date']);
+  const keys = Object.keys(trips[0]);
+  const agentCol = keys.find(k =>
+    k.toLowerCase().includes('gtt owner') ||
+    k.toLowerCase().includes('owner name') ||
+    k.toLowerCase().includes('agent') ||
+    k.includes('_agent')
+  );
+
+  if (!regionCol || !agentCol) return [];
+
+  // Group by agent then region
+  const agentStats: Record<string, Record<string, { trips: number; passthroughs: number }>> = {};
+  let currentAgent = '';
+
+  for (const row of trips) {
+    const agent = (row[agentCol] || '').trim();
+    if (agent && !/^\d+$/.test(agent)) currentAgent = agent;
+    if (!currentAgent) continue;
+
+    const region = (row[regionCol] || '').trim();
+    if (!region || region.length < 2) continue;
+
+    // Check timeframe filter
+    const rowDate = dateCol ? row[dateCol] : '';
+    if (!isWithinTimeframe(rowDate, startDate)) continue;
+
+    if (!agentStats[currentAgent]) {
+      agentStats[currentAgent] = {};
+    }
+    if (!agentStats[currentAgent][region]) {
+      agentStats[currentAgent][region] = { trips: 0, passthroughs: 0 };
+    }
+
+    agentStats[currentAgent][region].trips++;
+
+    if (passthroughDateCol) {
+      const passthroughDate = (row[passthroughDateCol] || '').trim();
+      if (passthroughDate && passthroughDate.length > 0) {
+        agentStats[currentAgent][region].passthroughs++;
+      }
+    }
+  }
+
+  // Convert to array
+  return Object.entries(agentStats)
+    .map(([agentName, regions]) => {
+      const regionPerf: RegionalPerformance[] = Object.entries(regions)
+        .filter(([_, stats]) => stats.trips >= 2) // Lower threshold per agent
+        .map(([region, stats]) => ({
+          region,
+          trips: stats.trips,
+          passthroughs: stats.passthroughs,
+          tpRate: stats.trips > 0 ? (stats.passthroughs / stats.trips) * 100 : 0,
+        }))
+        .sort((a, b) => b.tpRate - a.tpRate);
+
+      const totalTrips = regionPerf.reduce((sum, r) => sum + r.trips, 0);
+      const totalPassthroughs = regionPerf.reduce((sum, r) => sum + r.passthroughs, 0);
+
+      return {
+        agentName,
+        topRegions: regionPerf.slice(0, 3),
+        bottomRegions: regionPerf.filter(r => r.trips >= 2).slice(-3).reverse(),
+        totalTrips,
+        totalPassthroughs,
+        overallTpRate: totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0,
+      };
+    })
+    .filter(a => a.totalTrips >= 5) // Only agents with meaningful data
+    .sort((a, b) => b.totalTrips - a.totalTrips);
+};
+
+export const analyzeRegionalTrends = (
+  trips: CSVRow[],
+  periodCount: number = 6
+): RegionalTrendData => {
+  if (trips.length === 0) {
+    return { periods: [], topRegionsByPeriod: new Map(), allTrends: [] };
+  }
+
+  // Find relevant columns
+  const regionCol = findColumn(trips[0], ['original interest', 'region', 'country', 'destination']);
+  const passthroughDateCol = findColumn(trips[0], ['passthrough to sales date', 'passthrough date']);
+  const dateCol = findColumn(trips[0], ['created date', 'trip: created date', 'date']);
+
+  if (!regionCol || !dateCol) {
+    return { periods: [], topRegionsByPeriod: new Map(), allTrends: [] };
+  }
+
+  // Find date range
+  let minDate: Date | null = null;
+  let maxDate: Date | null = null;
+
+  for (const row of trips) {
+    const date = parseDate(row[dateCol]);
+    if (date) {
+      if (!minDate || date < minDate) minDate = date;
+      if (!maxDate || date > maxDate) maxDate = date;
+    }
+  }
+
+  if (!minDate || !maxDate) {
+    return { periods: [], topRegionsByPeriod: new Map(), allTrends: [] };
+  }
+
+  // Create monthly periods going back from now
+  const periods: { name: string; start: Date; end: Date }[] = [];
+  const now = new Date();
+
+  for (let i = periodCount - 1; i >= 0; i--) {
+    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+    const name = start.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    periods.push({ name, start, end });
+  }
+
+  // Aggregate data by period and region
+  const periodRegionStats: Record<string, Record<string, { trips: number; passthroughs: number }>> = {};
+
+  for (const period of periods) {
+    periodRegionStats[period.name] = {};
+  }
+
+  for (const row of trips) {
+    const date = parseDate(row[dateCol]);
+    if (!date) continue;
+
+    const region = (row[regionCol] || '').trim();
+    if (!region || region.length < 2) continue;
+
+    // Find which period this belongs to
+    const period = periods.find(p => date >= p.start && date <= p.end);
+    if (!period) continue;
+
+    if (!periodRegionStats[period.name][region]) {
+      periodRegionStats[period.name][region] = { trips: 0, passthroughs: 0 };
+    }
+
+    periodRegionStats[period.name][region].trips++;
+
+    if (passthroughDateCol) {
+      const passthroughDate = (row[passthroughDateCol] || '').trim();
+      if (passthroughDate && passthroughDate.length > 0) {
+        periodRegionStats[period.name][region].passthroughs++;
+      }
+    }
+  }
+
+  // Build trend data
+  const topRegionsByPeriod = new Map<string, RegionalPerformance[]>();
+  const allTrends: RegionalTrendPoint[] = [];
+
+  for (const period of periods) {
+    const regionData = periodRegionStats[period.name];
+    const regionPerf: RegionalPerformance[] = Object.entries(regionData)
+      .filter(([_, stats]) => stats.trips >= 3)
+      .map(([region, stats]) => ({
+        region,
+        trips: stats.trips,
+        passthroughs: stats.passthroughs,
+        tpRate: stats.trips > 0 ? (stats.passthroughs / stats.trips) * 100 : 0,
+      }))
+      .sort((a, b) => b.tpRate - a.tpRate);
+
+    topRegionsByPeriod.set(period.name, regionPerf.slice(0, 5));
+
+    for (const perf of regionPerf) {
+      allTrends.push({
+        period: period.name,
+        periodStart: period.start,
+        region: perf.region,
+        tpRate: perf.tpRate,
+        trips: perf.trips,
+        passthroughs: perf.passthroughs,
+      });
+    }
+  }
+
+  return {
+    periods: periods.map(p => p.name),
+    topRegionsByPeriod,
+    allTrends,
+  };
+};
+
 export const analyzeBookingCorrelations = (
   hotPass: CSVRow[],
   _bookings: CSVRow[],
@@ -418,6 +790,12 @@ export const generateInsightsData = (rawData: RawParsedData): InsightsData => {
     rawData.passthroughs
   );
 
+  // Regional performance analysis
+  const departmentRegionalPerformance = analyzeRegionalPerformance(rawData.trips, 'all');
+  const agentRegionalPerformance = analyzeRegionalPerformanceByAgent(rawData.trips, 'all');
+  const regionalTrends = analyzeRegionalTrends(rawData.trips, 6);
+  const hasRegionalData = departmentRegionalPerformance.allRegions.length > 0;
+
   return {
     passthroughsByDay,
     passthroughsByTime,
@@ -438,6 +816,10 @@ export const generateInsightsData = (rawData: RawParsedData): InsightsData => {
     totalNonValidated: rawData.nonConverted.length,
     totalBookings: rawData.bookings.length,
     totalHotPass: rawData.hotPass.length,
+    hasRegionalData,
+    departmentRegionalPerformance,
+    agentRegionalPerformance,
+    regionalTrends,
   };
 };
 
