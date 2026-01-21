@@ -38,7 +38,13 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
-  const [activeView, setActiveView] = useState<'summary' | 'trends' | 'insights'>('summary');
+  const [activeView, setActiveView] = useState<'summary' | 'trends' | 'insights'>(() => {
+    const saved = localStorage.getItem('gtt-active-view');
+    if (saved === 'summary' || saved === 'trends' || saved === 'insights') {
+      return saved;
+    }
+    return 'summary';
+  });
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -59,6 +65,11 @@ function App() {
       }
     });
   }, []);
+
+  // Persist active view tab
+  useEffect(() => {
+    localStorage.setItem('gtt-active-view', activeView);
+  }, [activeView]);
 
   const handleTeamsChange = useCallback((newTeams: Team[]) => {
     setTeams(newTeams);
