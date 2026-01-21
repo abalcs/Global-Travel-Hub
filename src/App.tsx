@@ -177,7 +177,7 @@ function App() {
       const tripsDateCol = findDateColumn(tripsRows[0], ['created date', 'trip: created date']);
       const quotesDateCol = quotesRows.length > 0 ? findDateColumn(quotesRows[0], ['quote first sent', 'first sent date', 'created date']) : null;
       const passthroughsDateCol = passthroughsRows.length > 0 ? findDateColumn(passthroughsRows[0], ['passthrough to sales date', 'passthrough date', 'created date']) : null;
-      const hotPassDateCol = hotPassRows.length > 0 ? findDateColumn(hotPassRows[0], ['created date', 'trip: created date']) : null;
+      const hotPassDateCol = hotPassRows.length > 0 ? findDateColumn(hotPassRows[0], ['passthrough to sales date', 'passthrough date', 'created date']) : null;
       const bookingsDateCol = bookingsRows.length > 0 ? findDateColumn(bookingsRows[0], ['created date', 'booking date', 'date']) : null;
 
       const tripKeys = Object.keys(tripsRows[0] || {});
