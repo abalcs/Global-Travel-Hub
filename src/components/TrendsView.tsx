@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { TimeSeriesData, ChartConfig, MetricKey } from '../types';
-import { mergeSeriesForChart, getAgentColor, getAllDates } from '../utils/timeSeriesUtils';
+import { mergeSeriesForChart, getAgentColor, getAllDates, isPercentMetric, isCountMetric, PERCENT_METRICS, COUNT_METRICS } from '../utils/timeSeriesUtils';
 import { loadChartConfig, saveChartConfig } from '../utils/storage';
 import { calculateSeriesRegression, type RegressionResult } from '../utils/regression';
 
@@ -19,15 +19,21 @@ interface TrendsViewProps {
 }
 
 const METRIC_LABELS: Record<MetricKey, string> = {
-  tq: 'T>Q',
-  tp: 'T>P',
-  pq: 'P>Q',
-  hp: 'Hot Pass',
-  bk: 'Bookings',
+  // Percentage metrics
+  tq: 'T>Q %',
+  tp: 'T>P %',
+  pq: 'P>Q %',
+  hp: 'Hot Pass %',
   nc: '% Non-Conv',
+  // Raw count metrics
+  trips: 'Trips',
+  quotes: 'Quotes',
+  passthroughs: 'Passthroughs',
+  bookings: 'Bookings',
 };
 
-const ALL_METRICS: MetricKey[] = ['tq', 'tp', 'pq', 'hp', 'bk', 'nc'];
+const ALL_PERCENT_METRICS: MetricKey[] = [...PERCENT_METRICS];
+const ALL_COUNT_METRICS: MetricKey[] = [...COUNT_METRICS];
 
 export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors }) => {
   const allDates = useMemo(() => getAllDates(timeSeriesData), [timeSeriesData]);
@@ -36,15 +42,21 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     [timeSeriesData]
   );
 
+  // Valid metrics for filtering stale configs
+  const VALID_METRICS: MetricKey[] = [...ALL_PERCENT_METRICS, ...ALL_COUNT_METRICS];
+
   // Load saved config or use defaults
   const [config, setConfig] = useState<ChartConfig>(() => {
     const saved = loadChartConfig();
     if (saved) {
       // Validate saved agents still exist
       const validAgents = saved.selectedAgents.filter((a) => allAgents.includes(a));
+      // Validate saved metrics are still valid (filter out old 'bk' metric etc.)
+      const validMetrics = saved.selectedMetrics.filter((m) => VALID_METRICS.includes(m));
       return {
         ...saved,
         selectedAgents: validAgents.length > 0 ? validAgents : allAgents.slice(0, 3),
+        selectedMetrics: validMetrics.length > 0 ? validMetrics : ['tq'],
         dateRangeEnd: Math.min(saved.dateRangeEnd, allDates.length - 1),
       };
     }
@@ -63,6 +75,8 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
   const [showTrendLines, setShowTrendLines] = useState(false);
   const [rSquaredThreshold, setRSquaredThreshold] = useState(0.10);
   const [hideRawData, setHideRawData] = useState(false);
+  const [outlierHandling, setOutlierHandling] = useState<'none' | 'percentile'>('percentile');
+  const [showLegend, setShowLegend] = useState(true);
 
   // Save config when it changes
   useEffect(() => {
@@ -146,6 +160,131 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       return newPoint;
     });
   }, [chartData, regressions, showTrendLines]);
+
+  // Helper to calculate domain for a set of values with outlier handling
+  const calculateDomain = useCallback((allValues: number[], applyOutlierHandling: boolean): { domain: [number, number]; hasOutliers: boolean; actualMax?: number } => {
+    if (allValues.length === 0) {
+      return { domain: [0, 100], hasOutliers: false };
+    }
+
+    const sortedValues = [...allValues].sort((a, b) => a - b);
+    const actualMin = sortedValues[0];
+    const actualMax = sortedValues[sortedValues.length - 1];
+
+    if (!applyOutlierHandling || outlierHandling === 'none') {
+      const padding = (actualMax - actualMin) * 0.05 || 5;
+      return {
+        domain: [Math.max(0, Math.floor(actualMin - padding)), Math.ceil(actualMax + padding)],
+        hasOutliers: false
+      };
+    }
+
+    // Percentile-based: use 5th and 95th percentile
+    const p5Index = Math.floor(sortedValues.length * 0.05);
+    const p95Index = Math.floor(sortedValues.length * 0.95);
+    const p5 = sortedValues[p5Index];
+    const p95 = sortedValues[p95Index];
+
+    // Calculate IQR-based bounds for outlier detection
+    const q1Index = Math.floor(sortedValues.length * 0.25);
+    const q3Index = Math.floor(sortedValues.length * 0.75);
+    const q1 = sortedValues[q1Index];
+    const q3 = sortedValues[q3Index];
+    const iqr = q3 - q1;
+    const upperFence = q3 + 1.5 * iqr;
+
+    const hasOutliers = actualMax > upperFence;
+
+    if (hasOutliers) {
+      const padding = (p95 - p5) * 0.1 || 5;
+      return {
+        domain: [Math.max(0, Math.floor(p5 - padding)), Math.ceil(p95 + padding)],
+        hasOutliers: true,
+        actualMax: actualMax
+      };
+    }
+
+    const padding = (actualMax - actualMin) * 0.05 || 5;
+    return {
+      domain: [Math.max(0, Math.floor(actualMin - padding)), Math.ceil(actualMax + padding)],
+      hasOutliers: false
+    };
+  }, [outlierHandling]);
+
+  // Separate selected metrics by type
+  const { selectedPercentMetrics, selectedCountMetrics } = useMemo(() => {
+    return {
+      selectedPercentMetrics: config.selectedMetrics.filter(isPercentMetric),
+      selectedCountMetrics: config.selectedMetrics.filter(isCountMetric),
+    };
+  }, [config.selectedMetrics]);
+
+  // Calculate Y-axis domains for both metric types
+  const yAxisConfig = useMemo(() => {
+    if (chartDataWithTrends.length === 0) {
+      return {
+        percentDomain: [0, 100] as [number, number],
+        countDomain: [0, 100] as [number, number],
+        hasPercentOutliers: false,
+        hasCountOutliers: false,
+      };
+    }
+
+    // Collect values by metric type
+    const percentValues: number[] = [];
+    const countValues: number[] = [];
+
+    for (const point of chartDataWithTrends) {
+      // Agent values
+      for (const agent of config.selectedAgents) {
+        for (const metric of selectedPercentMetrics) {
+          const value = point[`${agent}_${metric}`] as number | undefined;
+          if (value !== undefined && value !== null && !isNaN(value)) {
+            percentValues.push(value);
+          }
+        }
+        for (const metric of selectedCountMetrics) {
+          const value = point[`${agent}_${metric}`] as number | undefined;
+          if (value !== undefined && value !== null && !isNaN(value)) {
+            countValues.push(value);
+          }
+        }
+      }
+      // Average values
+      const avgSources = [
+        config.showDeptAvg ? 'dept' : null,
+        config.showSeniorAvg ? 'senior' : null,
+        config.showNonSeniorAvg ? 'nonsenior' : null,
+      ].filter(Boolean);
+
+      for (const source of avgSources) {
+        for (const metric of selectedPercentMetrics) {
+          const value = point[`${source}_${metric}`] as number | undefined;
+          if (value !== undefined && value !== null && !isNaN(value)) {
+            percentValues.push(value);
+          }
+        }
+        for (const metric of selectedCountMetrics) {
+          const value = point[`${source}_${metric}`] as number | undefined;
+          if (value !== undefined && value !== null && !isNaN(value)) {
+            countValues.push(value);
+          }
+        }
+      }
+    }
+
+    const percentResult = calculateDomain(percentValues, true);
+    const countResult = calculateDomain(countValues, true);
+
+    return {
+      percentDomain: percentResult.domain,
+      countDomain: countResult.domain,
+      hasPercentOutliers: percentResult.hasOutliers,
+      hasCountOutliers: countResult.hasOutliers,
+      percentActualMax: percentResult.actualMax,
+      countActualMax: countResult.actualMax,
+    };
+  }, [chartDataWithTrends, config, selectedPercentMetrics, selectedCountMetrics, calculateDomain]);
 
   // Toggle agent selection
   const toggleAgent = useCallback((agentName: string) => {
@@ -285,15 +424,32 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
         {/* Metric Selection */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-300">Metrics</label>
+          <label className="text-sm font-medium text-slate-300">Rate Metrics <span className="text-slate-500">(left axis)</span></label>
           <div className="flex flex-wrap gap-2">
-            {ALL_METRICS.map((metric) => (
+            {ALL_PERCENT_METRICS.map((metric) => (
               <button
                 key={metric}
                 onClick={() => toggleMetric(metric)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   config.selectedMetrics.includes(metric)
                     ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                {METRIC_LABELS[metric]}
+              </button>
+            ))}
+          </div>
+
+          <label className="text-sm font-medium text-slate-300 block mt-3">Volume Metrics <span className="text-slate-500">(right axis)</span></label>
+          <div className="flex flex-wrap gap-2">
+            {ALL_COUNT_METRICS.map((metric) => (
+              <button
+                key={metric}
+                onClick={() => toggleMetric(metric)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  config.selectedMetrics.includes(metric)
+                    ? 'bg-emerald-600 text-white'
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
               >
@@ -384,6 +540,71 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               </div>
             )}
           </div>
+
+          {/* Outlier Handling */}
+          <label className="text-sm font-medium text-slate-300 block mt-4">
+            Y-Axis Scaling
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setOutlierHandling('percentile')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                outlierHandling === 'percentile'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+              }`}
+            >
+              Smart Scale
+            </button>
+            <button
+              onClick={() => setOutlierHandling('none')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                outlierHandling === 'none'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+              }`}
+            >
+              Full Range
+            </button>
+          </div>
+          {(yAxisConfig.hasPercentOutliers || yAxisConfig.hasCountOutliers) && outlierHandling === 'percentile' && (
+            <p className="text-xs text-amber-400 mt-1">
+              Outliers detected. Using 5th-95th percentile range.
+            </p>
+          )}
+
+          {/* Legend Toggle */}
+          <label className="text-sm font-medium text-slate-300 block mt-4">
+            Display
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                showLegend
+                  ? 'bg-slate-600 text-white'
+                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+              }`}
+            >
+              {showLegend ? 'Hide Legend' : 'Show Legend'}
+            </button>
+            <button
+              onClick={() => {
+                setConfig({
+                  selectedAgents: allAgents.slice(0, 3),
+                  selectedMetrics: ['tq'],
+                  showDeptAvg: true,
+                  showSeniorAvg: false,
+                  showNonSeniorAvg: false,
+                  dateRangeStart: 0,
+                  dateRangeEnd: allDates.length - 1,
+                });
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-slate-700 text-slate-400 hover:bg-red-600 hover:text-white"
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Date Range */}
@@ -441,7 +662,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={500}>
-            <LineChart data={chartDataWithTrends} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+            <LineChart data={chartDataWithTrends} margin={{ top: 20, right: 60, left: 20, bottom: 20 }}>
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDate}
@@ -449,37 +670,89 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                 fontSize={12}
                 tickMargin={10}
               />
+              {/* Left Y-axis for percentage metrics */}
               <YAxis
-                domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
-                stroke="#64748b"
+                yAxisId="percent"
+                orientation="left"
+                domain={yAxisConfig.percentDomain}
+                tickFormatter={(v) => `${v.toFixed(0)}%`}
+                stroke="#818cf8"
                 fontSize={12}
+                allowDataOverflow={outlierHandling === 'percentile'}
+                hide={selectedPercentMetrics.length === 0}
+              />
+              {/* Right Y-axis for count metrics */}
+              <YAxis
+                yAxisId="count"
+                orientation="right"
+                domain={yAxisConfig.countDomain}
+                tickFormatter={(v) => Math.round(v).toLocaleString()}
+                stroke="#34d399"
+                fontSize={12}
+                allowDataOverflow={outlierHandling === 'percentile'}
+                hide={selectedCountMetrics.length === 0}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1e293b',
+                  backgroundColor: '#0f172a',
                   border: '1px solid #334155',
                   borderRadius: '8px',
+                  padding: '12px',
                 }}
-                labelStyle={{ color: '#f1f5f9' }}
-                formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(1)}%`]}
+                labelStyle={{ color: '#f1f5f9', fontWeight: 'bold', marginBottom: '8px' }}
+                itemStyle={{ padding: '2px 0' }}
+                formatter={(value: number | undefined, name?: string) => {
+                  if (!name) return [`${(value ?? 0).toFixed(1)}%`, undefined];
+
+                  // Extract metric and source from name (e.g., "Agent Name_quotes" -> metric="quotes", source="Agent Name")
+                  const parts = name.split('_');
+                  const metric = parts[parts.length - 1] as MetricKey;
+                  const source = parts.slice(0, -1).join(' ');
+                  const isPercent = isPercentMetric(metric);
+                  const metricLabel = METRIC_LABELS[metric] || metric;
+
+                  // Format the source name
+                  let displaySource = source;
+                  if (source === 'dept') displaySource = 'Department';
+                  else if (source === 'senior') displaySource = 'Senior Avg';
+                  else if (source === 'nonsenior') displaySource = 'Non-Senior Avg';
+
+                  // Format the value
+                  const formattedValue = isPercent
+                    ? `${(value ?? 0).toFixed(1)}%`
+                    : Math.round(value ?? 0).toLocaleString();
+
+                  // Return formatted label with source and metric
+                  return [formattedValue, `${displaySource} - ${metricLabel}`];
+                }}
                 labelFormatter={(label) => formatDate(label as string)}
               />
-              <Legend
-                wrapperStyle={{ paddingTop: '20px' }}
-                formatter={(value: string) => {
-                  // Clean up legend names
-                  const parts = value.split('_');
-                  if (parts.length === 2) {
-                    const [name, metric] = parts;
-                    if (name === 'dept') return `Dept Avg (${METRIC_LABELS[metric as keyof typeof METRIC_LABELS]})`;
-                    if (name === 'senior') return `Senior Avg (${METRIC_LABELS[metric as keyof typeof METRIC_LABELS]})`;
-                    if (name === 'nonsenior') return `Non-Senior Avg (${METRIC_LABELS[metric as keyof typeof METRIC_LABELS]})`;
-                    return `${name} (${METRIC_LABELS[metric as keyof typeof METRIC_LABELS]})`;
-                  }
-                  return value;
-                }}
-              />
+              {showLegend && (
+                <Legend
+                  wrapperStyle={{
+                    paddingTop: '10px',
+                    maxHeight: '80px',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                  }}
+                  formatter={(value: string) => {
+                    // Clean up legend names - show metric type more clearly
+                    const parts = value.split('_');
+                    if (parts.length >= 2) {
+                      const metric = parts[parts.length - 1];
+                      const name = parts.slice(0, -1).join('_');
+                      const metricLabel = METRIC_LABELS[metric as keyof typeof METRIC_LABELS] || metric;
+                      if (name === 'dept') return `Dept (${metricLabel})`;
+                      if (name === 'senior') return `Sr (${metricLabel})`;
+                      if (name === 'nonsenior') return `Non-Sr (${metricLabel})`;
+                      // For agents, just show first name + metric abbreviation
+                      const shortName = name.split(' ')[0];
+                      return `${shortName} (${metricLabel})`;
+                    }
+                    return value;
+                  }}
+                />
+              )}
 
               {/* Agent lines */}
               {!hideRawData && config.selectedAgents.map((agent) =>
@@ -489,6 +762,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     type="monotone"
                     dataKey={`${agent}_${metric}`}
                     name={`${agent}_${metric}`}
+                    yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                     stroke={getAgentColor(allAgents.indexOf(agent))}
                     strokeWidth={2}
                     dot={false}
@@ -499,8 +773,12 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       metric === 'tp' ? '5 5' :
                       metric === 'pq' ? '2 2' :
                       metric === 'hp' ? '8 2' :
-                      metric === 'bk' ? '4 4' :
-                      '1 3'
+                      metric === 'nc' ? '1 3' :
+                      // Count metrics - solid lines with different widths
+                      metric === 'trips' ? undefined :
+                      metric === 'quotes' ? '6 3' :
+                      metric === 'passthroughs' ? '4 2' :
+                      '3 3' // bookings
                     }
                   />
                 ))
@@ -514,6 +792,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     type="monotone"
                     dataKey={`dept_${metric}`}
                     name={`dept_${metric}`}
+                    yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                     stroke="#6B7280"
                     strokeWidth={3}
                     strokeDasharray="8 4"
@@ -529,6 +808,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     type="monotone"
                     dataKey={`senior_${metric}`}
                     name={`senior_${metric}`}
+                    yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                     stroke="#F59E0B"
                     strokeWidth={3}
                     strokeDasharray="8 4"
@@ -544,6 +824,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     type="monotone"
                     dataKey={`nonsenior_${metric}`}
                     name={`nonsenior_${metric}`}
+                    yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                     stroke="#94A3B8"
                     strokeWidth={3}
                     strokeDasharray="8 4"
@@ -565,6 +846,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                         type="linear"
                         dataKey={`${key}_trend`}
                         name={`${key}_trend`}
+                        yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                         stroke={getAgentColor(allAgents.indexOf(agent))}
                         strokeWidth={2}
                         strokeDasharray="4 2"
@@ -589,6 +871,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       type="linear"
                       dataKey={`${key}_trend`}
                       name={`${key}_trend`}
+                      yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                       stroke="#6B7280"
                       strokeWidth={2}
                       strokeDasharray="2 2"
@@ -611,6 +894,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       type="linear"
                       dataKey={`${key}_trend`}
                       name={`${key}_trend`}
+                      yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                       stroke="#F59E0B"
                       strokeWidth={2}
                       strokeDasharray="2 2"
@@ -633,6 +917,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       type="linear"
                       dataKey={`${key}_trend`}
                       name={`${key}_trend`}
+                      yAxisId={isPercentMetric(metric) ? 'percent' : 'count'}
                       stroke="#94A3B8"
                       strokeWidth={2}
                       strokeDasharray="2 2"
@@ -713,13 +998,19 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       )}
 
       {/* Legend explanation */}
-      <div className="text-xs text-slate-500 flex flex-wrap gap-4">
-        <span>T&gt;Q = Trips to Quotes %</span>
-        <span>T&gt;P = Trips to Passthroughs %</span>
-        <span>P&gt;Q = Passthroughs to Quotes %</span>
-        <span>Hot Pass = Hot Passes / Passthroughs %</span>
-        <span>Bookings = Bookings / Trips %</span>
-        <span>% Non-Conv = Non-Converted / Trips %</span>
+      <div className="text-xs text-slate-500 space-y-1">
+        <div className="flex flex-wrap gap-4">
+          <span className="text-indigo-400 font-medium">Rate Metrics (left axis):</span>
+          <span>T&gt;Q = Trips to Quotes %</span>
+          <span>T&gt;P = Trips to Passthroughs %</span>
+          <span>P&gt;Q = Passthroughs to Quotes %</span>
+          <span>Hot Pass = Hot Passes / Passthroughs %</span>
+          <span>% Non-Conv = Non-Converted / Trips %</span>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <span className="text-emerald-400 font-medium">Volume Metrics (right axis):</span>
+          <span>Trips, Quotes, Passthroughs, Bookings = Raw counts per day</span>
+        </div>
       </div>
     </div>
   );

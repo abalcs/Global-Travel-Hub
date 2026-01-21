@@ -74,7 +74,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     }
   };
 
-  const totals = sortedMetrics.reduce(
+  // PERF: Memoize totals calculation - O(n) but avoids recalculation on unrelated re-renders
+  const totals = useMemo(() => sortedMetrics.reduce(
     (acc, m) => ({
       trips: acc.trips + m.trips,
       quotes: acc.quotes + m.quotes,
@@ -85,17 +86,19 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       totalLeads: acc.totalLeads + m.totalLeads,
     }),
     { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0 }
-  );
+  ), [sortedMetrics]);
 
-  const totalMetrics = {
+  // PERF: Memoize derived totals - avoids recalculation
+  const totalMetrics = useMemo(() => ({
     quotesFromTrips: totals.trips > 0 ? (totals.quotes / totals.trips) * 100 : 0,
     passthroughsFromTrips: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
     quotesFromPassthroughs: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
     hotPassRate: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
     nonConvertedRate: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
-  };
+  }), [totals]);
 
-  const teamAggregates = teams.map((team) => {
+  // PERF: Memoize team aggregates - O(t*a) calculation, avoid on unrelated re-renders
+  const teamAggregates = useMemo(() => teams.map((team) => {
     const teamMetrics = metrics.filter((m) => team.agentNames.includes(m.agentName));
     const teamTotals = teamMetrics.reduce(
       (acc, m) => ({
@@ -124,7 +127,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       hotPassRate: teamTotals.passthroughs > 0 ? (teamTotals.hotPasses / teamTotals.passthroughs) * 100 : 0,
       nonConvertedRate: teamTotals.totalLeads > 0 ? (teamTotals.nonConvertedLeads / teamTotals.totalLeads) * 100 : 0,
     };
-  });
+  }), [teams, metrics]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {

@@ -244,7 +244,7 @@ export const generatePresentation = async (
   const COLORS = THEMES[config.theme];
 
   // Set presentation properties
-  pptx.author = 'KPI Report Generator';
+  pptx.author = 'Global Travel Hub';
   pptx.title = `${config.teamName} Team Huddle`;
   pptx.subject = 'Weekly Team Huddle';
 

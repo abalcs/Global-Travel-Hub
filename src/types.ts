@@ -62,15 +62,25 @@ export interface AgentTimeSeries {
 
 export interface DailyRatioPoint {
   date: string;
+  // Percentage metrics
   tq: number;  // T>Q %
   tp: number;  // T>P %
   pq: number;  // P>Q %
   hp: number;  // Hot Pass % (hot passes / passthroughs)
-  bk: number;  // Bookings % (bookings / trips)
   nc: number;  // Non-Converted % (non-converted / trips)
+  // Raw count metrics
+  trips: number;
+  quotes: number;
+  passthroughs: number;
+  bookings: number;
 }
 
-export type MetricKey = 'tq' | 'tp' | 'pq' | 'hp' | 'bk' | 'nc';
+// Percentage-based metrics
+export type PercentMetricKey = 'tq' | 'tp' | 'pq' | 'hp' | 'nc';
+// Raw count metrics
+export type CountMetricKey = 'trips' | 'quotes' | 'passthroughs' | 'bookings';
+// All metrics
+export type MetricKey = PercentMetricKey | CountMetricKey;
 
 export interface TimeSeriesData {
   dateRange: { start: string; end: string };

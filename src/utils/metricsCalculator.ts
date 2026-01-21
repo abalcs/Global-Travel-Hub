@@ -177,6 +177,7 @@ export const buildTripDateMap = (
 
 // Count non-converted with date filtering (special logic for grouped format)
 // Can filter by direct date column OR by matching trip names to trip dates
+// Returns both total counts and by-date breakdown
 export const countNonConvertedOptimized = (
   rows: CSVRow[],
   dateColumn: string | null,
@@ -184,9 +185,22 @@ export const countNonConvertedOptimized = (
   endDate: string,
   tripDateMap?: Map<string, string>
 ): Map<string, number> => {
-  const counts = new Map<string, number>();
+  const result = countNonConvertedWithDates(rows, dateColumn, startDate, endDate, tripDateMap);
+  return result.total;
+};
 
-  if (rows.length === 0) return counts;
+// Extended version that also returns by-date breakdown
+export const countNonConvertedWithDates = (
+  rows: CSVRow[],
+  dateColumn: string | null,
+  startDate: string,
+  endDate: string,
+  tripDateMap?: Map<string, string>
+): CountResult => {
+  const total = new Map<string, number>();
+  const byDate = new Map<string, Map<string, number>>();
+
+  if (rows.length === 0) return { total, byDate };
 
   // Find columns
   const keys = Object.keys(rows[0] || {});
@@ -206,7 +220,7 @@ export const countNonConvertedOptimized = (
       lower === 'name';
   });
 
-  if (!leadOwnerCol || !nonValidatedCol) return counts;
+  if (!leadOwnerCol || !nonValidatedCol) return { total, byDate };
 
   // Use integer comparison to avoid timezone issues
   const startInt = startDate ? dateToInt(startDate) : null;
@@ -229,24 +243,24 @@ export const countNonConvertedOptimized = (
       continue;
     }
 
-    // Apply date filter
+    // Try to find a date for this row
+    let dateStr: string | null = null;
+
+    // First try: direct date column
+    if (dateColumn && row[dateColumn]) {
+      dateStr = parseDate(row[dateColumn]);
+    }
+
+    // Second try: match trip name to trip dates
+    if (!dateStr && tripNameCol && tripDateMap && tripDateMap.size > 0) {
+      const tripName = (row[tripNameCol] || '').trim().toLowerCase();
+      if (tripName) {
+        dateStr = tripDateMap.get(tripName) || null;
+      }
+    }
+
+    // Apply date filter if active
     if (hasDateFilter) {
-      let dateStr: string | null = null;
-
-      // First try: direct date column
-      if (dateColumn && row[dateColumn]) {
-        dateStr = parseDate(row[dateColumn]);
-      }
-
-      // Second try: match trip name to trip dates
-      if (!dateStr && tripNameCol && tripDateMap && tripDateMap.size > 0) {
-        const tripName = (row[tripNameCol] || '').trim().toLowerCase();
-        if (tripName) {
-          dateStr = tripDateMap.get(tripName) || null;
-        }
-      }
-
-      // Apply date filter if we found a date
       if (dateStr) {
         const rowInt = dateToInt(dateStr);
         if (startInt && rowInt < startInt) continue;
@@ -257,10 +271,20 @@ export const countNonConvertedOptimized = (
       }
     }
 
-    counts.set(currentAgent, (counts.get(currentAgent) || 0) + 1);
+    // Count total
+    total.set(currentAgent, (total.get(currentAgent) || 0) + 1);
+
+    // Count by date (only if we have a date)
+    if (dateStr) {
+      if (!byDate.has(currentAgent)) {
+        byDate.set(currentAgent, new Map());
+      }
+      const agentDates = byDate.get(currentAgent)!;
+      agentDates.set(dateStr, (agentDates.get(dateStr) || 0) + 1);
+    }
   }
 
-  return counts;
+  return { total, byDate };
 };
 
 // Calculate all metrics in a single pass
@@ -278,6 +302,12 @@ export const calculateMetrics = (
     m.forEach((_, agent) => allAgents.add(agent));
   });
 
+  // PERF: Pre-build normalized lookup map for case-insensitive matching - O(m) once instead of O(n*m)
+  const normalizedNonConverted = new Map<string, number>();
+  for (const [key, value] of nonConvertedCounts.entries()) {
+    normalizedNonConverted.set(key.toLowerCase().trim(), value);
+  }
+
   const metrics: Metrics[] = [];
 
   for (const agentName of allAgents) {
@@ -287,16 +317,10 @@ export const calculateMetrics = (
     const hotPasses = hotPassCounts.get(agentName) || 0;
     const bookings = bookingsCounts.get(agentName) || 0;
 
-    // Try to find matching agent in nonConvertedCounts (case-insensitive)
+    // PERF: O(1) lookup instead of O(m) iteration for case-insensitive match
     let nonConvertedCount = nonConvertedCounts.get(agentName) || 0;
     if (nonConvertedCount === 0) {
-      const agentNameLower = agentName.toLowerCase().trim();
-      for (const [key, value] of nonConvertedCounts.entries()) {
-        if (key.toLowerCase().trim() === agentNameLower) {
-          nonConvertedCount = value;
-          break;
-        }
-      }
+      nonConvertedCount = normalizedNonConverted.get(agentName.toLowerCase().trim()) || 0;
     }
 
     metrics.push({
@@ -326,13 +350,16 @@ export const buildTimeSeriesOptimized = (
   passthroughsByDate: Map<string, Map<string, number>>,
   hotPassByDate: Map<string, Map<string, number>>,
   bookingsByDate: Map<string, Map<string, number>>,
-  seniors: string[]
+  seniors: string[],
+  nonConvertedByDate?: Map<string, Map<string, number>>
 ): TimeSeriesData => {
   // Collect all agents and dates
   const allAgents = new Set<string>();
   const allDates = new Set<string>();
 
   const allMaps = [tripsByDate, quotesByDate, passthroughsByDate, hotPassByDate, bookingsByDate];
+  if (nonConvertedByDate) allMaps.push(nonConvertedByDate);
+
   for (const map of allMaps) {
     for (const [agent, dates] of map) {
       allAgents.add(agent);
@@ -354,6 +381,7 @@ export const buildTimeSeriesOptimized = (
     const passthroughDates = passthroughsByDate.get(agent) || new Map();
     const hotPassDates = hotPassByDate.get(agent) || new Map();
     const bookingDates = bookingsByDate.get(agent) || new Map();
+    const nonConvertedDates = nonConvertedByDate?.get(agent) || new Map();
 
     const dailyMetrics: DailyAgentMetrics[] = sortedDates.map(date => ({
       date,
@@ -362,37 +390,49 @@ export const buildTimeSeriesOptimized = (
       passthroughs: passthroughDates.get(date) || 0,
       hotPasses: hotPassDates.get(date) || 0,
       bookings: bookingDates.get(date) || 0,
-      nonConverted: 0, // Non-converted doesn't have date breakdown
+      nonConverted: nonConvertedDates.get(date) || 0,
     }));
 
     agentTimeSeries.push({ agentName: agent, dailyMetrics });
   }
 
   // Calculate group averages
+  // PERF: Pre-build date index maps for O(1) lookup instead of O(d) .find() per agent per date
   const calcGroupDaily = (agents: AgentTimeSeries[]) => {
+    // Build date->metrics map for each agent once - O(a*d) total
+    const agentDateMaps = agents.map(agent =>
+      new Map(agent.dailyMetrics.map(m => [m.date, m]))
+    );
+
     return sortedDates.map(date => {
       let totalTrips = 0, totalQuotes = 0, totalPassthroughs = 0;
-      let totalHotPasses = 0, totalBookings = 0;
+      let totalHotPasses = 0, totalBookings = 0, totalNonConverted = 0;
 
-      for (const agent of agents) {
-        const dayMetrics = agent.dailyMetrics.find(m => m.date === date);
+      for (let i = 0; i < agents.length; i++) {
+        const dayMetrics = agentDateMaps[i].get(date); // O(1) instead of O(d)
         if (dayMetrics) {
           totalTrips += dayMetrics.trips;
           totalQuotes += dayMetrics.quotes;
           totalPassthroughs += dayMetrics.passthroughs;
           totalHotPasses += dayMetrics.hotPasses;
           totalBookings += dayMetrics.bookings;
+          totalNonConverted += dayMetrics.nonConverted;
         }
       }
 
       return {
         date,
+        // Percentage metrics
         tq: totalTrips > 0 ? (totalQuotes / totalTrips) * 100 : 0,
         tp: totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0,
         pq: totalPassthroughs > 0 ? (totalQuotes / totalPassthroughs) * 100 : 0,
         hp: totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0,
-        bk: totalTrips > 0 ? (totalBookings / totalTrips) * 100 : 0,
-        nc: 0,
+        nc: totalTrips > 0 ? (totalNonConverted / totalTrips) * 100 : 0,
+        // Raw count metrics
+        trips: totalTrips,
+        quotes: totalQuotes,
+        passthroughs: totalPassthroughs,
+        bookings: totalBookings,
       };
     });
   };

@@ -5,6 +5,7 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { TeamComparison } from './components/TeamComparison';
 import { DateRangeFilter } from './components/DateRangeFilter';
 import { TrendsView } from './components/TrendsView';
+import { InsightsView } from './components/InsightsView';
 import { PresentationGenerator } from './components/PresentationGenerator';
 import { AgentAnalytics } from './components/AgentAnalytics';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
@@ -16,7 +17,7 @@ import {
   findAgentColumn,
   findDateColumn,
   countByAgentOptimized,
-  countNonConvertedOptimized,
+  countNonConvertedWithDates,
   buildTripDateMap,
   calculateMetrics,
   buildTimeSeriesOptimized
@@ -37,7 +38,7 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
-  const [activeView, setActiveView] = useState<'summary' | 'trends'>('summary');
+  const [activeView, setActiveView] = useState<'summary' | 'trends' | 'insights'>('summary');
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -186,7 +187,7 @@ function App() {
         ? countByAgentOptimized(bookingsRows, bookingsAgentCol, bookingsDateCol, startDate, endDate)
         : { total: new Map<string, number>(), byDate: new Map<string, Map<string, number>>() };
 
-      const nonConvertedCountsMap = countNonConvertedOptimized(
+      const nonConvertedResult = countNonConvertedWithDates(
         nonConvertedRows,
         nonConvertedDateCol,
         startDate,
@@ -200,7 +201,7 @@ function App() {
         passthroughsResult.total,
         hotPassResult.total,
         bookingsResult.total,
-        nonConvertedCountsMap
+        nonConvertedResult.total
       );
 
       setMetrics(calculatedMetrics);
@@ -212,7 +213,8 @@ function App() {
         passthroughsResult.byDate,
         hotPassResult.byDate,
         bookingsResult.byDate,
-        seniors
+        seniors,
+        nonConvertedResult.byDate
       );
 
       setTimeSeriesData(tsData);
@@ -258,7 +260,7 @@ function App() {
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">KPI Report Generator</h1>
+            <h1 className="text-2xl font-bold text-white">Global Travel Hub</h1>
             <p className="text-sm text-slate-400">Analyze agent performance metrics</p>
           </div>
           {metrics.length > 0 && (
@@ -431,6 +433,17 @@ function App() {
               >
                 Trends
               </button>
+              <button
+                onClick={() => setActiveView('insights')}
+                disabled={!rawParsedData}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeView === 'insights'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+              >
+                Insights
+              </button>
             </div>
 
             {activeView === 'summary' && (
@@ -459,6 +472,11 @@ function App() {
         {/* Trends View */}
         {activeView === 'trends' && timeSeriesData && (
           <TrendsView timeSeriesData={timeSeriesData} seniors={seniors} />
+        )}
+
+        {/* Insights View */}
+        {activeView === 'insights' && rawParsedData && (
+          <InsightsView rawData={rawParsedData} />
         )}
 
         {/* Empty State */}
