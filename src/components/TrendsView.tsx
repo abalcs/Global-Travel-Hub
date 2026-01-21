@@ -44,6 +44,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
   // Build agent -> dates map for efficient date range lookups
   const agentDateRanges = useMemo(() => {
+    console.log('=== Building agentDateRanges ===');
+    console.log('Number of agents in timeSeriesData:', timeSeriesData.agents.length);
+    console.log('allDates sample:', allDates.slice(0, 5), '... total:', allDates.length);
+
     const ranges = new Map<string, { minIdx: number; maxIdx: number }>();
 
     timeSeriesData.agents.forEach((agent) => {
@@ -57,12 +61,20 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
         const maxDate = agentDates[agentDates.length - 1];
         const minIdx = allDates.indexOf(minDate);
         const maxIdx = allDates.indexOf(maxDate);
+
+        console.log(`Agent "${agent.agentName}": dates ${agentDates.length}, min=${minDate} (idx ${minIdx}), max=${maxDate} (idx ${maxIdx})`);
+
         if (minIdx !== -1 && maxIdx !== -1) {
           ranges.set(agent.agentName, { minIdx, maxIdx });
+        } else {
+          console.warn(`Agent "${agent.agentName}" has invalid date indices: minIdx=${minIdx}, maxIdx=${maxIdx}`);
         }
+      } else {
+        console.warn(`Agent "${agent.agentName}" has no valid dates`);
       }
     });
 
+    console.log('Total ranges built:', ranges.size);
     return ranges;
   }, [timeSeriesData, allDates]);
 
@@ -137,14 +149,32 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
   // Fit date range to selected agents
   const fitDateRangeToSelection = useCallback(() => {
-    if (config.selectedAgents.length === 0) return;
+    console.log('=== Fit to Selection Debug ===');
+    console.log('Selected agents:', config.selectedAgents);
+    console.log('All dates length:', allDates.length);
+    console.log('Agent date ranges map:', Object.fromEntries(agentDateRanges));
+    console.log('Selected agents date range:', selectedAgentsDateRange);
+    console.log('Current config:', { start: config.dateRangeStart, end: config.dateRangeEnd });
+
+    if (config.selectedAgents.length === 0) {
+      console.log('No agents selected, aborting');
+      return;
+    }
+
+    // Log each selected agent's range
+    for (const agentName of config.selectedAgents) {
+      const range = agentDateRanges.get(agentName);
+      console.log(`Agent "${agentName}" range:`, range);
+    }
+
+    console.log('Setting new range:', { start: selectedAgentsDateRange.minIdx, end: selectedAgentsDateRange.maxIdx });
 
     setConfig((prev) => ({
       ...prev,
       dateRangeStart: selectedAgentsDateRange.minIdx,
       dateRangeEnd: selectedAgentsDateRange.maxIdx,
     }));
-  }, [config.selectedAgents.length, selectedAgentsDateRange]);
+  }, [config.selectedAgents, selectedAgentsDateRange, allDates.length, agentDateRanges, config.dateRangeStart, config.dateRangeEnd]);
 
   // Prepare chart data
   const chartData = useMemo(() => {
