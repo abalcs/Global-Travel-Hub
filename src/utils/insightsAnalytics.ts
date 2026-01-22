@@ -2,6 +2,64 @@ import type { CSVRow } from './csvParser';
 import type { RawParsedData } from './indexedDB';
 import Anthropic from '@anthropic-ai/sdk';
 
+// ============ US Program to Destination Mapping ============
+
+export const PROGRAM_DESTINATION_MAP: Record<string, string[]> = {
+  'WEMEA': [
+    // Africa
+    'Botswana', 'Kenya', 'Madagascar', 'Mauritius', 'Malawi', 'Morocco',
+    'Mozambique', 'Namibia', 'Rwanda', 'Seychelles', 'South Africa',
+    'Tanzania', 'Uganda', 'Zambia', 'Zimbabwe',
+    // Middle East & Europe
+    'Dubai', 'Egypt', 'England', 'Wales', 'Iceland', 'Ireland',
+    'Israel', 'Jordan', 'Oman', 'Portugal', 'Scotland', 'Spain'
+  ],
+  'ASIA': [
+    'Bhutan', 'Borneo', 'Myanmar', 'Cambodia', 'China', 'Indonesia',
+    'Japan', 'Laos', 'Malaysia', 'Maldives', 'Nepal', 'Southern India',
+    'India', 'Philippines', 'Russia', 'Singapore', 'South Korea',
+    'Uzbekistan', 'Kyrgyzstan', 'Sri Lanka', 'Thailand', 'Vietnam',
+    'Wildlife India'
+  ],
+  'CANAL': [
+    // Pacific
+    'Australia', 'Cook Islands', 'Fiji', 'French Polynesia', 'New Zealand', 'Samoa',
+    // Americas
+    'Antarctica', 'Arctic', 'Argentina', 'Belize', 'Bolivia', 'Brazil',
+    'Caribbean', 'Chile', 'Colombia', 'Costa Rica', 'Ecuador', 'Guatemala',
+    'Panama', 'Mexico', 'Peru', 'Uruguay',
+    // USA & Canada
+    'California', 'Alaska', 'Southwest & Rockies', 'Deep South',
+    'New England', 'Hawaii', 'Pacific Northwest', 'Canada', 'The USA'
+  ],
+  'ESE': [
+    'Austria', 'Budapest', 'Slovenia', 'Montenegro', 'Bosnia', 'Croatia',
+    'France', 'Germany', 'Greece', 'Italy', 'Prague', 'Belgium',
+    'Benelux', 'Luxembourg', 'Netherlands', 'Switzerland', 'Norway',
+    'Sweden', 'Denmark', 'Scandinavia', 'Scandanavia', 'Turkey'
+  ]
+};
+
+// Create reverse lookup: destination -> program
+export const DESTINATION_TO_PROGRAM: Record<string, string> = {};
+for (const [program, destinations] of Object.entries(PROGRAM_DESTINATION_MAP)) {
+  for (const dest of destinations) {
+    DESTINATION_TO_PROGRAM[dest.toLowerCase()] = program;
+  }
+}
+
+// Get the correct program for a destination
+export const getProgramForDestination = (destination: string): string | null => {
+  const normalized = destination.trim().toLowerCase();
+  return DESTINATION_TO_PROGRAM[normalized] || null;
+};
+
+// Check if a destination belongs to a program
+export const destinationBelongsToProgram = (destination: string, program: string): boolean => {
+  const destProgram = getProgramForDestination(destination);
+  return destProgram?.toLowerCase() === program.toLowerCase();
+};
+
 // ============ Date/Time Parsing ============
 
 interface ParsedDateTime {
@@ -1854,6 +1912,67 @@ export const discoverColumns = (rawData: RawParsedData): Record<string, string[]
 
 // ============ Meeting Agenda Generation ============
 
+// Extract program-to-destination associations from data for debugging
+export const extractProgramDestinationAssociations = (rawData: RawParsedData): Record<string, string[]> => {
+  console.log('=== HARDCODED PROGRAM-DESTINATION MAPPING (USED FOR FILTERING) ===');
+  for (const [program, dests] of Object.entries(PROGRAM_DESTINATION_MAP)) {
+    console.log(`${program}: ${dests.join(', ')}`);
+  }
+  console.log('=== END HARDCODED MAPPING ===\n');
+
+  const associations: Record<string, Set<string>> = {};
+
+  // Check trips data
+  if (rawData.trips && rawData.trips.length > 0) {
+    const programCol = findColumn(rawData.trips[0], ['us program', 'program', 'department', 'team', 'business unit']);
+    const destCol = findColumn(rawData.trips[0], ['destination', 'region', 'country', 'original interest']);
+
+    if (programCol && destCol) {
+      for (const row of rawData.trips) {
+        const program = (row[programCol] || '').trim();
+        const dest = (row[destCol] || '').trim();
+        if (program && dest) {
+          if (!associations[program]) associations[program] = new Set();
+          associations[program].add(dest);
+        }
+      }
+    } else {
+      console.warn('Program-Destination check: trips data missing columns', { programCol, destCol });
+    }
+  }
+
+  // Check passthroughs data
+  if (rawData.passthroughs && rawData.passthroughs.length > 0) {
+    const programCol = findColumn(rawData.passthroughs[0], ['us program', 'program', 'department', 'team', 'business unit']);
+    const destCol = findColumn(rawData.passthroughs[0], ['destination', 'region', 'country', 'original interest']);
+
+    if (programCol && destCol) {
+      for (const row of rawData.passthroughs) {
+        const program = (row[programCol] || '').trim();
+        const dest = (row[destCol] || '').trim();
+        if (program && dest) {
+          if (!associations[program]) associations[program] = new Set();
+          associations[program].add(dest);
+        }
+      }
+    }
+  }
+
+  // Convert Sets to sorted arrays
+  const result: Record<string, string[]> = {};
+  for (const [program, dests] of Object.entries(associations)) {
+    result[program] = Array.from(dests).sort();
+  }
+
+  console.log('=== PROGRAM-DESTINATION ASSOCIATIONS FROM YOUR DATA (for reference) ===');
+  for (const [program, dests] of Object.entries(result)) {
+    console.log(`${program}: ${dests.join(', ')}`);
+  }
+  console.log('=== END DATA ASSOCIATIONS ===');
+
+  return result;
+};
+
 // Extract unique US Programs from passthrough data
 export const extractUSPrograms = (rawData: RawParsedData): string[] => {
   const passthroughs = rawData.passthroughs;
@@ -1875,38 +1994,43 @@ export const extractUSPrograms = (rawData: RawParsedData): string[] => {
   return Array.from(programs).sort();
 };
 
-// Filter data by program
+// Filter data by program using hardcoded destination mapping
 export const filterDataByProgram = (
   rawData: RawParsedData,
   program: string
 ): RawParsedData => {
-  const findProgramCol = (rows: CSVRow[]): string | null => {
-    if (!rows || rows.length === 0) return null;
-    return findColumn(rows[0], ['us program', 'program', 'department', 'team', 'business unit']);
-  };
+  // Get allowed destinations for this program from the hardcoded mapping
+  const allowedDestinations = PROGRAM_DESTINATION_MAP[program.toUpperCase()] || [];
+  const allowedDestLower = new Set(allowedDestinations.map(d => d.toLowerCase()));
 
-  const filterByProgram = (rows: CSVRow[], programCol: string | null): CSVRow[] => {
-    if (!programCol || !rows) return rows;
-    return rows.filter(row => {
-      const rowProgram = (row[programCol] || '').trim();
-      return rowProgram.toLowerCase() === program.toLowerCase();
+  const filterByDestination = (rows: CSVRow[], datasetName: string): CSVRow[] => {
+    if (!rows || rows.length === 0) return [];
+
+    // Find the destination column
+    const destCol = findColumn(rows[0], ['destination', 'region', 'country', 'original interest']);
+
+    if (!destCol) {
+      console.warn(`No destination column found in ${datasetName} data.`);
+      return [];
+    }
+
+    // Filter to only rows where destination matches the program's allowed destinations
+    const filtered = rows.filter(row => {
+      const dest = (row[destCol] || '').trim().toLowerCase();
+      return allowedDestLower.has(dest);
     });
-  };
 
-  const tripsProgramCol = findProgramCol(rawData.trips);
-  const quotesProgramCol = findProgramCol(rawData.quotes);
-  const passthroughsProgramCol = findProgramCol(rawData.passthroughs);
-  const hotPassProgramCol = findProgramCol(rawData.hotPass);
-  const bookingsProgramCol = findProgramCol(rawData.bookings);
-  const nonConvertedProgramCol = findProgramCol(rawData.nonConverted);
+    console.log(`Filtered ${datasetName} by destination: ${filtered.length} of ${rows.length} rows for program "${program}" (${allowedDestinations.length} allowed destinations)`);
+    return filtered;
+  };
 
   return {
-    trips: filterByProgram(rawData.trips, tripsProgramCol),
-    quotes: filterByProgram(rawData.quotes, quotesProgramCol),
-    passthroughs: filterByProgram(rawData.passthroughs, passthroughsProgramCol),
-    hotPass: filterByProgram(rawData.hotPass, hotPassProgramCol),
-    bookings: filterByProgram(rawData.bookings, bookingsProgramCol),
-    nonConverted: filterByProgram(rawData.nonConverted, nonConvertedProgramCol),
+    trips: filterByDestination(rawData.trips, 'trips'),
+    quotes: filterByDestination(rawData.quotes, 'quotes'),
+    passthroughs: filterByDestination(rawData.passthroughs, 'passthroughs'),
+    hotPass: filterByDestination(rawData.hotPass, 'hotPass'),
+    bookings: filterByDestination(rawData.bookings, 'bookings'),
+    nonConverted: filterByDestination(rawData.nonConverted, 'nonConverted'),
   };
 };
 
@@ -1916,6 +2040,8 @@ export interface MeetingAgendaData {
   date: string;
   tpRecommendations: DepartmentImprovementRecommendation[];
   pqRecommendations: DepartmentImprovementRecommendation[];
+  topTpDestinations: Array<{ region: string; tpRate: number; trips: number; passthroughs: number }>;
+  topPqDestinations: Array<{ region: string; pqRate: number; passthroughs: number; quotes: number }>;
   topAgents: Array<{ name: string; tpRate: number; trips: number; regions: string[] }>;
   bottomAgents: Array<{ name: string; tpRate: number; trips: number; focusRegions: string[] }>;
   overallStats: {
@@ -1980,6 +2106,30 @@ export const generateMeetingAgendaData = (
     focusRegions: agent.recommendations.slice(0, 3).map(r => r.region),
   }));
 
+  // Get top destinations for T>P (sorted by T>P rate, descending)
+  const topTpDestinations = [...regionalPerformance.allRegions]
+    .filter(r => r.trips >= 10) // Minimum volume threshold
+    .sort((a, b) => b.tpRate - a.tpRate)
+    .slice(0, 5)
+    .map(r => ({
+      region: r.region,
+      tpRate: r.tpRate,
+      trips: r.trips,
+      passthroughs: r.passthroughs,
+    }));
+
+  // Get top destinations for P>Q (sorted by P>Q rate, descending)
+  const topPqDestinations = [...regionalPerformance.allRegions]
+    .filter(r => r.passthroughs >= 5) // Minimum volume threshold
+    .sort((a, b) => b.pqRate - a.pqRate)
+    .slice(0, 5)
+    .map(r => ({
+      region: r.region,
+      pqRate: r.pqRate,
+      passthroughs: r.passthroughs,
+      quotes: r.quotes,
+    }));
+
   return {
     program,
     date: new Date().toLocaleDateString('en-US', {
@@ -1990,6 +2140,8 @@ export const generateMeetingAgendaData = (
     }),
     tpRecommendations: tpRecommendations.slice(0, 3),
     pqRecommendations: pqRecommendations.slice(0, 3),
+    topTpDestinations,
+    topPqDestinations,
     topAgents,
     bottomAgents,
     overallStats: {

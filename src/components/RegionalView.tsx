@@ -6,6 +6,7 @@ import {
   generateDepartmentRecommendations,
   generatePqDepartmentRecommendations,
   extractUSPrograms,
+  extractProgramDestinationAssociations,
   generateMeetingAgendaData,
   type RegionalTimeframe,
   type DepartmentRegionalPerformance,
@@ -13,7 +14,7 @@ import {
   type DepartmentImprovementRecommendation,
   type MeetingAgendaData,
 } from '../utils/insightsAnalytics';
-import { generateWordDocument, generatePowerPoint } from '../utils/documentGenerator';
+import { generatePDFDocument, generatePowerPoint } from '../utils/documentGenerator';
 
 interface RegionalViewProps {
   rawData: RawParsedData;
@@ -75,14 +76,18 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
     setAgendaData(data);
   };
 
-  // Handle Word document download
-  const handleDownloadWord = async () => {
-    if (!agendaData) return;
+  // Handle PDF document download
+  const handleDownloadPDF = async () => {
+    if (!agendaData) {
+      console.error('No agenda data available');
+      return;
+    }
     setIsGenerating(true);
     try {
-      await generateWordDocument(agendaData);
+      await generatePDFDocument(agendaData);
     } catch (err) {
-      console.error('Failed to generate Word document:', err);
+      console.error('Failed to generate PDF document:', err);
+      alert('Failed to generate PDF. Please check the console for details.');
     } finally {
       setIsGenerating(false);
     }
@@ -90,12 +95,16 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
 
   // Handle PowerPoint download
   const handleDownloadPowerPoint = async () => {
-    if (!agendaData) return;
+    if (!agendaData) {
+      console.error('No agenda data available');
+      return;
+    }
     setIsGenerating(true);
     try {
       await generatePowerPoint(agendaData);
     } catch (err) {
       console.error('Failed to generate PowerPoint:', err);
+      alert('Failed to generate PowerPoint. Please check the console for details.');
     } finally {
       setIsGenerating(false);
     }
@@ -106,10 +115,13 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
     if (!agendaData) return;
     setIsGenerating(true);
     try {
-      await generateWordDocument(agendaData);
+      await generatePDFDocument(agendaData);
+      // Small delay between downloads to prevent browser issues
+      await new Promise(resolve => setTimeout(resolve, 500));
       await generatePowerPoint(agendaData);
     } catch (err) {
       console.error('Failed to generate documents:', err);
+      alert('Failed to generate documents. Please check the console for details.');
     } finally {
       setIsGenerating(false);
     }
@@ -217,6 +229,8 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
         {availablePrograms.length > 0 && (
           <button
             onClick={() => {
+              // Log program-destination associations for debugging
+              extractProgramDestinationAssociations(rawData);
               setShowAgendaModal(true);
               setSelectedProgram('');
               setAgendaData(null);
@@ -744,7 +758,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">Create Champ Meeting</h3>
-                  <p className="text-sm text-slate-400">Generate Word doc & PowerPoint for your 30-min meeting</p>
+                  <p className="text-sm text-slate-400">Generate PDF & PowerPoint for your 30-min meeting</p>
                 </div>
               </div>
               <button
@@ -808,10 +822,10 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
                     <div className="flex gap-4">
                       <div className="flex-1 bg-slate-800/50 rounded-lg p-4 border border-slate-600/50">
                         <div className="flex items-center gap-2 mb-2">
-                          <svg className="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                          <svg className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
                           </svg>
-                          <span className="text-sm font-medium text-white">Word Document</span>
+                          <span className="text-sm font-medium text-white">PDF Document</span>
                         </div>
                         <p className="text-xs text-slate-400">Detailed meeting agenda with stats</p>
                       </div>
@@ -898,14 +912,14 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
 
                     <div className="grid grid-cols-2 gap-3">
                       <button
-                        onClick={handleDownloadWord}
+                        onClick={handleDownloadPDF}
                         disabled={isGenerating}
                         className="py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                       >
-                        <svg className="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                        <svg className="w-4 h-4 text-red-400" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
                         </svg>
-                        Word Only
+                        PDF Only
                       </button>
                       <button
                         onClick={handleDownloadPowerPoint}

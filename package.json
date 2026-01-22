@@ -12,8 +12,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
-    "docx": "^9.5.1",
     "file-saver": "^2.0.5",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
     "pptxgenjs": "^4.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -25,6 +26,7 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
     "@types/file-saver": "^2.0.7",
+    "@types/jspdf": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
