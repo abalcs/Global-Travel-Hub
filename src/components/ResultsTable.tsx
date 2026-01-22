@@ -40,6 +40,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
   const filteredMetrics = useMemo(() => {
     let filtered = metrics;
 
+    // Remove agents named "total" or "subtotal" with zero volume/rates
+    filtered = filtered.filter(m => {
+      const nameLower = m.agentName.toLowerCase();
+      const isTotalRow = nameLower.includes('total') || nameLower.includes('subtotal');
+      if (isTotalRow) {
+        const hasZeroValues = m.trips === 0 && m.quotes === 0 && m.passthroughs === 0;
+        return !hasZeroValues;
+      }
+      return true;
+    });
+
     // Filter by team
     if (selectedTeam !== 'all') {
       const team = teams.find(t => t.id === selectedTeam);
