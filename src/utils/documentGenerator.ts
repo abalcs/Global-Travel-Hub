@@ -4,6 +4,9 @@ import pptxgen from 'pptxgenjs';
 import { saveAs } from 'file-saver';
 import type { MeetingAgendaData } from './insightsAnalytics';
 
+// Re-export training generator functions
+export { generateDestinationTraining } from './trainingGenerator';
+
 // Modern color palette
 const COLORS = {
   primary: '#4F46E5',      // Indigo

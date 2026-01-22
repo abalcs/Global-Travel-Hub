@@ -14,7 +14,8 @@ import {
   type DepartmentImprovementRecommendation,
   type MeetingAgendaData,
 } from '../utils/insightsAnalytics';
-import { generatePDFDocument, generatePowerPoint } from '../utils/documentGenerator';
+import { generatePDFDocument, generatePowerPoint, generateDestinationTraining } from '../utils/documentGenerator';
+import { loadAnthropicApiKey } from '../utils/storage';
 
 interface RegionalViewProps {
   rawData: RawParsedData;
@@ -38,6 +39,17 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
   const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [agendaData, setAgendaData] = useState<MeetingAgendaData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Training generation state
+  const [hoveredRecommendation, setHoveredRecommendation] = useState<number | null>(null);
+  const [showTrainingConfirm, setShowTrainingConfirm] = useState(false);
+  const [trainingDestination, setTrainingDestination] = useState<{
+    region: string;
+    tpRate: number;
+    departmentAvgRate: number;
+  } | null>(null);
+  const [isGeneratingTraining, setIsGeneratingTraining] = useState(false);
+  const [trainingProgress, setTrainingProgress] = useState<string>('');
 
   // Regional performance analysis
   const filteredRegionalPerformance = useMemo((): DepartmentRegionalPerformance | null => {
@@ -125,6 +137,49 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Handle training generation
+  const handleGenerateTraining = async () => {
+    if (!trainingDestination) return;
+
+    const apiKey = loadAnthropicApiKey();
+    if (!apiKey) {
+      alert('Please set your Anthropic API key in the Settings page to generate training content.');
+      setShowTrainingConfirm(false);
+      return;
+    }
+
+    setIsGeneratingTraining(true);
+    setTrainingProgress('Initializing...');
+
+    try {
+      await generateDestinationTraining(
+        trainingDestination.region,
+        trainingDestination.tpRate,
+        trainingDestination.departmentAvgRate,
+        apiKey,
+        (stage) => setTrainingProgress(stage)
+      );
+      setShowTrainingConfirm(false);
+      setTrainingDestination(null);
+    } catch (err) {
+      console.error('Failed to generate training:', err);
+      alert('Failed to generate training deck. Please check the console for details.');
+    } finally {
+      setIsGeneratingTraining(false);
+      setTrainingProgress('');
+    }
+  };
+
+  // Handle click on recommendation to show training popup
+  const handleRecommendationClick = (rec: DepartmentImprovementRecommendation) => {
+    setTrainingDestination({
+      region: rec.region,
+      tpRate: rec.tpRate,
+      departmentAvgRate: rec.departmentAvgRate,
+    });
+    setShowTrainingConfirm(true);
   };
 
   const selectedAgentAnalysis = useMemo(() => {
@@ -468,14 +523,29 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
               {activeRecommendations.map((rec, i) => (
                 <div
                   key={i}
-                  className={`rounded-lg p-4 border ${
+                  className={`rounded-lg p-4 border cursor-pointer transition-all relative group ${
                     rec.priority === 'high'
-                      ? 'bg-rose-900/30 border-rose-600/40'
+                      ? 'bg-rose-900/30 border-rose-600/40 hover:border-rose-500 hover:bg-rose-900/50'
                       : rec.priority === 'medium'
-                      ? 'bg-amber-900/30 border-amber-600/40'
-                      : 'bg-slate-800/50 border-slate-600/40'
+                      ? 'bg-amber-900/30 border-amber-600/40 hover:border-amber-500 hover:bg-amber-900/50'
+                      : 'bg-slate-800/50 border-slate-600/40 hover:border-slate-500 hover:bg-slate-700/50'
                   }`}
+                  onMouseEnter={() => setHoveredRecommendation(i)}
+                  onMouseLeave={() => setHoveredRecommendation(null)}
+                  onClick={() => handleRecommendationClick(rec)}
                 >
+                  {/* Hover tooltip */}
+                  {hoveredRecommendation === i && (
+                    <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-10 bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap animate-fade-in">
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Click to create product training
+                      </span>
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-indigo-600"></div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
                       rec.priority === 'high'
@@ -740,6 +810,114 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData, seniors: _s
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Training Confirmation Modal */}
+      {showTrainingConfirm && trainingDestination && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 max-w-md w-full overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-700 bg-gradient-to-r from-indigo-900/50 to-purple-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Create Product Training?</h3>
+                  <p className="text-sm text-slate-400">{trainingDestination.region}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTrainingConfirm(false);
+                  setTrainingDestination(null);
+                }}
+                disabled={isGeneratingTraining}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5">
+              {!isGeneratingTraining ? (
+                <div className="space-y-4">
+                  <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-slate-400">Current T&gt;P Rate</span>
+                      <span className="text-lg font-bold text-rose-400">{trainingDestination.tpRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Department Average</span>
+                      <span className="text-lg font-bold text-slate-300">{trainingDestination.departmentAvgRate.toFixed(1)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 rounded-lg p-4 border border-indigo-600/30">
+                    <p className="text-sm text-white mb-3">This will generate a <span className="text-indigo-400 font-medium">45-minute training deck</span> covering:</p>
+                    <ul className="text-sm text-slate-300 space-y-1.5">
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-teal-400 rounded-full"></span>
+                        Destination overview & unique selling points
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                        Hotels by category (luxury, mid-range, boutique)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-purple-400 rounded-full"></span>
+                        Must-do experiences & hidden gems
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-rose-400 rounded-full"></span>
+                        Sales techniques & objection handling
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full"></span>
+                        Quiz questions for engagement
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowTrainingConfirm(false);
+                        setTrainingDestination(null);
+                      }}
+                      className="flex-1 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleGenerateTraining}
+                      className="flex-1 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium transition-all shadow-lg hover:shadow-indigo-500/25"
+                    >
+                      Generate Training
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 relative">
+                    <svg className="animate-spin w-16 h-16 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                  <h4 className="text-lg font-medium text-white mb-2">Generating Training Deck</h4>
+                  <p className="text-sm text-indigo-400">{trainingProgress}</p>
+                  <p className="text-xs text-slate-500 mt-4">This may take a minute as AI generates comprehensive content...</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
