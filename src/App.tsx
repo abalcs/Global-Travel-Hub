@@ -264,12 +264,11 @@ function App() {
   }, [files, startDate, endDate, rawParsedData, processFilesWithWorker, seniors]);
 
   const handleClearData = useCallback(() => {
+    // Clear analyzed results but preserve stored raw data
     setMetrics([]);
     clearMetrics();
     setTimeSeriesData(null);
     clearTimeSeriesData();
-    setRawParsedData(null);
-    clearRawDataFromDB();
     setFiles({
       passthroughs: null,
       trips: null,
@@ -279,6 +278,12 @@ function App() {
       nonConverted: null,
     });
     setShowDataPanel(true);
+  }, []);
+
+  const handleClearStoredData = useCallback(() => {
+    // Clear the stored raw data from IndexedDB
+    setRawParsedData(null);
+    clearRawDataFromDB();
   }, []);
 
   const handleClearDateFilter = useCallback(() => {
@@ -439,6 +444,44 @@ function App() {
 
           {showDataPanel && (
             <div className="px-4 pb-4 border-t border-slate-700/50 pt-4">
+              {/* Quick Load Button for stored data */}
+              {hasStoredData && (
+                <div className="mb-4 bg-slate-700/30 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                      <span className="text-white font-medium">Stored Dataset</span>
+                      {dataDateRange && (
+                        <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs">
+                          {dataDateRange.start} — {dataDateRange.end}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleClearStoredData}
+                      className="text-xs text-slate-400 hover:text-red-400 transition-colors px-2 py-1 hover:bg-red-500/10 rounded"
+                    >
+                      Clear Stored Data
+                    </button>
+                  </div>
+                  <button
+                    onClick={processFiles}
+                    disabled={isProcessing}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Reload & Analyze Dataset</span>
+                  </button>
+                  <p className="text-xs text-slate-500 text-center mt-2">
+                    Or upload new files below to replace the stored data
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <FileUpload
                   label="Trips"

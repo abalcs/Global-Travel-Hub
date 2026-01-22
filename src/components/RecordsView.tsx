@@ -1,11 +1,44 @@
 import { useState, useMemo } from 'react';
-import type { AllRecords, AgentRecords, VolumeMetric, RateMetric, TimePeriod } from '../utils/recordsTracker';
+import type { AllRecords, AgentRecords, VolumeMetric, RateMetric, TimePeriod, RecordEntry } from '../utils/recordsTracker';
 import { formatMetricName, formatPeriodName, formatRecordValue, formatDateRange, clearRecords } from '../utils/recordsTracker';
 
 interface RecordsViewProps {
   records: AllRecords;
   onClearRecords: () => void;
 }
+
+// Helper to check if a date is in the current calendar quarter
+const isCurrentQuarter = (dateStr: string): boolean => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const currentQuarter = Math.floor(now.getMonth() / 3);
+  const currentYear = now.getFullYear();
+  const recordQuarter = Math.floor(date.getMonth() / 3);
+  const recordYear = date.getFullYear();
+  return currentQuarter === recordQuarter && currentYear === recordYear;
+};
+
+// Helper to check if a date is in the current calendar month
+const isCurrentMonth = (dateStr: string): boolean => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+};
+
+// Get current quarter label
+const getCurrentQuarterLabel = (): string => {
+  const now = new Date();
+  const quarter = Math.floor(now.getMonth() / 3) + 1;
+  return `Q${quarter} ${now.getFullYear()}`;
+};
+
+// Get current month label
+const getCurrentMonthLabel = (): string => {
+  const now = new Date();
+  return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+};
+
+type RecentRecordsFilter = 'quarter' | 'month';
 
 type ViewMode = 'volume' | 'rates';
 type SortBy = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq';
@@ -21,6 +54,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [recentRecordsFilter, setRecentRecordsFilter] = useState<RecentRecordsFilter>('quarter');
+  const [showAllRecentRecords, setShowAllRecentRecords] = useState(false);
 
   const agents = useMemo(() => {
     return Object.values(records.agents).sort((a, b) => {
@@ -57,6 +92,43 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
   };
 
   const selectedAgentRecords = selectedAgent ? records.agents[selectedAgent] : null;
+
+  // Get all records set in the current quarter or month
+  const recentRecords = useMemo(() => {
+    const filterFn = recentRecordsFilter === 'quarter' ? isCurrentQuarter : isCurrentMonth;
+    const allRecords: Array<{
+      agentName: string;
+      metric: VolumeMetric | RateMetric;
+      period: TimePeriod;
+      record: RecordEntry;
+    }> = [];
+
+    for (const agent of Object.values(records.agents)) {
+      // Check volume metrics
+      for (const metric of VOLUME_METRICS) {
+        for (const period of VOLUME_PERIODS) {
+          const record = agent[metric][period];
+          if (record && filterFn(record.setAt)) {
+            allRecords.push({ agentName: agent.agentName, metric, period, record });
+          }
+        }
+      }
+      // Check rate metrics
+      for (const metric of RATE_METRICS) {
+        for (const period of RATE_PERIODS) {
+          const record = agent[metric][period as 'month' | 'quarter'];
+          if (record && filterFn(record.setAt)) {
+            allRecords.push({ agentName: agent.agentName, metric, period, record });
+          }
+        }
+      }
+    }
+
+    // Sort by setAt date descending (most recent first)
+    return allRecords.sort((a, b) =>
+      new Date(b.record.setAt).getTime() - new Date(a.record.setAt).getTime()
+    );
+  }, [records.agents, recentRecordsFilter]);
 
   const handleClear = () => {
     if (window.confirm('Are you sure you want to clear all records? This cannot be undone.')) {
@@ -125,6 +197,146 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
           Clear All Records
         </button>
       </div>
+
+      {/* Recent Records Section */}
+      {recentRecords.length > 0 && (
+        <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 rounded-xl border border-yellow-500/30 overflow-hidden">
+          {/* Header */}
+          <div className="p-4 border-b border-yellow-500/20">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6z" />
+                </svg>
+                <h3 className="text-lg font-semibold text-yellow-400">
+                  Records Set This {recentRecordsFilter === 'quarter' ? 'Quarter' : 'Month'}
+                </h3>
+                <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-medium">
+                  {recentRecords.length} records
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Toggle between Quarter and Month */}
+                <div className="bg-slate-800/50 rounded-lg p-1 flex gap-1">
+                  <button
+                    onClick={() => setRecentRecordsFilter('month')}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      recentRecordsFilter === 'month'
+                        ? 'bg-yellow-500 text-slate-900'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                    }`}
+                  >
+                    {getCurrentMonthLabel()}
+                  </button>
+                  <button
+                    onClick={() => setRecentRecordsFilter('quarter')}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                      recentRecordsFilter === 'quarter'
+                        ? 'bg-yellow-500 text-slate-900'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                    }`}
+                  >
+                    {getCurrentQuarterLabel()}
+                  </button>
+                </div>
+                {/* Expand/Collapse toggle */}
+                <button
+                  onClick={() => setShowAllRecentRecords(!showAllRecentRecords)}
+                  className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-1"
+                >
+                  {showAllRecentRecords ? 'Collapse' : 'View All'}
+                  <svg
+                    className={`w-4 h-4 transition-transform ${showAllRecentRecords ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Records Display */}
+          {!showAllRecentRecords ? (
+            /* Compact grid view - show first 9 */
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {recentRecords.slice(0, 9).map((item, idx) => (
+                  <div
+                    key={`${item.agentName}-${item.metric}-${item.period}-${idx}`}
+                    className="bg-slate-800/50 rounded-lg p-3 flex items-center gap-3"
+                  >
+                    <div className="bg-yellow-500/20 rounded-full p-2">
+                      <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium truncate">{item.agentName}</div>
+                      <div className="text-xs text-slate-400">
+                        {formatPeriodName(item.period)} {formatMetricName(item.metric)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-bold ${getMetricColor(item.metric)}`}>
+                        {formatRecordValue(item.metric, item.record.value)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {formatDateRange(item.record.periodStart, item.record.periodEnd)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {recentRecords.length > 9 && (
+                <button
+                  onClick={() => setShowAllRecentRecords(true)}
+                  className="mt-3 w-full py-2 text-center text-sm text-yellow-400 hover:text-yellow-300 bg-slate-800/30 hover:bg-slate-800/50 rounded-lg transition-colors"
+                >
+                  View all {recentRecords.length} records
+                </button>
+              )}
+            </div>
+          ) : (
+            /* Expanded table view - show all records */
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full">
+                <thead className="bg-slate-900/50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400 uppercase">Agent</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400 uppercase">Metric</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400 uppercase">Period</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold text-slate-400 uppercase">Value</th>
+                    <th className="px-4 py-2 text-right text-xs font-semibold text-slate-400 uppercase">Date Range</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/30">
+                  {recentRecords.map((item, idx) => (
+                    <tr
+                      key={`${item.agentName}-${item.metric}-${item.period}-${idx}`}
+                      className={idx % 2 === 0 ? 'bg-slate-800/20' : 'bg-slate-800/40'}
+                    >
+                      <td className="px-4 py-2 text-sm text-white font-medium">{item.agentName}</td>
+                      <td className={`px-4 py-2 text-sm ${getMetricColor(item.metric)}`}>
+                        {formatMetricName(item.metric)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-slate-400">{formatPeriodName(item.period)}</td>
+                      <td className={`px-4 py-2 text-sm text-right font-bold ${getMetricColor(item.metric)}`}>
+                        {formatRecordValue(item.metric, item.record.value)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-right text-slate-400">
+                        {formatDateRange(item.record.periodStart, item.record.periodEnd)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* View Toggle & Period Selector */}
       <div className="flex flex-wrap items-center gap-4">
