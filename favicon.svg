@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="ocean" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e40af"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="land" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+  </defs>
+  <!-- Ocean base -->
+  <circle cx="50" cy="50" r="48" fill="url(#ocean)"/>
+  <!-- Continents (simplified) -->
+  <!-- North America -->
+  <path d="M20 25 Q25 20 35 22 Q40 25 42 30 Q38 35 35 40 Q30 42 25 38 Q20 35 18 30 Z" fill="url(#land)"/>
+  <!-- South America -->
+  <path d="M30 50 Q35 48 38 52 Q40 60 38 70 Q35 75 30 72 Q28 65 28 58 Z" fill="url(#land)"/>
+  <!-- Europe/Africa -->
+  <path d="M50 22 Q55 20 60 25 Q58 30 55 35 Q52 32 50 28 Z" fill="url(#land)"/>
+  <path d="M52 40 Q58 38 62 45 Q60 55 58 65 Q55 70 50 68 Q48 60 50 50 Z" fill="url(#land)"/>
+  <!-- Asia -->
+  <path d="M62 20 Q70 18 78 22 Q82 28 80 35 Q75 40 68 38 Q65 32 62 25 Z" fill="url(#land)"/>
+  <!-- Australia -->
+  <path d="M72 55 Q78 52 82 58 Q80 65 75 68 Q70 65 72 58 Z" fill="url(#land)"/>
+  <!-- Shine/highlight -->
+  <ellipse cx="35" cy="30" rx="15" ry="12" fill="white" opacity="0.15"/>
+</svg>
