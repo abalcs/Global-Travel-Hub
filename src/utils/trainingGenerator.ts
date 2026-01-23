@@ -194,13 +194,6 @@ export const generateTrainingContent = async (
   }
 };
 
-// Get Unsplash image URL for a destination
-const getDestinationImageUrl = (destination: string, query?: string): string => {
-  const searchQuery = query || destination;
-  // Using Unsplash Source for direct image URLs (no API key needed)
-  return `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchQuery)},travel,landscape`;
-};
-
 // Color palette for slides - modernized
 const COLORS = {
   primary: '6366F1',      // Indigo 500
@@ -270,25 +263,21 @@ export const generateTrainingDeck = async (content: TrainingContent): Promise<vo
     });
   };
 
-  // ===== SLIDE 1: TITLE WITH DESTINATION IMAGE =====
+  // ===== SLIDE 1: TITLE WITH GRADIENT BACKGROUND =====
   const slide1 = pptx.addSlide();
   slide1.background = { color: COLORS.dark };
 
-  // Try to add destination image as background overlay
-  try {
-    slide1.addImage({
-      path: getDestinationImageUrl(content.destination),
-      x: 0, y: 0, w: '100%', h: '100%',
-      sizing: { type: 'cover', w: 10, h: 5.625 },
-    });
-    // Dark overlay for text readability
-    slide1.addShape('rect', {
-      x: 0, y: 0, w: '100%', h: '100%',
-      fill: { color: COLORS.dark, transparency: 40 },
-    });
-  } catch {
-    // If image fails, continue with solid background
-  }
+  // Decorative gradient shapes for visual interest
+  slide1.addShape('rect', {
+    x: -1, y: -1, w: 6, h: 7,
+    fill: { color: COLORS.primary, transparency: 85 },
+    rotate: 15,
+  });
+  slide1.addShape('rect', {
+    x: 6, y: -2, w: 6, h: 8,
+    fill: { color: COLORS.secondary, transparency: 90 },
+    rotate: -10,
+  });
 
   // Gradient accent bar at top
   slide1.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.15, fill: { color: COLORS.primary } });
@@ -369,25 +358,19 @@ export const generateTrainingDeck = async (content: TrainingContent): Promise<vo
     });
   });
 
-  // ===== SLIDE 3: DESTINATION OVERVIEW WITH IMAGE =====
+  // ===== SLIDE 3: DESTINATION OVERVIEW =====
   const slide3 = pptx.addSlide();
   slide3.background = { color: COLORS.dark };
 
-  // Add destination image on right side
-  try {
-    slide3.addImage({
-      path: getDestinationImageUrl(content.destination, `${content.destination} scenic`),
-      x: 5.2, y: 0, w: 4.8, h: 5.625,
-      sizing: { type: 'cover', w: 4.8, h: 5.625 },
-    });
-    // Gradient fade overlay
-    slide3.addShape('rect', {
-      x: 5.2, y: 0, w: 1, h: 5.625,
-      fill: { color: COLORS.dark, transparency: 0 },
-    });
-  } catch {
-    // Continue without image
-  }
+  // Decorative accent on right side
+  slide3.addShape('rect', {
+    x: 8.5, y: 0, w: 1.5, h: 5.625,
+    fill: { color: COLORS.primary, transparency: 80 },
+  });
+  slide3.addShape('ellipse', {
+    x: 7.5, y: 1.5, w: 3, h: 3,
+    fill: { color: COLORS.accent, transparency: 90 },
+  });
 
   addSlideHeader(slide3, content.destination, 'Destination Overview', '🌍');
 
@@ -808,24 +791,19 @@ export const generateTrainingDeck = async (content: TrainingContent): Promise<vo
     fontSize: 20, bold: true, color: COLORS.primary, align: 'center', fontFace: 'Arial',
   });
 
-  // ===== THANK YOU SLIDE WITH IMAGE =====
+  // ===== THANK YOU SLIDE =====
   const slideThank = pptx.addSlide();
   slideThank.background = { color: COLORS.dark };
 
-  // Try to add destination image
-  try {
-    slideThank.addImage({
-      path: getDestinationImageUrl(content.destination, `${content.destination} beautiful`),
-      x: 0, y: 0, w: '100%', h: '100%',
-      sizing: { type: 'cover', w: 10, h: 5.625 },
-    });
-    slideThank.addShape('rect', {
-      x: 0, y: 0, w: '100%', h: '100%',
-      fill: { color: COLORS.dark, transparency: 50 },
-    });
-  } catch {
-    // Continue without image
-  }
+  // Decorative gradient shapes
+  slideThank.addShape('ellipse', {
+    x: -2, y: -1, w: 5, h: 5,
+    fill: { color: COLORS.primary, transparency: 85 },
+  });
+  slideThank.addShape('ellipse', {
+    x: 7, y: 2, w: 4, h: 4,
+    fill: { color: COLORS.warning, transparency: 90 },
+  });
 
   slideThank.addShape('rect', { x: 0, y: 5.45, w: '100%', h: 0.18, fill: { color: COLORS.primary } });
 
