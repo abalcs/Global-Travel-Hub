@@ -29,6 +29,10 @@ export interface Metrics {
   quotesFromPassthroughs: number;
   hotPassRate: number;
   nonConvertedRate: number;
+  // Repeat client metrics
+  repeatTrips: number;
+  repeatPassthroughs: number;
+  repeatTpRate: number;
 }
 
 export interface FileUploadState {

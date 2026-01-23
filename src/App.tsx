@@ -24,7 +24,8 @@ import {
   buildTripDateMap,
   calculateMetrics,
   buildTimeSeriesOptimized,
-  calculateSegmentDailyAverages
+  calculateSegmentDailyAverages,
+  countRepeatByAgent
 } from './utils/metricsCalculator';
 import {
   loadRecords,
@@ -226,13 +227,18 @@ function App() {
         tripDateMap
       );
 
+      // Calculate repeat client data per agent
+      const repeatData = countRepeatByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
+
       const calculatedMetrics = calculateMetrics(
         tripsResult.total,
         quotesResult.total,
         passthroughsResult.total,
         hotPassResult.total,
         bookingsResult.total,
-        nonConvertedResult.total
+        nonConvertedResult.total,
+        repeatData.repeatTrips,
+        repeatData.repeatPassthroughs
       );
 
       setMetrics(calculatedMetrics);

@@ -10,7 +10,7 @@ interface ResultsTableProps {
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors' | 'new-hires';
 
-type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'quotesFromTrips' | 'passthroughsFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
+type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTpRate' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
 type SortDirection = 'asc' | 'desc';
 
 const formatPercent = (value: number): string => {
@@ -102,8 +102,10 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       bookings: acc.bookings + m.bookings,
       nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
       totalLeads: acc.totalLeads + m.totalLeads,
+      repeatTrips: acc.repeatTrips + m.repeatTrips,
+      repeatPassthroughs: acc.repeatPassthroughs + m.repeatPassthroughs,
     }),
-    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0 }
+    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0 }
   ), [sortedMetrics]);
 
   const totalMetrics = useMemo(() => ({
@@ -112,6 +114,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     quotesFromPassthroughs: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
     hotPassRate: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
     nonConvertedRate: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
+    repeatTpRate: totals.repeatTrips > 0 ? (totals.repeatPassthroughs / totals.repeatTrips) * 100 : 0,
   }), [totals]);
 
   // Determine the label for the totals row based on active filters
@@ -257,12 +260,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                 </div>
               </th>
               <th
-                className="px-6 py-3 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
-                onClick={() => handleSort('quotesFromTrips')}
+                className="px-6 py-3 text-center text-xs font-semibold text-violet-600 uppercase tracking-wider cursor-pointer hover:bg-violet-50 transition-colors"
+                onClick={() => handleSort('repeatTpRate')}
               >
                 <div className="flex items-center justify-center">
-                  T&gt;Q
-                  <SortIcon column="quotesFromTrips" />
+                  Repeat T&gt;P
+                  <SortIcon column="repeatTpRate" />
                 </div>
               </th>
               <th
@@ -272,6 +275,15 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                 <div className="flex items-center justify-center">
                   T&gt;P
                   <SortIcon column="passthroughsFromTrips" />
+                </div>
+              </th>
+              <th
+                className="px-6 py-3 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider cursor-pointer hover:bg-blue-50 transition-colors"
+                onClick={() => handleSort('quotesFromTrips')}
+              >
+                <div className="flex items-center justify-center">
+                  T&gt;Q
+                  <SortIcon column="quotesFromTrips" />
                 </div>
               </th>
               <th
@@ -353,11 +365,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-center">
                     {m.passthroughs}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 text-center">
-                    {formatPercent(m.quotesFromTrips)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-violet-600 text-center">
+                    {formatPercent(m.repeatTpRate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 text-center">
                     {formatPercent(m.passthroughsFromTrips)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 text-center">
+                    {formatPercent(m.quotesFromTrips)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-purple-600 text-center">
                     {formatPercent(m.quotesFromPassthroughs)}
@@ -390,11 +405,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               <td className="px-6 py-4 whitespace-nowrap text-sm text-white text-center font-bold">
                 {totals.passthroughs}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-300 text-center">
-                {formatPercent(totalMetrics.quotesFromTrips)}
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-violet-300 text-center">
+                {formatPercent(totalMetrics.repeatTpRate)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-300 text-center">
                 {formatPercent(totalMetrics.passthroughsFromTrips)}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-300 text-center">
+                {formatPercent(totalMetrics.quotesFromTrips)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-purple-300 text-center">
                 {formatPercent(totalMetrics.quotesFromPassthroughs)}

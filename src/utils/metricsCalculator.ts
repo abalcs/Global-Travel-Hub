@@ -153,6 +153,75 @@ export const countByAgentOptimized = (
   return { total, byDate };
 };
 
+// Count repeat client trips and passthroughs by agent
+export const countRepeatByAgent = (
+  tripsRows: CSVRow[],
+  agentColumn: string,
+  dateColumn: string | null,
+  startDate: string,
+  endDate: string
+): { repeatTrips: Map<string, number>; repeatPassthroughs: Map<string, number> } => {
+  const repeatTrips = new Map<string, number>();
+  const repeatPassthroughs = new Map<string, number>();
+
+  if (tripsRows.length === 0) return { repeatTrips, repeatPassthroughs };
+
+  // Find repeat and passthrough columns
+  const keys = Object.keys(tripsRows[0]);
+  const repeatCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('repeat') || lower.includes('client type') || lower.includes('customer type');
+  });
+  const passthroughDateCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('passthrough to sales date') || lower.includes('passthrough date');
+  });
+
+  if (!repeatCol) return { repeatTrips, repeatPassthroughs };
+
+  // Convert filter dates to integers for comparison
+  const startInt = startDate ? dateToInt(startDate) : null;
+  const endInt = endDate ? dateToInt(endDate) : null;
+  const hasDateFilter = startInt !== null || endInt !== null;
+
+  for (const row of tripsRows) {
+    const agent = row[agentColumn];
+    if (!agent) continue;
+
+    // Check if repeat client
+    const repeatValue = (row[repeatCol] || '').toString().toLowerCase().trim();
+    const isRepeat = repeatValue === 'repeat' || repeatValue === 'returning' || repeatValue === 'existing';
+    if (!isRepeat) continue;
+
+    // Parse date
+    let dateStr: string | null = null;
+    if (dateColumn && row[dateColumn]) {
+      dateStr = parseDate(row[dateColumn]);
+    }
+
+    // Apply date filter if active
+    if (hasDateFilter) {
+      if (!dateStr) continue;
+      const rowInt = dateToInt(dateStr);
+      if (startInt && rowInt < startInt) continue;
+      if (endInt && rowInt > endInt) continue;
+    }
+
+    // Count repeat trip
+    repeatTrips.set(agent, (repeatTrips.get(agent) || 0) + 1);
+
+    // Check for passthrough
+    if (passthroughDateCol) {
+      const passthroughValue = row[passthroughDateCol];
+      if (passthroughValue && passthroughValue.toString().trim() !== '') {
+        repeatPassthroughs.set(agent, (repeatPassthroughs.get(agent) || 0) + 1);
+      }
+    }
+  }
+
+  return { repeatTrips, repeatPassthroughs };
+};
+
 // Build a map of trip names to their dates
 export const buildTripDateMap = (
   tripsRows: CSVRow[],
@@ -294,7 +363,9 @@ export const calculateMetrics = (
   passthroughsCounts: Map<string, number>,
   hotPassCounts: Map<string, number>,
   bookingsCounts: Map<string, number>,
-  nonConvertedCounts: Map<string, number>
+  nonConvertedCounts: Map<string, number>,
+  repeatTripsCounts?: Map<string, number>,
+  repeatPassthroughsCounts?: Map<string, number>
 ): Metrics[] => {
   // Get all unique agents - include hotPassCounts to capture all agents
   const allAgents = new Set<string>();
@@ -333,6 +404,10 @@ export const calculateMetrics = (
       nonConvertedCount = normalizedNonConverted.get(agentName.toLowerCase().trim()) || 0;
     }
 
+    // Get repeat client data
+    const repeatTrips = repeatTripsCounts?.get(agentName) || 0;
+    const repeatPassthroughs = repeatPassthroughsCounts?.get(agentName) || 0;
+
     metrics.push({
       agentName,
       trips,
@@ -347,6 +422,9 @@ export const calculateMetrics = (
       quotesFromPassthroughs: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
       hotPassRate: passthroughs > 0 ? (hotPasses / passthroughs) * 100 : 0,
       nonConvertedRate: trips > 0 ? (nonConvertedCount / trips) * 100 : 0, // Use filtered trips
+      repeatTrips,
+      repeatPassthroughs,
+      repeatTpRate: repeatTrips > 0 ? (repeatPassthroughs / repeatTrips) * 100 : 0,
     });
   }
 
