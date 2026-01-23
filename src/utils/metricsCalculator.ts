@@ -222,6 +222,75 @@ export const countRepeatByAgent = (
   return { repeatTrips, repeatPassthroughs };
 };
 
+// Count B2B trips and passthroughs by agent
+export const countB2bByAgent = (
+  tripsRows: CSVRow[],
+  agentColumn: string,
+  dateColumn: string | null,
+  startDate: string,
+  endDate: string
+): { b2bTrips: Map<string, number>; b2bPassthroughs: Map<string, number> } => {
+  const b2bTrips = new Map<string, number>();
+  const b2bPassthroughs = new Map<string, number>();
+
+  if (tripsRows.length === 0) return { b2bTrips, b2bPassthroughs };
+
+  // Find B2B and passthrough columns
+  const keys = Object.keys(tripsRows[0]);
+  const b2bCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('b2b') || lower.includes('lead channel') || lower.includes('business type') || lower.includes('client category');
+  });
+  const passthroughDateCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('passthrough to sales date') || lower.includes('passthrough date');
+  });
+
+  if (!b2bCol) return { b2bTrips, b2bPassthroughs };
+
+  // Convert filter dates to integers for comparison
+  const startInt = startDate ? dateToInt(startDate) : null;
+  const endInt = endDate ? dateToInt(endDate) : null;
+  const hasDateFilter = startInt !== null || endInt !== null;
+
+  for (const row of tripsRows) {
+    const agent = row[agentColumn];
+    if (!agent) continue;
+
+    // Check if B2B
+    const b2bValue = (row[b2bCol] || '').toString().toLowerCase().trim();
+    const isB2b = b2bValue === 'b2b' || b2bValue.includes('b2b') || b2bValue === 'business';
+    if (!isB2b) continue;
+
+    // Parse date
+    let dateStr: string | null = null;
+    if (dateColumn && row[dateColumn]) {
+      dateStr = parseDate(row[dateColumn]);
+    }
+
+    // Apply date filter if active
+    if (hasDateFilter) {
+      if (!dateStr) continue;
+      const rowInt = dateToInt(dateStr);
+      if (startInt && rowInt < startInt) continue;
+      if (endInt && rowInt > endInt) continue;
+    }
+
+    // Count B2B trip
+    b2bTrips.set(agent, (b2bTrips.get(agent) || 0) + 1);
+
+    // Check for passthrough
+    if (passthroughDateCol) {
+      const passthroughValue = row[passthroughDateCol];
+      if (passthroughValue && passthroughValue.toString().trim() !== '') {
+        b2bPassthroughs.set(agent, (b2bPassthroughs.get(agent) || 0) + 1);
+      }
+    }
+  }
+
+  return { b2bTrips, b2bPassthroughs };
+};
+
 // Build a map of trip names to their dates
 export const buildTripDateMap = (
   tripsRows: CSVRow[],
@@ -365,7 +434,9 @@ export const calculateMetrics = (
   bookingsCounts: Map<string, number>,
   nonConvertedCounts: Map<string, number>,
   repeatTripsCounts?: Map<string, number>,
-  repeatPassthroughsCounts?: Map<string, number>
+  repeatPassthroughsCounts?: Map<string, number>,
+  b2bTripsCounts?: Map<string, number>,
+  b2bPassthroughsCounts?: Map<string, number>
 ): Metrics[] => {
   // Get all unique agents - include hotPassCounts to capture all agents
   const allAgents = new Set<string>();
@@ -408,6 +479,10 @@ export const calculateMetrics = (
     const repeatTrips = repeatTripsCounts?.get(agentName) || 0;
     const repeatPassthroughs = repeatPassthroughsCounts?.get(agentName) || 0;
 
+    // Get B2B data
+    const b2bTrips = b2bTripsCounts?.get(agentName) || 0;
+    const b2bPassthroughs = b2bPassthroughsCounts?.get(agentName) || 0;
+
     metrics.push({
       agentName,
       trips,
@@ -425,6 +500,9 @@ export const calculateMetrics = (
       repeatTrips,
       repeatPassthroughs,
       repeatTpRate: repeatTrips > 0 ? (repeatPassthroughs / repeatTrips) * 100 : 0,
+      b2bTrips,
+      b2bPassthroughs,
+      b2bTpRate: b2bTrips > 0 ? (b2bPassthroughs / b2bTrips) * 100 : 0,
     });
   }
 

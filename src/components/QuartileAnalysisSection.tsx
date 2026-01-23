@@ -163,8 +163,13 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
       </button>
 
       {/* Expanded Content */}
-      {isExpanded && (
-        <div className="px-4 pb-4 space-y-4">
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-4 pb-4 space-y-4">
           {!analysisData ? (
             <div className="text-center py-8 text-slate-400">
               <p>Not enough agents with {minVolume}+ passthroughs to form quartiles.</p>
@@ -410,8 +415,9 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
               </div>
             </>
           )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

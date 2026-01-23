@@ -33,6 +33,10 @@ export interface Metrics {
   repeatTrips: number;
   repeatPassthroughs: number;
   repeatTpRate: number;
+  // B2B metrics
+  b2bTrips: number;
+  b2bPassthroughs: number;
+  b2bTpRate: number;
 }
 
 export interface FileUploadState {

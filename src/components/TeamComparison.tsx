@@ -232,8 +232,13 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
         </svg>
       </button>
 
-      {isOpen && (
-        <div className="p-6">
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="p-6">
           {/* View Toggle and Sort Controls */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
@@ -241,7 +246,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
               <div className="inline-flex rounded-lg border border-gray-200 p-1">
                 <button
                   onClick={() => setViewMode('table')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                     viewMode === 'table' ? 'bg-amber-500 text-white' : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
@@ -249,7 +254,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                 </button>
                 <button
                   onClick={() => setViewMode('cards')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                     viewMode === 'cards' ? 'bg-amber-500 text-white' : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
@@ -677,8 +682,9 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
               </div>
             </div>
           )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

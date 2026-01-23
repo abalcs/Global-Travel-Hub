@@ -122,13 +122,18 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </svg>
       </button>
 
-      {isOpen && (
-        <div className="border-t border-slate-700/50">
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-slate-700/50">
           {/* Tabs */}
           <div className="flex border-b border-slate-700/50">
             <button
               onClick={() => setActiveTab('teams')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                 activeTab === 'teams'
                   ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/10'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
@@ -138,7 +143,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('seniors')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                 activeTab === 'seniors'
                   ? 'text-amber-400 border-b-2 border-amber-400 bg-amber-500/10'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
@@ -148,7 +153,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('newHires')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                 activeTab === 'newHires'
                   ? 'text-sky-400 border-b-2 border-sky-400 bg-sky-500/10'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
@@ -375,8 +380,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </div>
             )}
           </div>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

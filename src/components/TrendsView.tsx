@@ -102,13 +102,13 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       const validMetrics = saved.selectedMetrics.filter((m) => VALID_METRICS.includes(m));
       return {
         ...saved,
-        selectedAgents: validAgents.length > 0 ? validAgents : allAgents.slice(0, 3),
+        selectedAgents: validAgents,
         selectedMetrics: validMetrics.length > 0 ? validMetrics : ['tq'],
         dateRangeEnd: Math.min(saved.dateRangeEnd, allDates.length - 1),
       };
     }
     return {
-      selectedAgents: allAgents.slice(0, 3),
+      selectedAgents: [],
       selectedMetrics: ['tq'],
       showDeptAvg: true,
       showSeniorAvg: false,
@@ -566,13 +566,13 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               <span className="text-xs text-slate-500">{config.selectedAgents.length} selected</span>
               <button
                 onClick={selectAllAgents}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer active:scale-95 transition-transform"
               >
                 All
               </button>
               <button
                 onClick={deselectAllAgents}
-                className="text-xs text-slate-400 hover:text-slate-300"
+                className="text-xs text-slate-400 hover:text-slate-300 cursor-pointer active:scale-95 transition-transform"
               >
                 None
               </button>
@@ -616,7 +616,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   <button
                     key={metric}
                     onClick={() => toggleMetric(metric)}
-                    className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                    className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                       config.selectedMetrics.includes(metric)
                         ? 'bg-indigo-600 text-white'
                         : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -634,7 +634,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   <button
                     key={metric}
                     onClick={() => toggleMetric(metric)}
-                    className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                    className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                       config.selectedMetrics.includes(metric)
                         ? 'bg-emerald-600 text-white'
                         : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -653,7 +653,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               <button
                 onClick={() => toggleAvg('dept')}
-                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   config.showDeptAvg
                     ? 'bg-gray-600 text-white'
                     : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -663,7 +663,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               </button>
               <button
                 onClick={() => toggleAvg('senior')}
-                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   config.showSeniorAvg
                     ? 'bg-amber-600 text-white'
                     : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -673,7 +673,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               </button>
               <button
                 onClick={() => toggleAvg('nonsenior')}
-                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   config.showNonSeniorAvg
                     ? 'bg-slate-500 text-white'
                     : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -683,7 +683,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               </button>
               <button
                 onClick={() => setShowTrendLines(!showTrendLines)}
-                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   showTrendLines
                     ? 'bg-emerald-600 text-white'
                     : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -700,7 +700,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               <button
                 onClick={() => toggleAvg('repeat')}
-                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   config.showRepeatClient
                     ? 'bg-purple-600 text-white'
                     : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -711,7 +711,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               </button>
               <button
                 onClick={() => toggleAvg('b2b')}
-                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   config.showB2b
                     ? 'bg-teal-600 text-white'
                     : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
@@ -727,7 +727,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
           <div>
             <button
               onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-300 transition-all cursor-pointer active:scale-95"
             >
               <svg
                 className={`w-3.5 h-3.5 transition-transform ${showAdvancedOptions ? 'rotate-90' : ''}`}
@@ -740,103 +740,109 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               Advanced Options
             </button>
 
-            {showAdvancedOptions && (
-              <div className="mt-2 p-3 bg-slate-900/50 rounded-lg space-y-3">
-                {/* Trend Line Options */}
-                {showTrendLines && (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">R² threshold:</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={0.99}
-                        step={0.01}
-                        value={rSquaredThreshold}
-                        onChange={(e) => setRSquaredThreshold(parseFloat(e.target.value))}
-                        className="w-20 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                      />
-                      <span className="text-xs text-emerald-400 font-mono">
-                        {(rSquaredThreshold * 100).toFixed(0)}%
-                      </span>
+            <div
+                className={`grid transition-all duration-300 ease-in-out ${
+                  showAdvancedOptions ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="p-3 bg-slate-900/50 rounded-lg space-y-3">
+                    {/* Trend Line Options */}
+                    {showTrendLines && (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">R² threshold:</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={0.99}
+                            step={0.01}
+                            value={rSquaredThreshold}
+                            onChange={(e) => setRSquaredThreshold(parseFloat(e.target.value))}
+                            className="w-20 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                          />
+                          <span className="text-xs text-emerald-400 font-mono">
+                            {(rSquaredThreshold * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setHideRawData(!hideRawData)}
+                          className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
+                            hideRawData
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                          }`}
+                        >
+                          {hideRawData ? 'Show Raw' : 'Hide Raw'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Y-Axis Scaling */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs text-slate-400">Y-Axis:</span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setOutlierHandling('percentile')}
+                          className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
+                            outlierHandling === 'percentile'
+                              ? 'bg-cyan-600 text-white'
+                              : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                          }`}
+                        >
+                          Smart
+                        </button>
+                        <button
+                          onClick={() => setOutlierHandling('none')}
+                          className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
+                            outlierHandling === 'none'
+                              ? 'bg-cyan-600 text-white'
+                              : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                          }`}
+                        >
+                          Full
+                        </button>
+                      </div>
+                      {(yAxisConfig.hasPercentOutliers || yAxisConfig.hasCountOutliers) && outlierHandling === 'percentile' && (
+                        <span className="text-xs text-amber-400">Outliers trimmed</span>
+                      )}
                     </div>
-                    <button
-                      onClick={() => setHideRawData(!hideRawData)}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        hideRawData
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                      }`}
-                    >
-                      {hideRawData ? 'Show Raw' : 'Hide Raw'}
-                    </button>
-                  </div>
-                )}
 
-                {/* Y-Axis Scaling */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-xs text-slate-400">Y-Axis:</span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setOutlierHandling('percentile')}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        outlierHandling === 'percentile'
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                      }`}
-                    >
-                      Smart
-                    </button>
-                    <button
-                      onClick={() => setOutlierHandling('none')}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        outlierHandling === 'none'
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                      }`}
-                    >
-                      Full
-                    </button>
+                    {/* Display Options */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs text-slate-400">Display:</span>
+                      <button
+                        onClick={() => setShowLegend(!showLegend)}
+                        className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
+                          showLegend
+                            ? 'bg-slate-600 text-white'
+                            : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                        }`}
+                      >
+                        Legend
+                      </button>
+                      <button
+                        onClick={() => {
+                          setConfig({
+                            selectedAgents: [],
+                            selectedMetrics: ['tq'],
+                            showDeptAvg: true,
+                            showSeniorAvg: false,
+                            showNonSeniorAvg: false,
+                            dateRangeStart: 0,
+                            dateRangeEnd: allDates.length - 1,
+                          });
+                          setShowTrendLines(false);
+                          setOutlierHandling('percentile');
+                        }}
+                        className="px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 bg-slate-700 text-slate-400 hover:bg-red-600 hover:text-white"
+                      >
+                        Reset All
+                      </button>
+                    </div>
                   </div>
-                  {(yAxisConfig.hasPercentOutliers || yAxisConfig.hasCountOutliers) && outlierHandling === 'percentile' && (
-                    <span className="text-xs text-amber-400">Outliers trimmed</span>
-                  )}
-                </div>
-
-                {/* Display Options */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-xs text-slate-400">Display:</span>
-                  <button
-                    onClick={() => setShowLegend(!showLegend)}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                      showLegend
-                        ? 'bg-slate-600 text-white'
-                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                    }`}
-                  >
-                    Legend
-                  </button>
-                  <button
-                    onClick={() => {
-                      setConfig({
-                        selectedAgents: allAgents.slice(0, 3),
-                        selectedMetrics: ['tq'],
-                        showDeptAvg: true,
-                        showSeniorAvg: false,
-                        showNonSeniorAvg: false,
-                        dateRangeStart: 0,
-                        dateRangeEnd: allDates.length - 1,
-                      });
-                      setShowTrendLines(false);
-                      setOutlierHandling('percentile');
-                    }}
-                    className="px-2 py-1 rounded text-xs font-medium transition-colors bg-slate-700 text-slate-400 hover:bg-red-600 hover:text-white"
-                  >
-                    Reset All
-                  </button>
                 </div>
               </div>
-            )}
           </div>
         </div>
 
@@ -847,7 +853,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
             {config.selectedAgents.length > 0 && (
               <button
                 onClick={fitDateRangeToSelection}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer active:scale-95 transition-transform"
                 title="Fit date range to selected agents"
               >
                 Fit to Selection

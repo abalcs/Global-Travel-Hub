@@ -7,38 +7,28 @@ interface RecordsViewProps {
   onClearRecords: () => void;
 }
 
-// Helper to check if a date is in the current calendar quarter
-const isCurrentQuarter = (dateStr: string): boolean => {
-  const date = new Date(dateStr);
+// Helper to check if a record should be shown in Recent Records
+// Logic: Show starting the day after the period ends, for 7 days total
+// Example: Daily record for Jan 1 shows Jan 2-8, removed on Jan 9
+const shouldShowRecentRecord = (periodEnd: string): boolean => {
+  const periodEndDate = new Date(periodEnd);
   const now = new Date();
-  const currentQuarter = Math.floor(now.getMonth() / 3);
-  const currentYear = now.getFullYear();
-  const recordQuarter = Math.floor(date.getMonth() / 3);
-  const recordYear = date.getFullYear();
-  return currentQuarter === recordQuarter && currentYear === recordYear;
-};
 
-// Helper to check if a date is in the current calendar month
-const isCurrentMonth = (dateStr: string): boolean => {
-  const date = new Date(dateStr);
-  const now = new Date();
-  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-};
+  // Reset time components for accurate day comparison
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const periodEndDay = new Date(periodEndDate.getFullYear(), periodEndDate.getMonth(), periodEndDate.getDate());
 
-// Get current quarter label
-const getCurrentQuarterLabel = (): string => {
-  const now = new Date();
-  const quarter = Math.floor(now.getMonth() / 3) + 1;
-  return `Q${quarter} ${now.getFullYear()}`;
-};
+  // The period must be complete (we're past the period end date)
+  if (todayStart <= periodEndDay) {
+    return false;
+  }
 
-// Get current month label
-const getCurrentMonthLabel = (): string => {
-  const now = new Date();
-  return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-};
+  // Calculate days since period ended
+  const daysSincePeriodEnd = Math.floor((todayStart.getTime() - periodEndDay.getTime()) / (1000 * 60 * 60 * 24));
 
-type RecentRecordsFilter = 'quarter' | 'month';
+  // Show for 7 days after the period ends (days 1-7 after period end)
+  return daysSincePeriodEnd <= 7;
+};
 
 type ViewMode = 'volume' | 'rates';
 type SortBy = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq';
@@ -54,7 +44,6 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [recentRecordsFilter, setRecentRecordsFilter] = useState<RecentRecordsFilter>('quarter');
   const [showAllRecentRecords, setShowAllRecentRecords] = useState(false);
 
   const agents = useMemo(() => {
@@ -93,9 +82,10 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
 
   const selectedAgentRecords = selectedAgent ? records.agents[selectedAgent] : null;
 
-  // Get all records set in the current quarter or month
+  // Get recent records based on visibility rules:
+  // All records show starting the day after their period ends, for 7 days
+  // Example: Daily record for Jan 1 shows Jan 2-8, removed on Jan 9
   const recentRecords = useMemo(() => {
-    const filterFn = recentRecordsFilter === 'quarter' ? isCurrentQuarter : isCurrentMonth;
     const allRecords: Array<{
       agentName: string;
       metric: VolumeMetric | RateMetric;
@@ -108,7 +98,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
       for (const metric of VOLUME_METRICS) {
         for (const period of VOLUME_PERIODS) {
           const record = agent[metric][period];
-          if (record && filterFn(record.setAt)) {
+          if (record && shouldShowRecentRecord(record.periodEnd)) {
             allRecords.push({ agentName: agent.agentName, metric, period, record });
           }
         }
@@ -117,18 +107,18 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
       for (const metric of RATE_METRICS) {
         for (const period of RATE_PERIODS) {
           const record = agent[metric][period as 'month' | 'quarter'];
-          if (record && filterFn(record.setAt)) {
+          if (record && shouldShowRecentRecord(record.periodEnd)) {
             allRecords.push({ agentName: agent.agentName, metric, period, record });
           }
         }
       }
     }
 
-    // Sort by setAt date descending (most recent first)
+    // Sort by periodEnd date descending (most recent periods first)
     return allRecords.sort((a, b) =>
-      new Date(b.record.setAt).getTime() - new Date(a.record.setAt).getTime()
+      new Date(b.record.periodEnd).getTime() - new Date(a.record.periodEnd).getTime()
     );
-  }, [records.agents, recentRecordsFilter]);
+  }, [records.agents]);
 
   const handleClear = () => {
     if (window.confirm('Are you sure you want to clear all records? This cannot be undone.')) {
@@ -209,40 +199,17 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
                   <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6z" />
                 </svg>
                 <h3 className="text-lg font-semibold text-yellow-400">
-                  Records Set This {recentRecordsFilter === 'quarter' ? 'Quarter' : 'Month'}
+                  Recent Records
                 </h3>
                 <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-medium">
                   {recentRecords.length} records
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {/* Toggle between Quarter and Month */}
-                <div className="bg-slate-800/50 rounded-lg p-1 flex gap-1">
-                  <button
-                    onClick={() => setRecentRecordsFilter('month')}
-                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                      recentRecordsFilter === 'month'
-                        ? 'bg-yellow-500 text-slate-900'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                    }`}
-                  >
-                    {getCurrentMonthLabel()}
-                  </button>
-                  <button
-                    onClick={() => setRecentRecordsFilter('quarter')}
-                    className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                      recentRecordsFilter === 'quarter'
-                        ? 'bg-yellow-500 text-slate-900'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                    }`}
-                  >
-                    {getCurrentQuarterLabel()}
-                  </button>
-                </div>
                 {/* Expand/Collapse toggle */}
                 <button
                   onClick={() => setShowAllRecentRecords(!showAllRecentRecords)}
-                  className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-1"
+                  className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   {showAllRecentRecords ? 'Collapse' : 'View All'}
                   <svg

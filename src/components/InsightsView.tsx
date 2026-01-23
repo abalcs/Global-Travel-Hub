@@ -253,7 +253,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
   }) => (
     <button
       onClick={() => toggleSection(section)}
-      className="w-full flex items-center justify-between p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-colors group"
+      className="w-full flex items-center justify-between p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-all cursor-pointer active:scale-[0.99] group"
     >
       <div className="flex items-center gap-3">
         <div className={`p-2 ${iconColor} rounded-lg`}>
@@ -299,8 +299,13 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
       </div>
 
       {/* Column Discovery (debug) */}
-      {showColumns && (
-        <div className="bg-slate-900/50 rounded-xl p-4 text-xs">
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          showColumns ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="bg-slate-900/50 rounded-xl p-4 text-xs">
           <h4 className="font-medium text-slate-300 mb-2">Available Columns by File:</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {Object.entries(columns).map(([file, cols]) => (
@@ -315,8 +320,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
               </div>
             ))}
           </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Quick Stats Bar */}
       <div className="grid grid-cols-4 gap-3">
@@ -350,8 +356,13 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
           subtitle="Best days and times for passthroughs and hot passes"
         />
 
-        {expandedSections.timing && (
-          <div className="space-y-4 pl-2 border-l-2 border-purple-500/20">
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${
+            expandedSections.timing ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-4 pl-2 border-l-2 border-purple-500/20">
             {/* Best Day/Time Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {insights.bestPassthroughDay && (
@@ -454,8 +465,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
                 </div>
               )}
             </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* ==================== CLIENT SEGMENTS SECTION ==================== */}
@@ -471,8 +483,13 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
             subtitle="Repeat client and B2B conversion performance"
           />
 
-          {expandedSections.clientSegments && (
-            <div className="space-y-6 pl-2 border-l-2 border-cyan-500/20">
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              expandedSections.clientSegments ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="space-y-6 pl-2 border-l-2 border-cyan-500/20">
               {/* Repeat Client Performance */}
               {repeatClientPerformance && repeatClientPerformance.segments.length > 0 && (
                 <div className="space-y-4">
@@ -902,8 +919,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
                   )}
                 </div>
               )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -920,8 +938,13 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
             subtitle="Non-validated lead analysis and reasons"
           />
 
-          {expandedSections.leadQuality && (
-            <div className="space-y-4 pl-2 border-l-2 border-rose-500/20">
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              expandedSections.leadQuality ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="space-y-4 pl-2 border-l-2 border-rose-500/20">
               {/* Non-Validated Reasons */}
               {insights.hasNonValidatedReasons && (
                 <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
@@ -1003,8 +1026,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData, seniors }) 
                   </div>
                 </div>
               )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
