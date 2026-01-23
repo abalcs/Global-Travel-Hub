@@ -38,8 +38,8 @@ const ALL_PERCENT_METRICS: MetricKey[] = [...PERCENT_METRICS];
 const ALL_COUNT_METRICS: MetricKey[] = [...COUNT_METRICS];
 
 // Performance constants
-const MAX_DATA_POINTS = 150; // Decimate data if more points than this
-const MAX_SERIES_WARNING = 50; // Warn if more than this many series
+const MAX_DATA_POINTS = 80; // Decimate data if more points than this
+const MAX_SERIES_WARNING = 30; // Warn if more than this many series
 
 export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors }) => {
   const allDates = useMemo(() => getAllDates(timeSeriesData), [timeSeriesData]);
@@ -462,7 +462,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       percentActualMax: percentResult.actualMax,
       countActualMax: countResult.actualMax,
     };
-  }, [chartDataWithTrends, dataKeys, calculateDomain]);
+  }, [chartDataWithTrends, dataKeys, calculateDomain, outlierHandling]);
 
   // Toggle agent selection
   const toggleAgent = useCallback((agentName: string) => {
@@ -957,6 +957,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                 }}
                 labelStyle={{ color: '#f1f5f9', fontWeight: 'bold', marginBottom: '8px' }}
                 itemStyle={{ padding: '2px 0' }}
+                isAnimationActive={false}
                 formatter={(value: number | undefined, name?: string) => {
                   if (!name) return [`${(value ?? 0).toFixed(1)}%`, undefined];
 
@@ -1026,8 +1027,9 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     stroke={getAgentColorFast(agent)}
                     strokeWidth={2}
                     dot={false}
-                    activeDot={{ r: 4 }}
+                    activeDot={{ r: 3 }}
                     connectNulls
+                    isAnimationActive={false}
                     strokeDasharray={
                       metric === 'tq' ? undefined :
                       metric === 'tp' ? '5 5' :
@@ -1058,6 +1060,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     strokeDasharray="8 4"
                     dot={false}
                     connectNulls
+                    isAnimationActive={false}
                   />
                 ))}
 
@@ -1074,6 +1077,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     strokeDasharray="8 4"
                     dot={false}
                     connectNulls
+                    isAnimationActive={false}
                   />
                 ))}
 
@@ -1090,6 +1094,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     strokeDasharray="8 4"
                     dot={false}
                     connectNulls
+                    isAnimationActive={false}
                   />
                 ))}
 
@@ -1106,6 +1111,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     strokeDasharray="8 4"
                     dot={false}
                     connectNulls
+                    isAnimationActive={false}
                   />
                 ))}
 
@@ -1122,6 +1128,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     strokeDasharray="8 4"
                     dot={false}
                     connectNulls
+                    isAnimationActive={false}
                   />
                 ))}
 
@@ -1146,6 +1153,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                         dot={false}
                         connectNulls
                         legendType="none"
+                        isAnimationActive={false}
                       />
                     );
                   })
@@ -1171,6 +1179,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       dot={false}
                       connectNulls
                       legendType="none"
+                      isAnimationActive={false}
                     />
                   );
                 })}
@@ -1194,6 +1203,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       dot={false}
                       connectNulls
                       legendType="none"
+                      isAnimationActive={false}
                     />
                   );
                 })}
@@ -1217,6 +1227,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       dot={false}
                       connectNulls
                       legendType="none"
+                      isAnimationActive={false}
                     />
                   );
                 })}
@@ -1240,6 +1251,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       dot={false}
                       connectNulls
                       legendType="none"
+                      isAnimationActive={false}
                     />
                   );
                 })}
@@ -1263,6 +1275,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       dot={false}
                       connectNulls
                       legendType="none"
+                      isAnimationActive={false}
                     />
                   );
                 })}
