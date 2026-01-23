@@ -1,28 +1,74 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="ocean" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1e40af"/>
-      <stop offset="100%" style="stop-color:#3b82f6"/>
-    </linearGradient>
-    <linearGradient id="land" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#22c55e"/>
-      <stop offset="100%" style="stop-color:#16a34a"/>
-    </linearGradient>
+    <!-- Realistic ocean with 3D spherical shading -->
+    <radialGradient id="sphere" cx="30%" cy="30%" r="65%" fx="25%" fy="25%">
+      <stop offset="0%" style="stop-color:#7dd3fc"/>
+      <stop offset="40%" style="stop-color:#0ea5e9"/>
+      <stop offset="70%" style="stop-color:#0369a1"/>
+      <stop offset="100%" style="stop-color:#0c4a6e"/>
+    </radialGradient>
+    <!-- Land with realistic shading -->
+    <radialGradient id="land" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" style="stop-color:#86efac"/>
+      <stop offset="40%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#14532d"/>
+    </radialGradient>
+    <!-- Desert/arid regions -->
+    <radialGradient id="desert" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" style="stop-color:#fde68a"/>
+      <stop offset="50%" style="stop-color:#d97706"/>
+      <stop offset="100%" style="stop-color:#78350f"/>
+    </radialGradient>
+    <!-- Bright specular highlight -->
+    <radialGradient id="shine" cx="25%" cy="20%" r="35%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.7"/>
+      <stop offset="50%" style="stop-color:white;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:white;stop-opacity:0"/>
+    </radialGradient>
+    <!-- Atmospheric glow at edges -->
+    <radialGradient id="atmosphere" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" style="stop-color:#0ea5e9;stop-opacity:0"/>
+      <stop offset="95%" style="stop-color:#7dd3fc;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#bae6fd;stop-opacity:0.5"/>
+    </radialGradient>
   </defs>
-  <!-- Ocean base -->
-  <circle cx="50" cy="50" r="48" fill="url(#ocean)"/>
-  <!-- Continents (simplified) -->
-  <!-- North America -->
-  <path d="M20 25 Q25 20 35 22 Q40 25 42 30 Q38 35 35 40 Q30 42 25 38 Q20 35 18 30 Z" fill="url(#land)"/>
-  <!-- South America -->
-  <path d="M30 50 Q35 48 38 52 Q40 60 38 70 Q35 75 30 72 Q28 65 28 58 Z" fill="url(#land)"/>
-  <!-- Europe/Africa -->
-  <path d="M50 22 Q55 20 60 25 Q58 30 55 35 Q52 32 50 28 Z" fill="url(#land)"/>
-  <path d="M52 40 Q58 38 62 45 Q60 55 58 65 Q55 70 50 68 Q48 60 50 50 Z" fill="url(#land)"/>
+
+  <!-- Ocean base with 3D shading -->
+  <circle cx="50" cy="50" r="47" fill="url(#sphere)"/>
+
+  <!-- Latitude/longitude grid - tilted for realism -->
+  <g opacity="0.4">
+    <ellipse cx="50" cy="50" rx="47" ry="16" fill="none" stroke="#bae6fd" stroke-width="0.4" transform="rotate(-23 50 50)"/>
+    <ellipse cx="50" cy="50" rx="47" ry="32" fill="none" stroke="#bae6fd" stroke-width="0.4" transform="rotate(-23 50 50)"/>
+    <ellipse cx="50" cy="50" rx="16" ry="47" fill="none" stroke="#bae6fd" stroke-width="0.4" transform="rotate(-23 50 50)"/>
+    <ellipse cx="50" cy="50" rx="32" ry="47" fill="none" stroke="#bae6fd" stroke-width="0.4" transform="rotate(-23 50 50)"/>
+  </g>
+
+  <!-- North America - detailed shape -->
+  <path d="M22 20 C20 18 18 20 16 24 C14 28 12 34 14 38 C16 42 22 46 28 48 C32 49 36 48 40 44 C44 40 46 34 44 28 C42 24 38 20 34 18 C30 16 26 17 24 19 L22 20 Z" fill="url(#land)"/>
+
+  <!-- Central/South America -->
+  <path d="M18 52 C16 54 17 58 20 64 C22 68 24 74 22 80 C21 84 18 86 16 85" fill="none" stroke="url(#land)" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Europe -->
+  <path d="M44 18 C42 16 46 14 50 16 C54 18 56 22 58 28 C59 32 58 38 54 42 C50 46 44 44 42 38 C40 32 42 26 44 22 Z" fill="url(#land)"/>
+
+  <!-- Africa -->
+  <path d="M48 46 C46 44 50 42 56 44 C62 46 68 52 70 60 C72 68 70 78 64 84 C58 88 50 86 46 80 C42 74 44 64 48 56 Z" fill="url(#land)"/>
+  <!-- Sahara desert -->
+  <path d="M52 58 C54 56 58 58 60 64 C62 70 58 76 54 74 C50 72 50 64 52 58 Z" fill="url(#desert)"/>
+
   <!-- Asia -->
-  <path d="M62 20 Q70 18 78 22 Q82 28 80 35 Q75 40 68 38 Q65 32 62 25 Z" fill="url(#land)"/>
+  <path d="M60 14 C58 12 64 10 72 12 C80 14 88 20 90 28 C92 36 88 44 80 48 C72 52 62 48 58 40 C54 32 58 22 64 16 Z" fill="url(#land)"/>
+  <!-- Middle East/Central Asia desert -->
+  <path d="M70 24 C72 22 78 24 80 30 C82 36 78 40 74 38 C70 36 68 28 70 24 Z" fill="url(#desert)"/>
+
   <!-- Australia -->
-  <path d="M72 55 Q78 52 82 58 Q80 65 75 68 Q70 65 72 58 Z" fill="url(#land)"/>
-  <!-- Shine/highlight -->
-  <ellipse cx="35" cy="30" rx="15" ry="12" fill="white" opacity="0.15"/>
+  <path d="M78 56 C76 52 82 50 88 54 C92 58 94 66 90 74 C86 80 78 82 74 78 C70 74 72 64 78 56 Z" fill="url(#desert)"/>
+
+  <!-- Atmospheric glow overlay -->
+  <circle cx="50" cy="50" r="47" fill="url(#atmosphere)"/>
+
+  <!-- Specular highlight for 3D glass effect -->
+  <ellipse cx="32" cy="28" rx="16" ry="12" fill="url(#shine)"/>
 </svg>

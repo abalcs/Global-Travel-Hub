@@ -8,7 +8,7 @@ import { TrendsView } from './components/TrendsView';
 import { RegionalView } from './components/RegionalView';
 import { InsightsView } from './components/InsightsView';
 import { RecordsView } from './components/RecordsView';
-import { RecordNotification } from './components/RecordNotification';
+// RecordNotification import removed - notifications disabled
 import { PresentationGenerator } from './components/PresentationGenerator';
 import { AgentAnalytics } from './components/AgentAnalytics';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
@@ -25,14 +25,14 @@ import {
   calculateMetrics,
   buildTimeSeriesOptimized,
   calculateSegmentDailyAverages,
-  countRepeatByAgent
+  countRepeatByAgent,
+  countB2bByAgent
 } from './utils/metricsCalculator';
 import {
   loadRecords,
   saveRecords,
   analyzeAndUpdateRecords,
   type AllRecords,
-  type RecordUpdate,
 } from './utils/recordsTracker';
 
 function App() {
@@ -60,7 +60,6 @@ function App() {
   });
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<AllRecords>(() => loadRecords());
-  const [pendingNotifications, setPendingNotifications] = useState<RecordUpdate[]>([]);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [showDataPanel, setShowDataPanel] = useState(true);
@@ -227,8 +226,9 @@ function App() {
         tripDateMap
       );
 
-      // Calculate repeat client data per agent
+      // Calculate repeat client and B2B data per agent
       const repeatData = countRepeatByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
+      const b2bData = countB2bByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
 
       const calculatedMetrics = calculateMetrics(
         tripsResult.total,
@@ -238,7 +238,9 @@ function App() {
         bookingsResult.total,
         nonConvertedResult.total,
         repeatData.repeatTrips,
-        repeatData.repeatPassthroughs
+        repeatData.repeatPassthroughs,
+        b2bData.b2bTrips,
+        b2bData.b2bPassthroughs
       );
 
       setMetrics(calculatedMetrics);
@@ -275,7 +277,7 @@ function App() {
       if (updates.length > 0) {
         saveRecords(updatedRecords);
         setRecords(updatedRecords);
-        setPendingNotifications(updates);
+        // Notifications disabled - records shown in Records tab instead
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred while processing files');
@@ -314,9 +316,6 @@ function App() {
     setRecords({ agents: {}, lastUpdated: new Date().toISOString() });
   }, []);
 
-  const handleDismissNotifications = useCallback(() => {
-    setPendingNotifications([]);
-  }, []);
 
   const allAgentNames = useMemo(() => metrics.map((m) => m.agentName), [metrics]);
   const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted;
@@ -389,23 +388,50 @@ function App() {
               Global Travel Hub
               <svg className="w-7 h-7" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                  <linearGradient id="globeOcean" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#3b82f6"/>
-                    <stop offset="100%" stopColor="#1e40af"/>
-                  </linearGradient>
-                  <linearGradient id="globeLand" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#22c55e"/>
-                    <stop offset="100%" stopColor="#16a34a"/>
-                  </linearGradient>
+                  <radialGradient id="globeSphere" cx="30%" cy="30%" r="65%" fx="25%" fy="25%">
+                    <stop offset="0%" stopColor="#7dd3fc"/>
+                    <stop offset="40%" stopColor="#0ea5e9"/>
+                    <stop offset="70%" stopColor="#0369a1"/>
+                    <stop offset="100%" stopColor="#0c4a6e"/>
+                  </radialGradient>
+                  <radialGradient id="globeGreen" cx="30%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#86efac"/>
+                    <stop offset="40%" stopColor="#22c55e"/>
+                    <stop offset="100%" stopColor="#14532d"/>
+                  </radialGradient>
+                  <radialGradient id="globeTan" cx="30%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#fde68a"/>
+                    <stop offset="50%" stopColor="#d97706"/>
+                    <stop offset="100%" stopColor="#78350f"/>
+                  </radialGradient>
+                  <radialGradient id="globeShine" cx="25%" cy="20%" r="35%">
+                    <stop offset="0%" stopColor="white" stopOpacity="0.7"/>
+                    <stop offset="50%" stopColor="white" stopOpacity="0.2"/>
+                    <stop offset="100%" stopColor="white" stopOpacity="0"/>
+                  </radialGradient>
+                  <radialGradient id="globeAtmo" cx="50%" cy="50%" r="50%">
+                    <stop offset="85%" stopColor="#0ea5e9" stopOpacity="0"/>
+                    <stop offset="95%" stopColor="#7dd3fc" stopOpacity="0.3"/>
+                    <stop offset="100%" stopColor="#bae6fd" stopOpacity="0.5"/>
+                  </radialGradient>
                 </defs>
-                <circle cx="50" cy="50" r="46" fill="url(#globeOcean)" stroke="#60a5fa" strokeWidth="2"/>
-                <path d="M20 25 Q25 20 35 22 Q40 25 42 30 Q38 35 35 40 Q30 42 25 38 Q20 35 18 30 Z" fill="url(#globeLand)"/>
-                <path d="M30 50 Q35 48 38 52 Q40 60 38 70 Q35 75 30 72 Q28 65 28 58 Z" fill="url(#globeLand)"/>
-                <path d="M50 22 Q55 20 60 25 Q58 30 55 35 Q52 32 50 28 Z" fill="url(#globeLand)"/>
-                <path d="M52 40 Q58 38 62 45 Q60 55 58 65 Q55 70 50 68 Q48 60 50 50 Z" fill="url(#globeLand)"/>
-                <path d="M62 20 Q70 18 78 22 Q82 28 80 35 Q75 40 68 38 Q65 32 62 25 Z" fill="url(#globeLand)"/>
-                <path d="M72 55 Q78 52 82 58 Q80 65 75 68 Q70 65 72 58 Z" fill="url(#globeLand)"/>
-                <ellipse cx="35" cy="30" rx="12" ry="10" fill="white" opacity="0.15"/>
+                <circle cx="50" cy="50" r="47" fill="url(#globeSphere)"/>
+                <g opacity="0.4">
+                  <ellipse cx="50" cy="50" rx="47" ry="16" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
+                  <ellipse cx="50" cy="50" rx="47" ry="32" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
+                  <ellipse cx="50" cy="50" rx="16" ry="47" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
+                  <ellipse cx="50" cy="50" rx="32" ry="47" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
+                </g>
+                <path d="M22 20 C20 18 18 20 16 24 C14 28 12 34 14 38 C16 42 22 46 28 48 C32 49 36 48 40 44 C44 40 46 34 44 28 C42 24 38 20 34 18 C30 16 26 17 24 19 L22 20 Z" fill="url(#globeGreen)"/>
+                <path d="M18 52 C16 54 17 58 20 64 C22 68 24 74 22 80 C21 84 18 86 16 85" fill="none" stroke="url(#globeGreen)" strokeWidth="8" strokeLinecap="round"/>
+                <path d="M44 18 C42 16 46 14 50 16 C54 18 56 22 58 28 C59 32 58 38 54 42 C50 46 44 44 42 38 C40 32 42 26 44 22 Z" fill="url(#globeGreen)"/>
+                <path d="M48 46 C46 44 50 42 56 44 C62 46 68 52 70 60 C72 68 70 78 64 84 C58 88 50 86 46 80 C42 74 44 64 48 56 Z" fill="url(#globeGreen)"/>
+                <path d="M52 58 C54 56 58 58 60 64 C62 70 58 76 54 74 C50 72 50 64 52 58 Z" fill="url(#globeTan)"/>
+                <path d="M60 14 C58 12 64 10 72 12 C80 14 88 20 90 28 C92 36 88 44 80 48 C72 52 62 48 58 40 C54 32 58 22 64 16 Z" fill="url(#globeGreen)"/>
+                <path d="M70 24 C72 22 78 24 80 30 C82 36 78 40 74 38 C70 36 68 28 70 24 Z" fill="url(#globeTan)"/>
+                <path d="M78 56 C76 52 82 50 88 54 C92 58 94 66 90 74 C86 80 78 82 74 78 C70 74 72 64 78 56 Z" fill="url(#globeTan)"/>
+                <circle cx="50" cy="50" r="47" fill="url(#globeAtmo)"/>
+                <ellipse cx="32" cy="28" rx="16" ry="12" fill="url(#globeShine)"/>
               </svg>
             </h1>
             <p className="text-sm text-slate-400">Analyze agent performance metrics</p>
@@ -415,7 +441,7 @@ function App() {
               <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} />
               <button
                 onClick={handleClearData}
-                className="px-3 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                className="px-3 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer active:scale-95"
               >
                 Clear All
               </button>
@@ -424,7 +450,7 @@ function App() {
             <button
               onClick={processFiles}
               disabled={isProcessing}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95"
             >
               {isProcessing ? (
                 <>
@@ -450,7 +476,7 @@ function App() {
         <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700/50 mb-4 overflow-hidden">
           <button
             onClick={() => setShowDataPanel(!showDataPanel)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/30 transition-colors"
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-700/30 transition-all cursor-pointer active:scale-[0.99]"
           >
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -484,8 +510,13 @@ function App() {
             </svg>
           </button>
 
-          {showDataPanel && (
-            <div className="px-4 pb-4 border-t border-slate-700/50 pt-4">
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              showDataPanel ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="px-4 pb-4 border-t border-slate-700/50 pt-4">
               {/* Quick Load Button for stored data */}
               {hasStoredData && (
                 <div className="mb-4 bg-slate-700/30 rounded-lg p-4">
@@ -503,7 +534,7 @@ function App() {
                     </div>
                     <button
                       onClick={handleClearStoredData}
-                      className="text-xs text-slate-400 hover:text-red-400 transition-colors px-2 py-1 hover:bg-red-500/10 rounded"
+                      className="text-xs text-slate-400 hover:text-red-400 transition-all px-2 py-1 hover:bg-red-500/10 rounded cursor-pointer active:scale-95"
                     >
                       Clear Stored Data
                     </button>
@@ -511,7 +542,7 @@ function App() {
                   <button
                     onClick={processFiles}
                     disabled={isProcessing}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -568,8 +599,9 @@ function App() {
                   icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
                 />
               </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Controls Bar */}
@@ -599,7 +631,7 @@ function App() {
               <button
                 onClick={processFiles}
                 disabled={!canAnalyze || isProcessing}
-                className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2"
               >
                 {isProcessing ? (
                   <>
@@ -629,7 +661,7 @@ function App() {
             <div className="bg-slate-800/50 rounded-lg p-1 flex gap-1">
               <button
                 onClick={() => setActiveView('summary')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                   activeView === 'summary'
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
@@ -640,7 +672,7 @@ function App() {
               <button
                 onClick={() => setActiveView('regional')}
                 disabled={!rawParsedData}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                   activeView === 'regional'
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -650,7 +682,7 @@ function App() {
               </button>
               <button
                 onClick={() => setActiveView('trends')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                   activeView === 'trends'
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
@@ -661,7 +693,7 @@ function App() {
               <button
                 onClick={() => setActiveView('insights')}
                 disabled={!rawParsedData}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                   activeView === 'insights'
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -671,7 +703,7 @@ function App() {
               </button>
               <button
                 onClick={() => setActiveView('records')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
                   activeView === 'records'
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
@@ -726,13 +758,7 @@ function App() {
           <RecordsView records={records} onClearRecords={handleClearRecords} />
         )}
 
-        {/* Record Notifications */}
-        {pendingNotifications.length > 0 && (
-          <RecordNotification
-            updates={pendingNotifications}
-            onDismiss={handleDismissNotifications}
-          />
-        )}
+        {/* Record Notifications disabled - records shown in Records tab */}
 
         {/* Empty State */}
         {metrics.length === 0 && !isProcessing && (
