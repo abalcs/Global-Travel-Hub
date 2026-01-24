@@ -21,6 +21,11 @@
 - Ensure all tests pass
 - Ensure build succeeds
 
+### After Merging
+- **ALWAYS** delete the feature branch after merging into `main` and pushing
+- Delete locally: `git branch -d feature/<branch-name>`
+- Delete remote: `git push origin --delete feature/<branch-name>`
+
 ### Before Deploying
 - **ASK USER FOR APPROVAL** before running deploy
 - Deploy command: `npm run deploy`
