@@ -100,7 +100,6 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       const validMetrics = saved.selectedMetrics.filter((m) => VALID_METRICS.includes(m));
       return {
         ...saved,
-        selectedAgents: [], // Always start with no agents selected
         selectedMetrics: validMetrics.length > 0 ? validMetrics : ['tq'],
         dateRangeEnd: Math.min(saved.dateRangeEnd, allDates.length - 1),
       };
@@ -519,10 +518,16 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
     [allDates.length]
   );
 
-  // Format date for display
+  // Format date for display (short - for x-axis)
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Format date for tooltip (includes year for clarity)
+  const formatDateWithYear = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   // Select/deselect all agents
@@ -995,7 +1000,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   // Return formatted label with source and metric
                   return [formattedValue, `${displaySource} - ${metricLabel}`];
                 }}
-                labelFormatter={(label) => formatDate(label as string)}
+                labelFormatter={(label) => formatDateWithYear(label as string)}
               />
               {showLegend && (
                 <Legend

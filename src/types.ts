@@ -136,7 +136,9 @@ export interface DepartmentAverages {
 export interface QuartileAgent {
   agentName: string;
   aggregateHotPassRate: number;
+  totalTrips: number;
   totalPassthroughs: number;
+  totalQuotes: number;
   totalHotPasses: number;
   totalBookings: number;
 }

@@ -9,25 +9,29 @@ function filterAgentsByVolume(
   dateStartIdx: number,
   dateEndIdx: number,
   minPassthroughs: number
-): Map<string, { totalPassthroughs: number; totalHotPasses: number; totalBookings: number }> {
-  const agentTotals = new Map<string, { totalPassthroughs: number; totalHotPasses: number; totalBookings: number }>();
+): Map<string, { totalTrips: number; totalPassthroughs: number; totalQuotes: number; totalHotPasses: number; totalBookings: number }> {
+  const agentTotals = new Map<string, { totalTrips: number; totalPassthroughs: number; totalQuotes: number; totalHotPasses: number; totalBookings: number }>();
   const filteredDates = new Set(allDates.slice(dateStartIdx, dateEndIdx + 1));
 
   for (const agent of timeSeriesData.agents) {
+    let totalTrips = 0;
     let totalPassthroughs = 0;
+    let totalQuotes = 0;
     let totalHotPasses = 0;
     let totalBookings = 0;
 
     for (const day of agent.dailyMetrics) {
       if (filteredDates.has(day.date)) {
+        totalTrips += day.trips;
         totalPassthroughs += day.passthroughs;
+        totalQuotes += day.quotes;
         totalHotPasses += day.hotPasses;
         totalBookings += day.bookings;
       }
     }
 
     if (totalPassthroughs >= minPassthroughs) {
-      agentTotals.set(agent.agentName, { totalPassthroughs, totalHotPasses, totalBookings });
+      agentTotals.set(agent.agentName, { totalTrips, totalPassthroughs, totalQuotes, totalHotPasses, totalBookings });
     }
   }
 
@@ -38,7 +42,7 @@ function filterAgentsByVolume(
  * Sort agents by hot pass rate and split into top/bottom quartiles
  */
 function splitIntoQuartiles(
-  agentTotals: Map<string, { totalPassthroughs: number; totalHotPasses: number; totalBookings: number }>
+  agentTotals: Map<string, { totalTrips: number; totalPassthroughs: number; totalQuotes: number; totalHotPasses: number; totalBookings: number }>
 ): { topQuartile: QuartileAgent[]; bottomQuartile: QuartileAgent[] } {
   // Convert to array with calculated hot pass rates
   const agents: QuartileAgent[] = Array.from(agentTotals.entries()).map(([name, totals]) => ({
@@ -46,7 +50,9 @@ function splitIntoQuartiles(
     aggregateHotPassRate: totals.totalPassthroughs > 0
       ? (totals.totalHotPasses / totals.totalPassthroughs) * 100
       : 0,
+    totalTrips: totals.totalTrips,
     totalPassthroughs: totals.totalPassthroughs,
+    totalQuotes: totals.totalQuotes,
     totalHotPasses: totals.totalHotPasses,
     totalBookings: totals.totalBookings,
   }));

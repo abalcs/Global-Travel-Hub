@@ -1,15 +1,18 @@
 import { useState, useMemo } from 'react';
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
+  LabelList,
 } from 'recharts';
 import type { TimeSeriesData } from '../types';
 import { calculateQuartileAnalysis } from '../utils/quartileAnalytics';
+import { getTimeframeDates } from '../utils/dateParser';
+
+type Timeframe = 'chart' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'lastYear' | 'all';
 
 interface QuartileAnalysisSectionProps {
   timeSeriesData: TimeSeriesData;
@@ -26,106 +29,161 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [minVolume, setMinVolume] = useState(10);
-  const [showIndividualAgents, setShowIndividualAgents] = useState(false);
+  const [timeframe, setTimeframe] = useState<Timeframe>('chart');
+
+  // Calculate effective date range based on timeframe selection
+  const effectiveDateRange = useMemo(() => {
+    if (timeframe === 'chart') {
+      // Use parent's date range (from the chart slider)
+      return { start: dateStartIdx, end: dateEndIdx };
+    }
+
+    if (timeframe === 'all') {
+      // Use all available dates
+      return { start: 0, end: allDates.length - 1 };
+    }
+
+    // Calculate date range based on timeframe
+    const { start: startDate, end: endDate } = getTimeframeDates(timeframe);
+
+    if (!startDate || !endDate) {
+      return { start: 0, end: allDates.length - 1 };
+    }
+
+    // Find the indices in allDates array that correspond to the timeframe
+    let startIdx = 0;
+    let endIdx = allDates.length - 1;
+
+    // allDates are in YYYY-MM-DD format, sorted ascending
+    for (let i = 0; i < allDates.length; i++) {
+      const dateStr = allDates[i];
+      const date = new Date(dateStr + 'T00:00:00');
+
+      if (date >= startDate && startIdx === 0) {
+        startIdx = i;
+      }
+      if (date <= endDate) {
+        endIdx = i;
+      }
+    }
+
+    // Ensure valid range
+    if (startIdx > endIdx) {
+      return { start: 0, end: allDates.length - 1 };
+    }
+
+    return { start: startIdx, end: endIdx };
+  }, [timeframe, dateStartIdx, dateEndIdx, allDates]);
 
   // Calculate quartile analysis data
   const analysisData = useMemo(() => {
     return calculateQuartileAnalysis(
       timeSeriesData,
       allDates,
-      dateStartIdx,
-      dateEndIdx,
+      effectiveDateRange.start,
+      effectiveDateRange.end,
       minVolume
     );
-  }, [timeSeriesData, allDates, dateStartIdx, dateEndIdx, minVolume]);
+  }, [timeSeriesData, allDates, effectiveDateRange.start, effectiveDateRange.end, minVolume]);
 
-  // Calculate individual agent daily T>Q data if enabled
-  const individualAgentData = useMemo(() => {
-    if (!showIndividualAgents || !analysisData) return null;
-
-    const filteredDates = allDates.slice(dateStartIdx, dateEndIdx + 1);
-    const allAgentNames = [
-      ...analysisData.topQuartileAgents.map((a) => a.agentName),
-      ...analysisData.bottomQuartileAgents.map((a) => a.agentName),
-    ];
-
-    // Build agent -> date -> metrics map
-    const agentDateMap = new Map<string, Map<string, { trips: number; quotes: number }>>();
-    for (const agent of timeSeriesData.agents) {
-      if (allAgentNames.includes(agent.agentName)) {
-        const dateMap = new Map<string, { trips: number; quotes: number }>();
-        for (const day of agent.dailyMetrics) {
-          dateMap.set(day.date, { trips: day.trips, quotes: day.quotes });
-        }
-        agentDateMap.set(agent.agentName, dateMap);
-      }
-    }
-
-    // Build chart data with individual agent T>Q
-    return filteredDates.map((date) => {
-      const point: Record<string, unknown> = { date };
-
-      for (const agentName of allAgentNames) {
-        const dateMap = agentDateMap.get(agentName);
-        const metrics = dateMap?.get(date);
-        if (metrics && metrics.trips > 0) {
-          point[agentName] = (metrics.quotes / metrics.trips) * 100;
-        }
-      }
-
-      return point;
-    });
-  }, [showIndividualAgents, analysisData, timeSeriesData, allDates, dateStartIdx, dateEndIdx]);
-
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  // Calculate average hot pass rates and bookings for summary
-  const summaryStats = useMemo(() => {
+  // Calculate comparison metrics for the bar chart
+  const comparisonData = useMemo(() => {
     if (!analysisData) return null;
 
-    const topAvgHP =
-      analysisData.topQuartileAgents.reduce((sum, a) => sum + a.aggregateHotPassRate, 0) /
-      analysisData.topQuartileAgents.length;
-    const bottomAvgHP =
-      analysisData.bottomQuartileAgents.reduce((sum, a) => sum + a.aggregateHotPassRate, 0) /
-      analysisData.bottomQuartileAgents.length;
+    const topAgents = analysisData.topQuartileAgents;
+    const bottomAgents = analysisData.bottomQuartileAgents;
 
-    // Calculate average bookings per agent
-    const topAvgBookings =
-      analysisData.topQuartileAgents.reduce((sum, a) => sum + a.totalBookings, 0) /
-      analysisData.topQuartileAgents.length;
-    const bottomAvgBookings =
-      analysisData.bottomQuartileAgents.reduce((sum, a) => sum + a.totalBookings, 0) /
-      analysisData.bottomQuartileAgents.length;
+    if (topAgents.length === 0 || bottomAgents.length === 0) return null;
 
-    // Calculate overall T>Q averages
-    const validTopDays = analysisData.dailyComparison.filter((d) => d.topQuartileAgentCount > 0);
-    const validBottomDays = analysisData.dailyComparison.filter((d) => d.bottomQuartileAgentCount > 0);
+    // Calculate averages for each metric
+    const calcAvg = (agents: typeof topAgents, getter: (a: typeof topAgents[0]) => number) => {
+      return agents.reduce((sum, a) => sum + getter(a), 0) / agents.length;
+    };
 
-    const topAvgTQ = validTopDays.length > 0
-      ? validTopDays.reduce((sum, d) => sum + d.topQuartileAvgTQ, 0) / validTopDays.length
-      : 0;
-    const bottomAvgTQ = validBottomDays.length > 0
-      ? validBottomDays.reduce((sum, d) => sum + d.bottomQuartileAvgTQ, 0) / validBottomDays.length
-      : 0;
+    const topHotPass = calcAvg(topAgents, a => a.aggregateHotPassRate);
+    const bottomHotPass = calcAvg(bottomAgents, a => a.aggregateHotPassRate);
 
-    return { topAvgHP, bottomAvgHP, topAvgTQ, bottomAvgTQ, topAvgBookings, bottomAvgBookings };
+    const topTQ = calcAvg(topAgents, a => a.totalTrips > 0 ? (a.totalQuotes / a.totalTrips) * 100 : 0);
+    const bottomTQ = calcAvg(bottomAgents, a => a.totalTrips > 0 ? (a.totalQuotes / a.totalTrips) * 100 : 0);
+
+    const topTP = calcAvg(topAgents, a => a.totalTrips > 0 ? (a.totalPassthroughs / a.totalTrips) * 100 : 0);
+    const bottomTP = calcAvg(bottomAgents, a => a.totalTrips > 0 ? (a.totalPassthroughs / a.totalTrips) * 100 : 0);
+
+    const topPQ = calcAvg(topAgents, a => a.totalPassthroughs > 0 ? (a.totalQuotes / a.totalPassthroughs) * 100 : 0);
+    const bottomPQ = calcAvg(bottomAgents, a => a.totalPassthroughs > 0 ? (a.totalQuotes / a.totalPassthroughs) * 100 : 0);
+
+    const topBookings = calcAvg(topAgents, a => a.totalBookings);
+    const bottomBookings = calcAvg(bottomAgents, a => a.totalBookings);
+
+    return [
+      {
+        metric: 'Hot Pass %',
+        description: 'Passthroughs that become hot passes',
+        top: topHotPass,
+        bottom: bottomHotPass,
+        diff: topHotPass - bottomHotPass,
+        isPercent: true,
+      },
+      {
+        metric: 'T>P %',
+        description: 'Trips converted to passthroughs',
+        top: topTP,
+        bottom: bottomTP,
+        diff: topTP - bottomTP,
+        isPercent: true,
+      },
+      {
+        metric: 'P>Q %',
+        description: 'Passthroughs converted to quotes',
+        top: topPQ,
+        bottom: bottomPQ,
+        diff: topPQ - bottomPQ,
+        isPercent: true,
+      },
+      {
+        metric: 'T>Q %',
+        description: 'Trips converted to quotes',
+        top: topTQ,
+        bottom: bottomTQ,
+        diff: topTQ - bottomTQ,
+        isPercent: true,
+      },
+      {
+        metric: 'Bookings',
+        description: 'Average bookings per agent',
+        top: topBookings,
+        bottom: bottomBookings,
+        diff: topBookings - bottomBookings,
+        isPercent: false,
+      },
+    ];
   }, [analysisData]);
 
-  // Agent colors for individual lines
-  const getTopAgentColor = (index: number) => {
-    const colors = ['#F97316', '#FB923C', '#FDBA74', '#FED7AA']; // Orange shades
-    return colors[index % colors.length];
-  };
+  // Summary insight
+  const summaryInsight = useMemo(() => {
+    if (!comparisonData) return null;
 
-  const getBottomAgentColor = (index: number) => {
-    const colors = ['#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0']; // Slate shades
-    return colors[index % colors.length];
-  };
+    const tqDiff = comparisonData.find(d => d.metric === 'T>Q %')?.diff || 0;
+    const bookingsDiff = comparisonData.find(d => d.metric === 'Bookings')?.diff || 0;
+    const hotPassDiff = comparisonData.find(d => d.metric === 'Hot Pass %')?.diff || 0;
+
+    return {
+      tqDiff,
+      bookingsDiff,
+      hotPassDiff,
+    };
+  }, [comparisonData]);
+
+  const timeframeOptions: { value: Timeframe; label: string }[] = [
+    { value: 'chart', label: 'Chart Range' },
+    { value: 'lastWeek', label: 'Last Week' },
+    { value: 'thisMonth', label: 'This Month' },
+    { value: 'lastMonth', label: 'Last Month' },
+    { value: 'thisQuarter', label: 'This Qtr' },
+    { value: 'lastQuarter', label: 'Last Qtr' },
+    { value: 'lastYear', label: 'Last Year' },
+    { value: 'all', label: 'All Time' },
+  ];
 
   return (
     <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700/50 overflow-hidden">
@@ -143,20 +201,17 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-lg font-semibold text-white">Hot Pass Quartile Analysis</span>
+          <span className="text-lg font-semibold text-white">Performance by Hot Pass Quartile</span>
           <span className="text-sm text-slate-400">
             {analysisData
               ? `(${analysisData.topQuartileAgents.length + analysisData.bottomQuartileAgents.length} agents)`
               : ''}
           </span>
         </div>
-        {analysisData && summaryStats && (
+        {summaryInsight && (
           <div className="flex items-center gap-4 text-sm">
             <span className="text-orange-400">
-              Top Q: {summaryStats.topAvgTQ.toFixed(1)}% T&gt;Q
-            </span>
-            <span className="text-slate-400">
-              Bottom Q: {summaryStats.bottomAvgTQ.toFixed(1)}% T&gt;Q
+              Top quartile: +{summaryInsight.tqDiff.toFixed(1)}pp T&gt;Q
             </span>
           </div>
         )}
@@ -170,54 +225,49 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
       >
         <div className="overflow-hidden">
           <div className="px-4 pb-4 space-y-4">
-          {!analysisData ? (
+            {/* Time Period Selector */}
+            <div className="flex flex-wrap gap-1 bg-slate-900/50 p-1 rounded-lg w-fit">
+              {timeframeOptions.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTimeframe(value);
+                  }}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    timeframe === value
+                      ? 'bg-orange-600 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+          {!analysisData || !comparisonData ? (
             <div className="text-center py-8 text-slate-400">
               <p>Not enough agents with {minVolume}+ passthroughs to form quartiles.</p>
               <p className="text-sm mt-2">Need at least 4 qualifying agents.</p>
             </div>
           ) : (
             <>
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-orange-500/30">
-                  <div className="text-xs text-slate-400 uppercase tracking-wide">Top Quartile</div>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-orange-400">
-                      {analysisData.topQuartileAgents.length}
-                    </span>
-                    <span className="text-sm text-slate-400">agents</span>
-                  </div>
-                  <div className="text-sm text-orange-300 mt-1">
-                    Avg HP: {summaryStats?.topAvgHP.toFixed(1)}%
-                  </div>
-                  <div className="text-sm text-orange-300">
-                    Avg Bookings: {summaryStats?.topAvgBookings.toFixed(1)}
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-500/30">
-                  <div className="text-xs text-slate-400 uppercase tracking-wide">Bottom Quartile</div>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-slate-400">
-                      {analysisData.bottomQuartileAgents.length}
-                    </span>
-                    <span className="text-sm text-slate-500">agents</span>
-                  </div>
-                  <div className="text-sm text-slate-400 mt-1">
-                    Avg HP: {summaryStats?.bottomAvgHP.toFixed(1)}%
-                  </div>
-                  <div className="text-sm text-slate-400">
-                    Avg Bookings: {summaryStats?.bottomAvgBookings.toFixed(1)}
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/50 rounded-lg p-3">
-                  <div className="text-xs text-slate-400 uppercase tracking-wide">Date Range</div>
-                  <div className="mt-1 text-sm text-white">
-                    {analysisData.dateRange.start} to {analysisData.dateRange.end}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {dateEndIdx - dateStartIdx + 1} days
+              {/* Key Insight Banner */}
+              <div className="bg-gradient-to-r from-orange-900/30 to-slate-800/30 rounded-lg p-4 border border-orange-500/20">
+                <div className="flex items-start gap-3">
+                  <div className="text-orange-400 text-xl">💡</div>
+                  <div>
+                    <div className="text-white font-medium">What does this show?</div>
+                    <div className="text-slate-300 text-sm mt-1">
+                      Agents are ranked by their <span className="text-orange-400 font-medium">Hot Pass %</span> (how often their passthroughs become "hot" leads).
+                      We then compare the <span className="text-orange-400">top 25%</span> of agents against the <span className="text-slate-400">bottom 25%</span> across all key metrics.
+                    </div>
+                    {summaryInsight && (
+                      <div className="text-slate-400 text-sm mt-2">
+                        <span className="text-orange-400">Top performers</span> have {summaryInsight.hotPassDiff.toFixed(1)} percentage points higher hot pass rate,
+                        and convert {summaryInsight.tqDiff.toFixed(1)} percentage points more trips to quotes.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -235,116 +285,93 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
                     className="w-16 px-2 py-1 rounded bg-slate-900 border border-slate-600 text-white text-sm"
                   />
                 </div>
-                <button
-                  onClick={() => setShowIndividualAgents(!showIndividualAgents)}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    showIndividualAgents
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                  }`}
-                >
-                  Show Individual Agents
-                </button>
+                <div className="text-xs text-slate-500">
+                  Date range: {analysisData.dateRange.start} to {analysisData.dateRange.end}
+                  {timeframe === 'chart' && (
+                    <span className="text-orange-400 ml-1">(synced with chart)</span>
+                  )}
+                </div>
               </div>
 
-              {/* Chart */}
+              {/* Comparison Bar Chart */}
               <div className="bg-slate-900/50 rounded-xl p-4">
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart
-                    data={showIndividualAgents && individualAgentData ? individualAgentData : analysisData.dailyComparison}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  >
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={formatDate}
-                      stroke="#64748b"
-                      fontSize={12}
-                    />
-                    <YAxis
-                      tickFormatter={(v) => `${v.toFixed(0)}%`}
-                      stroke="#64748b"
-                      fontSize={12}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#0f172a',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                        padding: '12px',
-                      }}
-                      labelStyle={{ color: '#f1f5f9', fontWeight: 'bold', marginBottom: '8px' }}
-                      formatter={(value: number | undefined, name?: string) => [
-                        `${(value ?? 0).toFixed(1)}%`,
-                        name === 'topQuartileAvgTQ' ? 'Top Quartile T>Q' :
-                        name === 'bottomQuartileAvgTQ' ? 'Bottom Quartile T>Q' :
-                        `${name ?? ''} T>Q`
-                      ]}
-                      labelFormatter={(label) => formatDate(label as string)}
-                    />
-                    <Legend
-                      formatter={(value: string) =>
-                        value === 'topQuartileAvgTQ' ? 'Top Quartile T>Q' :
-                        value === 'bottomQuartileAvgTQ' ? 'Bottom Quartile T>Q' :
-                        `${value} T>Q`
-                      }
-                    />
+                <div className="flex items-center gap-6 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-orange-500"></div>
+                    <span className="text-sm text-slate-300">Top Quartile ({analysisData.topQuartileAgents.length} agents)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-slate-500"></div>
+                    <span className="text-sm text-slate-300">Bottom Quartile ({analysisData.bottomQuartileAgents.length} agents)</span>
+                  </div>
+                </div>
 
-                    {/* Main quartile lines - always shown */}
-                    {!showIndividualAgents && (
-                      <>
-                        <Line
-                          type="monotone"
-                          dataKey="topQuartileAvgTQ"
-                          name="topQuartileAvgTQ"
-                          stroke="#F97316"
-                          strokeWidth={3}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          connectNulls
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="bottomQuartileAvgTQ"
-                          name="bottomQuartileAvgTQ"
-                          stroke="#64748B"
-                          strokeWidth={3}
-                          strokeDasharray="8 4"
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          connectNulls
-                        />
-                      </>
-                    )}
+                <div className="space-y-4">
+                  {comparisonData.map((item) => (
+                    <div key={item.metric} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-medium text-white">{item.metric}</span>
+                          <span className="text-xs text-slate-500 ml-2">{item.description}</span>
+                        </div>
+                        <div className={`text-sm font-medium ${item.diff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {item.diff >= 0 ? '+' : ''}{item.isPercent ? `${item.diff.toFixed(1)}pp` : item.diff.toFixed(1)}
+                        </div>
+                      </div>
 
-                    {/* Individual agent lines */}
-                    {showIndividualAgents && analysisData.topQuartileAgents.map((agent, idx) => (
-                      <Line
-                        key={agent.agentName}
-                        type="monotone"
-                        dataKey={agent.agentName}
-                        name={agent.agentName}
-                        stroke={getTopAgentColor(idx)}
-                        strokeWidth={2}
-                        dot={false}
-                        connectNulls
-                      />
-                    ))}
-                    {showIndividualAgents && analysisData.bottomQuartileAgents.map((agent, idx) => (
-                      <Line
-                        key={agent.agentName}
-                        type="monotone"
-                        dataKey={agent.agentName}
-                        name={agent.agentName}
-                        stroke={getBottomAgentColor(idx)}
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
-                        dot={false}
-                        connectNulls
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
+                      <div className="relative h-8">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            layout="vertical"
+                            data={[{ top: item.top, bottom: item.bottom }]}
+                            margin={{ top: 0, right: 60, left: 0, bottom: 0 }}
+                          >
+                            <XAxis
+                              type="number"
+                              hide
+                              domain={[0, Math.max(item.top, item.bottom) * 1.2 || 100]}
+                            />
+                            <YAxis type="category" dataKey="name" hide />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: '#0f172a',
+                                border: '1px solid #334155',
+                                borderRadius: '8px',
+                                padding: '8px',
+                              }}
+                              formatter={(value: number | undefined) => [
+                                item.isPercent ? `${(value ?? 0).toFixed(1)}%` : (value ?? 0).toFixed(1),
+                                ''
+                              ]}
+                            />
+                            <Bar dataKey="top" fill="#F97316" radius={[4, 4, 4, 4]} barSize={12}>
+                              <LabelList
+                                dataKey="top"
+                                position="right"
+                                formatter={(v: unknown) => {
+                                  const num = typeof v === 'number' ? v : 0;
+                                  return item.isPercent ? `${num.toFixed(1)}%` : num.toFixed(1);
+                                }}
+                                style={{ fill: '#F97316', fontSize: 12, fontWeight: 500 }}
+                              />
+                            </Bar>
+                            <Bar dataKey="bottom" fill="#64748B" radius={[4, 4, 4, 4]} barSize={12}>
+                              <LabelList
+                                dataKey="bottom"
+                                position="right"
+                                formatter={(v: unknown) => {
+                                  const num = typeof v === 'number' ? v : 0;
+                                  return item.isPercent ? `${num.toFixed(1)}%` : num.toFixed(1);
+                                }}
+                                style={{ fill: '#64748B', fontSize: 12, fontWeight: 500 }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Agent Lists */}
@@ -352,25 +379,17 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
                 {/* Top Quartile */}
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-orange-500/20">
                   <h4 className="text-sm font-medium text-orange-400 mb-2">
-                    Top Quartile (Highest Hot Pass %)
+                    Top Quartile Agents
                   </h4>
                   <div className="space-y-1">
-                    {analysisData.topQuartileAgents.map((agent, idx) => (
+                    {analysisData.topQuartileAgents.map((agent) => (
                       <div
                         key={agent.agentName}
                         className="flex items-center justify-between text-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          {showIndividualAgents && (
-                            <span
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: getTopAgentColor(idx) }}
-                            />
-                          )}
-                          <span className="text-slate-300">{agent.agentName}</span>
-                        </div>
+                        <span className="text-slate-300">{agent.agentName}</span>
                         <span className="text-orange-300 font-medium">
-                          {agent.aggregateHotPassRate.toFixed(1)}%
+                          {agent.aggregateHotPassRate.toFixed(1)}% HP
                         </span>
                       </div>
                     ))}
@@ -380,38 +399,22 @@ export const QuartileAnalysisSection: React.FC<QuartileAnalysisSectionProps> = (
                 {/* Bottom Quartile */}
                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-500/20">
                   <h4 className="text-sm font-medium text-slate-400 mb-2">
-                    Bottom Quartile (Lowest Hot Pass %)
+                    Bottom Quartile Agents
                   </h4>
                   <div className="space-y-1">
-                    {analysisData.bottomQuartileAgents.map((agent, idx) => (
+                    {analysisData.bottomQuartileAgents.map((agent) => (
                       <div
                         key={agent.agentName}
                         className="flex items-center justify-between text-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          {showIndividualAgents && (
-                            <span
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: getBottomAgentColor(idx) }}
-                            />
-                          )}
-                          <span className="text-slate-300">{agent.agentName}</span>
-                        </div>
+                        <span className="text-slate-300">{agent.agentName}</span>
                         <span className="text-slate-400 font-medium">
-                          {agent.aggregateHotPassRate.toFixed(1)}%
+                          {agent.aggregateHotPassRate.toFixed(1)}% HP
                         </span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </div>
-
-              {/* Explanation */}
-              <div className="text-xs text-slate-500">
-                <p>
-                  Agents are ranked by their aggregate Hot Pass % over the selected date range.
-                  The chart compares T&gt;Q (trip to quote conversion) rates between the top and bottom quartiles.
-                </p>
               </div>
             </>
           )}

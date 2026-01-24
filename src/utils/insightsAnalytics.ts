@@ -558,7 +558,8 @@ export const analyzeRegionalPerformance = (
   trips: CSVRow[],
   timeframe: RegionalTimeframe = 'all',
   hotPassData: CSVRow[] = [],
-  quotesData: CSVRow[] = []
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _quotesData: CSVRow[] = [] // Kept for backwards compatibility; P>Q now calculated from trips data
 ): DepartmentRegionalPerformance => {
   const emptyResult: DepartmentRegionalPerformance = {
     topRegions: [],
@@ -585,24 +586,19 @@ export const analyzeRegionalPerformance = (
   const regionCol = findColumn(trips[0], ['destination', 'region', 'country', 'original interest']);
   const passthroughDateCol = findColumn(trips[0], ['passthrough to sales date', 'passthrough date']);
   const dateCol = findColumn(trips[0], ['created date', 'trip: created date', 'date']);
+  // Check for quote first sent in trips data - more accurate P>Q calculation
+  const tripsQuoteDateCol = findColumn(trips[0], ['quote first sent', 'first sent date']);
 
   if (!regionCol) {
     return emptyResult;
   }
 
-  // Find region columns in hot pass and quotes data
+  // Find region columns in hot pass data
   const hotPassRegionCol = hotPassData.length > 0
     ? findColumn(hotPassData[0], ['destination', 'region', 'country', 'original interest'])
     : null;
   const hotPassDateCol = hotPassData.length > 0
     ? findColumn(hotPassData[0], ['created date', 'enquiry date', 'trip created', 'date'])
-    : null;
-
-  const quotesRegionCol = quotesData.length > 0
-    ? findColumn(quotesData[0], ['destination', 'region', 'country', 'original interest'])
-    : null;
-  const quotesDateCol = quotesData.length > 0
-    ? findColumn(quotesData[0], ['quote first sent', 'first sent date', 'created date', 'date'])
     : null;
 
   // Group by region - include hot passes and quotes
@@ -628,10 +624,18 @@ export const analyzeRegionalPerformance = (
 
     regionStats[region].trips++;
 
-    if (passthroughDateCol) {
-      const passthroughDate = (row[passthroughDateCol] || '').trim();
-      if (passthroughDate && passthroughDate.length > 0) {
-        regionStats[region].passthroughs++;
+    // Check for passthrough
+    const hasPassthrough = passthroughDateCol && (row[passthroughDateCol] || '').trim().length > 0;
+    if (hasPassthrough) {
+      regionStats[region].passthroughs++;
+
+      // Check if this passthrough also has a quote (more accurate P>Q calculation)
+      // A passthrough with a "quote first sent" date means it converted to a quote
+      if (tripsQuoteDateCol) {
+        const quoteDate = (row[tripsQuoteDateCol] || '').trim();
+        if (quoteDate && quoteDate.length > 0) {
+          regionStats[region].quotes++;
+        }
       }
     }
   }
@@ -653,22 +657,9 @@ export const analyzeRegionalPerformance = (
     }
   }
 
-  // Process quotes data
-  if (quotesRegionCol) {
-    for (const row of quotesData) {
-      const region = (row[quotesRegionCol] || '').trim();
-      if (!region || region.length < 2) continue;
-      if (isExcluded(region)) continue;
-
-      const rowDate = quotesDateCol ? row[quotesDateCol] : '';
-      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
-
-      // Only count if we have trips data for this region
-      if (regionStats[region]) {
-        regionStats[region].quotes++;
-      }
-    }
-  }
+  // Note: Quotes are now counted from trips data directly (passthroughs with "quote first sent" date)
+  // This provides a more accurate P>Q rate than counting rows from the quotes file,
+  // which may contain multiple entries per trip (revisions, etc.)
 
   // Convert to array and calculate rates
   const allRegions: RegionalPerformance[] = Object.entries(regionStats)
