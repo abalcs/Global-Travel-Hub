@@ -1,7 +1,7 @@
 import type { CSVRow } from './csvParser';
 import type { RawParsedData } from './indexedDB';
 import Anthropic from '@anthropic-ai/sdk';
-import { parseDateTime as parseDateTimeUtil, parseDate as parseDateUtil, DAY_NAMES, TIME_SLOTS } from './dateParser';
+import { parseDateTime as parseDateTimeUtil, parseDate as parseDateUtil, DAY_NAMES, TIME_SLOTS, getTimeframeDates } from './dateParser';
 import { findColumn as findColumnUtil } from './columnDetection';
 
 // ============ US Program to Destination Mapping ============
@@ -272,6 +272,41 @@ export interface InsightsData {
   agentRegionalPerformance: AgentRegionalPerformance[];
   regionalTrends: RegionalTrendData | null;
 }
+
+// ============ Timeframe Filter Helper ============
+
+/**
+ * Filter CSV rows by timeframe based on date columns
+ */
+export const filterRowsByTimeframe = (
+  rows: CSVRow[],
+  timeframe: RegionalTimeframe,
+  dateColumnNames: string[]
+): CSVRow[] => {
+  if (timeframe === 'all' || rows.length === 0) {
+    return rows;
+  }
+
+  const { start: startDate, end: endDate } = getTimeframeDates(timeframe);
+  if (!startDate || !endDate) {
+    return rows;
+  }
+
+  const dateCol = findColumn(rows[0], dateColumnNames);
+  if (!dateCol) {
+    return rows;
+  }
+
+  return rows.filter(row => {
+    const dateVal = row[dateCol];
+    if (!dateVal) return false;
+
+    const parsed = parseDate(dateVal);
+    if (!parsed) return false;
+
+    return parsed >= startDate && parsed <= endDate;
+  });
+};
 
 // ============ Analysis Functions ============
 
@@ -1666,22 +1701,34 @@ export const analyzeBookingCorrelations = (
 
 // ============ Main Analysis Function ============
 
-export const generateInsightsData = (rawData: RawParsedData): InsightsData => {
-  const passthroughsByDay = analyzePassthroughsByDay(rawData.passthroughs);
-  const passthroughsByTime = analyzePassthroughsByTime(rawData.passthroughs);
-  const hotPassByDay = analyzeHotPassByDay(rawData.hotPass);
-  const hotPassByTime = analyzeHotPassByTime(rawData.hotPass);
-  const topNonValidatedReasons = analyzeNonValidatedReasons(rawData.nonConverted);
-  const agentNonValidated = analyzeNonValidatedByAgent(rawData.nonConverted);
+export const generateInsightsData = (rawData: RawParsedData, timeframe: RegionalTimeframe = 'all'): InsightsData => {
+  // Common date column patterns for different data types
+  const passthroughDateCols = ['passthrough to sales date', 'passthrough date', 'created date', 'date'];
+  const hotPassDateCols = ['hot pass date', 'created date', 'date'];
+  const nonConvertedDateCols = ['created date', 'date', 'non-converted date'];
+  const bookingDateCols = ['booking date', 'created date', 'date'];
+
+  // Filter data by timeframe
+  const filteredPassthroughs = filterRowsByTimeframe(rawData.passthroughs, timeframe, passthroughDateCols);
+  const filteredHotPass = filterRowsByTimeframe(rawData.hotPass, timeframe, hotPassDateCols);
+  const filteredNonConverted = filterRowsByTimeframe(rawData.nonConverted, timeframe, nonConvertedDateCols);
+  const filteredBookings = filterRowsByTimeframe(rawData.bookings, timeframe, bookingDateCols);
+
+  const passthroughsByDay = analyzePassthroughsByDay(filteredPassthroughs);
+  const passthroughsByTime = analyzePassthroughsByTime(filteredPassthroughs);
+  const hotPassByDay = analyzeHotPassByDay(filteredHotPass);
+  const hotPassByTime = analyzeHotPassByTime(filteredHotPass);
+  const topNonValidatedReasons = analyzeNonValidatedReasons(filteredNonConverted);
+  const agentNonValidated = analyzeNonValidatedByAgent(filteredNonConverted);
   const bookingCorrelations = analyzeBookingCorrelations(
-    rawData.hotPass,
-    rawData.bookings,
-    rawData.passthroughs
+    filteredHotPass,
+    filteredBookings,
+    filteredPassthroughs
   );
 
-  // Regional performance analysis
-  const departmentRegionalPerformance = analyzeRegionalPerformance(rawData.trips, 'all', rawData.hotPass, rawData.quotes);
-  const agentRegionalPerformance = analyzeRegionalPerformanceByAgent(rawData.trips, 'all');
+  // Regional performance analysis (uses its own timeframe filtering)
+  const departmentRegionalPerformance = analyzeRegionalPerformance(rawData.trips, timeframe, rawData.hotPass, rawData.quotes);
+  const agentRegionalPerformance = analyzeRegionalPerformanceByAgent(rawData.trips, timeframe);
   const regionalTrends = analyzeRegionalTrends(rawData.trips, 6);
   const hasRegionalData = departmentRegionalPerformance.allRegions.length > 0;
 
@@ -1700,11 +1747,11 @@ export const generateInsightsData = (rawData: RawParsedData): InsightsData => {
     bookingCorrelations,
     hasTimeData: passthroughsByTime.length > 0,
     hasNonValidatedReasons: topNonValidatedReasons.length > 0,
-    hasBookingData: rawData.bookings.length > 0,
-    totalPassthroughs: rawData.passthroughs.length,
-    totalNonValidated: rawData.nonConverted.length,
-    totalBookings: rawData.bookings.length,
-    totalHotPass: rawData.hotPass.length,
+    hasBookingData: filteredBookings.length > 0,
+    totalPassthroughs: filteredPassthroughs.length,
+    totalNonValidated: filteredNonConverted.length,
+    totalBookings: filteredBookings.length,
+    totalHotPass: filteredHotPass.length,
     hasRegionalData,
     departmentRegionalPerformance,
     agentRegionalPerformance,

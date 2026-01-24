@@ -16,6 +16,7 @@ import {
   generateAIInsights,
   discoverColumns,
   type InsightsData,
+  type RegionalTimeframe,
 } from '../utils/insightsAnalytics';
 import {
   loadAnthropicApiKey,
@@ -30,6 +31,7 @@ const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e'
 
 export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
   const [insights, setInsights] = useState<InsightsData | null>(null);
+  const [timeframe, setTimeframe] = useState<RegionalTimeframe>('all');
   const [apiKey, setApiKey] = useState('');
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -56,13 +58,13 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
     }
   }, []);
 
-  // Generate insights when raw data changes
+  // Generate insights when raw data or timeframe changes
   useEffect(() => {
     if (rawData) {
-      const data = generateInsightsData(rawData);
+      const data = generateInsightsData(rawData, timeframe);
       setInsights(data);
     }
-  }, [rawData]);
+  }, [rawData, timeframe]);
 
   const columns = useMemo(() => discoverColumns(rawData), [rawData]);
 
@@ -188,6 +190,31 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
         >
           {showColumns ? 'Hide' : 'Show'} columns
         </button>
+      </div>
+
+      {/* Time Period Selector */}
+      <div className="flex flex-wrap gap-1 bg-slate-800/50 p-1 rounded-lg w-fit">
+        {[
+          { value: 'lastWeek', label: 'Last Week' },
+          { value: 'thisMonth', label: 'This Month' },
+          { value: 'lastMonth', label: 'Last Month' },
+          { value: 'thisQuarter', label: 'This Qtr' },
+          { value: 'lastQuarter', label: 'Last Qtr' },
+          { value: 'lastYear', label: 'Last Year' },
+          { value: 'all', label: 'All Time' },
+        ].map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setTimeframe(value as RegionalTimeframe)}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              timeframe === value
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Column Discovery (debug) */}
