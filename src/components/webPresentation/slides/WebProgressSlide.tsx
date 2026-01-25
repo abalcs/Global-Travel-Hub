@@ -1,6 +1,7 @@
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
 
 // Scenic travel images for progress background
 const PROGRESS_IMAGES = [
@@ -17,6 +18,7 @@ interface WebProgressSlideProps {
   teamCount: number;
   teamName: string;
   colors: SlideColors;
+  layout?: LayoutStyles;
 }
 
 const CountUp: React.FC<{ end: number; delay?: number; color: string }> = ({
@@ -73,6 +75,7 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
   teamCount,
   teamName,
   colors,
+  layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -95,14 +98,14 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
         src={backgroundImage}
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: imageLoaded ? 0.25 : 0, transition: 'opacity 0.8s ease-in-out' }}
+        style={{ opacity: imageLoaded ? 0.4 : 0, transition: 'opacity 0.8s ease-in-out' }}
         onLoad={() => setImageLoaded(true)}
       />
 
       {/* Dark overlay */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: `#${colors.background}`, opacity: 0.85 }}
+        style={{ backgroundColor: `#${colors.background}`, opacity: 0.75 }}
       />
 
       {/* Left accent bar */}
@@ -115,24 +118,26 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
       />
 
       {/* Bottom right decorative circle */}
-      <motion.div
-        className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
-        style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      />
+      {layout?.showDecorations !== false && (
+        <motion.div
+          className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
+          style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        />
+      )}
 
       {/* Header */}
-      <div className="mb-2 relative z-10">
+      <div className={`${layout?.headerMargin || 'mb-4'} relative z-10`}>
         <motion.h2
-          className="text-4xl font-bold"
+          className={`${layout?.titleSize || 'text-4xl'} font-bold`}
           style={{ color: `#${colors.text}` }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          PROGRESS
+          TEAM PROGRESS
         </motion.h2>
         <motion.div
           className="h-1 w-40 mt-2"
@@ -153,10 +158,10 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 flex gap-6 items-center mt-4 relative z-10">
+      <div className={`flex-1 flex ${layout?.spacing || 'gap-6'} items-center mt-4 relative z-10`}>
         {/* Passthroughs Card */}
         <motion.div
-          className="flex-1 rounded-2xl p-6 border-2"
+          className={`flex-1 rounded-2xl ${layout?.cardPadding || 'p-6'} border-2`}
           style={{
             backgroundColor: `#${colors.cardBg}`,
             borderColor: `#${colors.primary}`,
@@ -172,7 +177,7 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
             PASSTHROUGHS
           </p>
           <div className="flex items-baseline gap-4 mb-2">
-            <p className="text-6xl font-bold">
+            <p className={`${layout?.valueSize || 'text-6xl'} font-bold`}>
               <CountUp
                 end={totalPassthroughs}
                 delay={0.5}
@@ -196,7 +201,7 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
 
         {/* Quotes Card */}
         <motion.div
-          className="flex-1 rounded-2xl p-6 border-2"
+          className={`flex-1 rounded-2xl ${layout?.cardPadding || 'p-6'} border-2`}
           style={{
             backgroundColor: `#${colors.cardBg}`,
             borderColor: `#${colors.secondary}`,
@@ -212,7 +217,7 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
             QUOTES
           </p>
           <div className="flex items-baseline gap-4 mb-2">
-            <p className="text-6xl font-bold">
+            <p className={`${layout?.valueSize || 'text-6xl'} font-bold`}>
               <CountUp
                 end={totalQuotes}
                 delay={0.65}

@@ -108,7 +108,7 @@ const CURATED_DESTINATIONS: Record<string, string> = {
   'usa': 'https://images.pexels.com/photos/466685/pexels-photo-466685.jpeg?auto=compress&cs=tinysrgb&w=800',
   'america': 'https://images.pexels.com/photos/466685/pexels-photo-466685.jpeg?auto=compress&cs=tinysrgb&w=800',
   'canada': 'https://images.pexels.com/photos/2662116/pexels-photo-2662116.jpeg?auto=compress&cs=tinysrgb&w=800',
-  'mexico': 'https://images.pexels.com/photos/3290076/pexels-photo-3290076.jpeg?auto=compress&cs=tinysrgb&w=800',
+  'mexico': 'https://images.pexels.com/photos/3648269/pexels-photo-3648269.jpeg?auto=compress&cs=tinysrgb&w=800',
   'peru': 'https://images.pexels.com/photos/2356045/pexels-photo-2356045.jpeg?auto=compress&cs=tinysrgb&w=800',
   'machu picchu': 'https://images.pexels.com/photos/2356045/pexels-photo-2356045.jpeg?auto=compress&cs=tinysrgb&w=800',
   'argentina': 'https://images.pexels.com/photos/2356087/pexels-photo-2356087.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -134,7 +134,7 @@ const CURATED_DESTINATIONS: Record<string, string> = {
   'caicos': 'https://images.pexels.com/photos/1032650/pexels-photo-1032650.jpeg?auto=compress&cs=tinysrgb&w=800',
   'st lucia': 'https://images.pexels.com/photos/1032650/pexels-photo-1032650.jpeg?auto=compress&cs=tinysrgb&w=800',
   'virgin islands': 'https://images.pexels.com/photos/1032650/pexels-photo-1032650.jpeg?auto=compress&cs=tinysrgb&w=800',
-  'cuba': 'https://images.pexels.com/photos/3290076/pexels-photo-3290076.jpeg?auto=compress&cs=tinysrgb&w=800',
+  'cuba': 'https://images.pexels.com/photos/3601422/pexels-photo-3601422.jpeg?auto=compress&cs=tinysrgb&w=800',
 
   // Middle East
   'dubai': 'https://images.pexels.com/photos/1470502/pexels-photo-1470502.jpeg?auto=compress&cs=tinysrgb&w=800',

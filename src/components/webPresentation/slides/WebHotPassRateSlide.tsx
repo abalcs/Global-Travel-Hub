@@ -1,6 +1,7 @@
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo } from 'react';
 import type { SlideColors, TopDestination } from '../../../utils/presentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
 import { findCuratedImage, getFallbackImage } from '../../../utils/destinationImages';
 
 // Scenic travel images for hot pass rate background
@@ -18,9 +19,11 @@ interface Performer {
 
 interface WebHotPassRateSlideProps {
   avgHotPassRate: number;
+  deptAvgHotPassRate?: number;
   topPerformers: Performer[];
   hotPassDestinations?: TopDestination[];
   colors: SlideColors;
+  layout?: LayoutStyles;
 }
 
 const CountUpPercent: React.FC<{ end: number; delay?: number; color: string }> = ({
@@ -188,9 +191,11 @@ const HotPassDestinationCard: React.FC<{
 
 export const WebHotPassRateSlide: React.FC<WebHotPassRateSlideProps> = ({
   avgHotPassRate,
+  deptAvgHotPassRate = 0,
   topPerformers,
   hotPassDestinations = [],
   colors,
+  layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; alt: string } | null>(null);
@@ -199,6 +204,13 @@ export const WebHotPassRateSlide: React.FC<WebHotPassRateSlideProps> = ({
     avgHotPassRate >= 60
       ? colors.success
       : avgHotPassRate >= 50
+      ? colors.warning
+      : colors.text;
+
+  const deptRateColor =
+    deptAvgHotPassRate >= 60
+      ? colors.success
+      : deptAvgHotPassRate >= 50
       ? colors.warning
       : colors.text;
 
@@ -227,14 +239,14 @@ export const WebHotPassRateSlide: React.FC<WebHotPassRateSlideProps> = ({
         src={backgroundImage}
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: imageLoaded ? 0.2 : 0, transition: 'opacity 0.8s ease-in-out' }}
+        style={{ opacity: imageLoaded ? 0.4 : 0, transition: 'opacity 0.8s ease-in-out' }}
         onLoad={() => setImageLoaded(true)}
       />
 
       {/* Dark overlay */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: `#${colors.background}`, opacity: 0.88 }}
+        style={{ backgroundColor: `#${colors.background}`, opacity: 0.75 }}
       />
 
       {/* Left accent bar */}
@@ -247,11 +259,11 @@ export const WebHotPassRateSlide: React.FC<WebHotPassRateSlideProps> = ({
       />
 
       {/* Header row with title and hero percentage */}
-      <div className="flex items-start justify-between mb-6 relative z-10">
+      <div className={`flex items-start justify-between ${layout?.headerMargin || 'mb-6'} relative z-10`}>
         {/* Title */}
         <div>
           <motion.h2
-            className="text-3xl font-bold"
+            className={`${layout?.titleSize || 'text-3xl'} font-bold`}
             style={{ color: `#${colors.text}` }}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -268,27 +280,45 @@ export const WebHotPassRateSlide: React.FC<WebHotPassRateSlideProps> = ({
           />
         </div>
 
-        {/* Hero percentage */}
-        <motion.div
-          className="text-right"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.3, type: 'spring', stiffness: 100 }}
-        >
-          <div className="text-6xl font-bold leading-none">
-            <CountUpPercent end={Math.round(avgHotPassRate)} delay={0.5} color={`#${rateColor}`} />
-          </div>
-          <p className="text-sm mt-1" style={{ color: `#${colors.textLight}` }}>
-            Team Average
-          </p>
-        </motion.div>
+        {/* Hero percentages - Team and Department */}
+        <div className="flex items-end gap-8">
+          {/* Department Average */}
+          <motion.div
+            className="text-right"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2, type: 'spring', stiffness: 100 }}
+          >
+            <div className="text-3xl font-bold leading-none">
+              <CountUpPercent end={Math.round(deptAvgHotPassRate)} delay={0.4} color={`#${deptRateColor}`} />
+            </div>
+            <p className="text-xs mt-1" style={{ color: `#${colors.textLight}` }}>
+              Dept Average
+            </p>
+          </motion.div>
+
+          {/* Team Average */}
+          <motion.div
+            className="text-right"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.3, type: 'spring', stiffness: 100 }}
+          >
+            <div className={`${layout?.valueSize || 'text-6xl'} font-bold leading-none`}>
+              <CountUpPercent end={Math.round(avgHotPassRate)} delay={0.5} color={`#${rateColor}`} />
+            </div>
+            <p className="text-sm mt-1" style={{ color: `#${colors.textLight}` }}>
+              Team Average
+            </p>
+          </motion.div>
+        </div>
       </div>
 
       {/* Main content - two balanced sections */}
-      <div className="flex-1 flex gap-6 relative z-10">
+      <div className={`flex-1 flex ${layout?.spacing || 'gap-6'} relative z-10`}>
         {/* Team Members Card */}
         <motion.div
-          className={`${hasDestinations ? 'flex-1' : 'w-full'} rounded-xl p-4 border`}
+          className={`${hasDestinations ? 'flex-1' : 'w-full'} rounded-xl ${layout?.cardPadding || 'p-4'} border`}
           style={{
             backgroundColor: `#${colors.cardBg}`,
             borderColor: `#${colors.accent}30`,

@@ -1,6 +1,7 @@
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
 import type { DestinationStats } from '../../PresentationGenerator';
 import { findCuratedImage, getFallbackImage } from '../../../utils/destinationImages';
 
@@ -25,6 +26,7 @@ interface WebKeyMetricsSlideProps {
   repeatStats?: DestinationStats;
   b2bStats?: DestinationStats;
   colors: SlideColors;
+  layout?: LayoutStyles;
 }
 
 const CountUp: React.FC<{ end: number; delay?: number; color: string }> = ({
@@ -203,6 +205,7 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
   repeatStats = emptyStats,
   b2bStats = emptyStats,
   colors,
+  layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; alt: string } | null>(null);
@@ -245,14 +248,14 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
         src={backgroundImage}
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: imageLoaded ? 0.2 : 0, transition: 'opacity 0.8s ease-in-out' }}
+        style={{ opacity: imageLoaded ? 0.4 : 0, transition: 'opacity 0.8s ease-in-out' }}
         onLoad={() => setImageLoaded(true)}
       />
 
       {/* Dark overlay */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: `#${colors.background}`, opacity: 0.88 }}
+        style={{ backgroundColor: `#${colors.background}`, opacity: 0.75 }}
       />
 
       {/* Left accent bar */}
@@ -265,9 +268,9 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
       />
 
       {/* Header */}
-      <div className="mb-2 relative z-10">
+      <div className={`${layout?.headerMargin || 'mb-2'} relative z-10`}>
         <motion.h2
-          className="text-3xl font-bold"
+          className={`${layout?.titleSize || 'text-3xl'} font-bold`}
           style={{ color: `#${colors.text}` }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -286,16 +289,16 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
 
       {/* Conversion Rates - Compact */}
       <motion.div
-        className="mb-3 relative z-10"
+        className={`${layout?.spacing === 'gap-10' ? 'mb-6' : layout?.spacing === 'gap-3' ? 'mb-2' : 'mb-3'} relative z-10`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
       >
-        <div className="flex gap-3">
+        <div className={`flex ${layout?.spacing || 'gap-3'}`}>
           {conversionRates.map((rate, i) => (
             <motion.div
               key={rate.label}
-              className="flex-1 rounded-lg p-2.5 border text-center"
+              className={`flex-1 rounded-lg ${layout?.cardPadding || 'p-2.5'} border text-center`}
               style={{
                 backgroundColor: `#${colors.cardBg}`,
                 borderColor: `#${rate.color}`,
@@ -307,7 +310,7 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
               <p className="text-lg font-bold mb-0.5" style={{ color: `#${colors.accent}` }}>
                 {rate.label}
               </p>
-              <p className="text-3xl font-bold">
+              <p className={`${layout?.valueSize === 'text-8xl' ? 'text-5xl' : layout?.valueSize === 'text-7xl' ? 'text-4xl' : layout?.valueSize === 'text-4xl' ? 'text-2xl' : 'text-3xl'} font-bold`}>
                 <CountUp
                   end={Math.round(rate.value * 10) / 10}
                   delay={0.5 + i * 0.1}
@@ -324,8 +327,8 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
       </motion.div>
 
       {/* Raw Metrics - Compact */}
-      <div className="relative z-10 mb-3">
-        <div className="flex gap-2">
+      <div className={`relative z-10 ${layout?.spacing === 'gap-10' ? 'mb-6' : layout?.spacing === 'gap-3' ? 'mb-2' : 'mb-3'}`}>
+        <div className={`flex ${layout?.spacing === 'gap-10' ? 'gap-4' : layout?.spacing === 'gap-3' ? 'gap-1' : 'gap-2'}`}>
           {rawMetrics.map((metric, i) => (
             <motion.div
               key={metric.label}
@@ -358,7 +361,7 @@ export const WebKeyMetricsSlide: React.FC<WebKeyMetricsSlideProps> = ({
 
       {/* Repeat and B2B Destinations with Images */}
       {(hasRepeat || hasB2b) && (
-        <div className="flex-1 flex gap-4 relative z-10">
+        <div className={`flex-1 flex ${layout?.spacing || 'gap-4'} relative z-10`}>
           {/* Repeat T>P Section */}
           {hasRepeat && (
             <motion.div

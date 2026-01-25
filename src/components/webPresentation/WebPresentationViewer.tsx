@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Metrics, Team } from '../../types';
 import type { PresentationConfig, TopDestination } from '../../utils/presentationGenerator';
-import type { RecentAchievement, DestinationStats } from '../PresentationGenerator';
+import type { RecentAchievement, DestinationStats, ForecastDestinations } from '../PresentationGenerator';
 import { useSlideNavigation } from './hooks/useSlideNavigation';
 import { WebPresentationControls } from './WebPresentationControls';
 import { downloadHtmlPresentation } from './exportHtml';
 import {
   ALL_THEMES,
   getSlideTransition,
+  getLayoutStyles,
   type WebPresentationStyle,
 } from './webPresentationConfig';
 import { WebTitleSlide } from './slides/WebTitleSlide';
@@ -19,6 +20,7 @@ import { WebKeyMetricsSlide } from './slides/WebKeyMetricsSlide';
 import { WebTopDestinationsSlide } from './slides/WebTopDestinationsSlide';
 import { WebLeaderboardSlide } from './slides/WebLeaderboardSlide';
 import { WebCascadesSlide } from './slides/WebCascadesSlide';
+import { WebForecastDestinationsSlide } from './slides/WebForecastDestinationsSlide';
 import { WebClosingSlide } from './slides/WebClosingSlide';
 
 const emptyDestinationStats: DestinationStats = { destinations: [], totalTrips: 0, totalPassthroughs: 0, tpRate: 0 };
@@ -33,6 +35,7 @@ interface WebPresentationViewerProps {
   hotPassDestinations?: TopDestination[];
   repeatStats?: DestinationStats;
   b2bStats?: DestinationStats;
+  forecastDestinations?: ForecastDestinations | null;
   onClose: () => void;
 }
 
@@ -46,6 +49,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   hotPassDestinations = [],
   repeatStats = emptyDestinationStats,
   b2bStats = emptyDestinationStats,
+  forecastDestinations = null,
   onClose,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -55,8 +59,10 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   const activeTheme = webStyle?.theme || config.theme;
   const colors = ALL_THEMES[activeTheme];
   const animationStyle = webStyle?.animation || 'slide';
+  const layoutStyle = webStyle?.layout || 'default';
+  const layout = getLayoutStyles(layoutStyle);
 
-  const TOTAL_SLIDES = 9;
+  const TOTAL_SLIDES = 10;
 
   const {
     currentSlide,
@@ -119,6 +125,11 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
     const avgHotPassRate = totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0;
     const avgTQRate = totalTrips > 0 ? (totalQuotes / totalTrips) * 100 : 0;
     const avgTPRate = totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0;
+
+    // Calculate department-wide hot pass rate (all agents)
+    const deptTotalPassthroughs = metrics.reduce((sum, m) => sum + m.passthroughs, 0);
+    const deptTotalHotPasses = metrics.reduce((sum, m) => sum + m.hotPasses, 0);
+    const deptAvgHotPassRate = deptTotalPassthroughs > 0 ? (deptTotalHotPasses / deptTotalPassthroughs) * 100 : 0;
 
     // Sort for top performers (team only)
     const byPassthroughs = [...selectedTeamMetrics]
@@ -216,6 +227,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       monthlyGoalPassthroughs,
       monthlyGoalQuotes,
       avgHotPassRate,
+      deptAvgHotPassRate,
       avgTQRate,
       avgTPRate,
       byPassthroughs,
@@ -281,6 +293,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             teamName={config.teamName}
             meetingDate={config.meetingDate}
             colors={colors}
+            layout={layout}
           />
         );
       case 1:
@@ -293,28 +306,10 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             teamCount={slideData.selectedTeamCount}
             teamName={config.teamName}
             colors={colors}
+            layout={layout}
           />
         );
       case 2:
-        return (
-          <WebTopPerformersSlide
-            topPassthroughs={slideData.byPassthroughs}
-            topQuotes={slideData.byQuotes}
-            teamName={slideData.selectedTeamName}
-            recentAchievements={recentAchievements}
-            colors={colors}
-          />
-        );
-      case 3:
-        return (
-          <WebHotPassRateSlide
-            avgHotPassRate={slideData.avgHotPassRate}
-            topPerformers={slideData.byHotPassRate}
-            hotPassDestinations={hotPassDestinations}
-            colors={colors}
-          />
-        );
-      case 4:
         return (
           <WebKeyMetricsSlide
             teamName={slideData.selectedTeamName}
@@ -328,6 +323,29 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             repeatStats={repeatStats}
             b2bStats={b2bStats}
             colors={colors}
+            layout={layout}
+          />
+        );
+      case 3:
+        return (
+          <WebHotPassRateSlide
+            avgHotPassRate={slideData.avgHotPassRate}
+            deptAvgHotPassRate={slideData.deptAvgHotPassRate}
+            topPerformers={slideData.byHotPassRate}
+            hotPassDestinations={hotPassDestinations}
+            colors={colors}
+            layout={layout}
+          />
+        );
+      case 4:
+        return (
+          <WebTopPerformersSlide
+            topPassthroughs={slideData.byPassthroughs}
+            topQuotes={slideData.byQuotes}
+            teamName={slideData.selectedTeamName}
+            recentAchievements={recentAchievements}
+            colors={colors}
+            layout={layout}
           />
         );
       case 5:
@@ -336,6 +354,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             destinations={config.topDestinations || []}
             agentDestinations={config.agentTopDestinations}
             colors={colors}
+            layout={layout}
           />
         );
       case 6:
@@ -349,6 +368,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             byTPRate={slideData.allByTPRate}
             selectedTeamName={slideData.selectedTeamName}
             colors={colors}
+            layout={layout}
           />
         );
       case 7:
@@ -356,13 +376,25 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
           <WebCascadesSlide
             cascades={config.cascades}
             colors={colors}
+            layout={layout}
           />
         );
       case 8:
         return (
+          <WebForecastDestinationsSlide
+            destinations={forecastDestinations?.destinations || []}
+            periodLabel={forecastDestinations?.periodLabel || 'Previous year data unavailable'}
+            teamPeriodLabel={forecastDestinations?.teamPeriodLabel}
+            colors={colors}
+            layout={layout}
+          />
+        );
+      case 9:
+        return (
           <WebClosingSlide
             teamName={config.teamName}
             colors={colors}
+            layout={layout}
           />
         );
       default:

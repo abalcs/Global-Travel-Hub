@@ -524,6 +524,198 @@ const extractAgentTopDestinations = (
   return agentTopDests.sort((a, b) => b.count - a.count);
 };
 
+// Interface for destination with T>P stats
+export interface ForecastDestination {
+  destination: string;
+  historicalCount: number;  // Passthroughs from previous year
+  teamTrips: number;        // Team's trips to this destination (last 90 days)
+  teamPassthroughs: number; // Team's passthroughs to this destination (last 90 days)
+  teamTpRate: number;       // Team's T>P rate for this destination
+}
+
+// Interface for forecast destinations data
+export interface ForecastDestinations {
+  destinations: ForecastDestination[];
+  periodStart: string;
+  periodEnd: string;
+  periodLabel: string;
+  teamPeriodLabel: string;  // Label for team's 90-day period
+}
+
+// Extract top destinations for forecasting - looks at the previous year's same 60-day period
+// DEPARTMENT-WIDE for historical data, then adds team's T>P for last 90 days
+const extractForecastDestinations = (
+  rawData: RawParsedData | null,
+  meetingDate: Date,
+  teamMembers: string[],
+  limit: number = 5
+): ForecastDestinations | null => {
+  if (!rawData?.passthroughs || rawData.passthroughs.length === 0) {
+    return null;
+  }
+
+  const destCol = findColumn(rawData.passthroughs[0], ['destination', 'region', 'country', 'original interest']);
+  const dateCol = findDateColumn(rawData.passthroughs[0], ['passthrough to sales date', 'passthrough date', 'created date']);
+
+  if (!destCol || !dateCol) {
+    return null;
+  }
+
+  // Format dates helper
+  const formatDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Calculate date range: day after meeting date to 60 days after, but one year earlier
+  // Example: meeting date Jan 26, 2026 → Jan 27, 2025 to Mar 27, 2025
+  const historicalStart = new Date(meetingDate);
+  historicalStart.setFullYear(historicalStart.getFullYear() - 1);
+  historicalStart.setDate(historicalStart.getDate() + 1); // Day after meeting date
+
+  const historicalEnd = new Date(historicalStart);
+  historicalEnd.setDate(historicalEnd.getDate() + 59); // 60 days total (including start)
+
+  const historicalStartStr = formatDate(historicalStart);
+  const historicalEndStr = formatDate(historicalEnd);
+  const historicalStartInt = dateToInt(historicalStartStr);
+  const historicalEndInt = dateToInt(historicalEndStr);
+
+  // Calculate team's 90-day period (ending on meeting date)
+  const teamEnd = new Date(meetingDate);
+  const teamStart = new Date(meetingDate);
+  teamStart.setDate(teamStart.getDate() - 89); // 90 days including end date
+
+  const teamStartStr = formatDate(teamStart);
+  const teamEndStr = formatDate(teamEnd);
+  const teamStartInt = dateToInt(teamStartStr);
+  const teamEndInt = dateToInt(teamEndStr);
+
+  // Normalize team member names for comparison
+  const teamMembersLower = new Set(teamMembers.map(m => m.trim().toLowerCase()));
+
+  // Count destinations (department-wide, historical period)
+  const destCounts: Record<string, number> = {};
+  let totalRecords = 0;
+
+  for (const row of rawData.passthroughs) {
+    const dateStr = formatDateString(row[dateCol]);
+    if (!dateStr) continue;
+
+    const rowInt = dateToInt(dateStr);
+    if (rowInt < historicalStartInt || rowInt > historicalEndInt) continue;
+
+    const dest = (row[destCol] || '').trim();
+    if (dest) {
+      destCounts[dest] = (destCounts[dest] || 0) + 1;
+      totalRecords++;
+    }
+  }
+
+  // If no historical records found, return null
+  if (totalRecords === 0) {
+    return null;
+  }
+
+  // Get top destinations from historical data
+  const topDestinations = Object.entries(destCounts)
+    .map(([destination, count]) => ({ destination, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+
+  // Now calculate team's T>P for each of these destinations (last 90 days)
+  // We need to look at trips data for trips and check passthrough date for conversions
+
+  const teamTripsByDest: Record<string, number> = {};
+  const teamPassthroughsByDest: Record<string, number> = {};
+
+  // Get destination names we care about
+  const targetDestinations = new Set(topDestinations.map(d => d.destination.toLowerCase()));
+
+  // Process trips data for team's T>P by destination
+  if (rawData.trips && rawData.trips.length > 0) {
+    const tripsDestCol = findColumn(rawData.trips[0], ['destination', 'region', 'country', 'original interest']);
+    const tripsAgentCol = findAgentColumn(rawData.trips[0]);
+    const tripsDateCol = findDateColumn(rawData.trips[0], ['trip created date', 'created date', 'date']);
+    const keys = Object.keys(rawData.trips[0]);
+    const passthroughDateCol = keys.find(k => {
+      const lower = k.toLowerCase();
+      return lower.includes('passthrough to sales date') || lower.includes('passthrough date');
+    });
+
+    if (tripsDestCol && tripsAgentCol && tripsDateCol) {
+      for (const row of rawData.trips) {
+        // Filter by team members
+        const agent = (row[tripsAgentCol] || '').trim().toLowerCase();
+        if (!teamMembersLower.has(agent)) continue;
+
+        // Filter by date (last 90 days)
+        const dateStr = formatDateString(row[tripsDateCol]);
+        if (!dateStr) continue;
+        const rowInt = dateToInt(dateStr);
+        if (rowInt < teamStartInt || rowInt > teamEndInt) continue;
+
+        // Get destination
+        const dest = (row[tripsDestCol] || '').trim();
+        const destLower = dest.toLowerCase();
+        if (!dest || !targetDestinations.has(destLower)) continue;
+
+        // Count this trip
+        teamTripsByDest[dest] = (teamTripsByDest[dest] || 0) + 1;
+
+        // Check if has passthrough
+        const hasPassthrough = passthroughDateCol && row[passthroughDateCol] && row[passthroughDateCol].toString().trim() !== '';
+        if (hasPassthrough) {
+          teamPassthroughsByDest[dest] = (teamPassthroughsByDest[dest] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  // Build final destinations array with T>P stats
+  const destinations: ForecastDestination[] = topDestinations.map(d => {
+    // Find matching team stats (case-insensitive)
+    let teamTrips = 0;
+    let teamPassthroughs = 0;
+
+    for (const [dest, trips] of Object.entries(teamTripsByDest)) {
+      if (dest.toLowerCase() === d.destination.toLowerCase()) {
+        teamTrips = trips;
+        break;
+      }
+    }
+    for (const [dest, pts] of Object.entries(teamPassthroughsByDest)) {
+      if (dest.toLowerCase() === d.destination.toLowerCase()) {
+        teamPassthroughs = pts;
+        break;
+      }
+    }
+
+    return {
+      destination: d.destination,
+      historicalCount: d.count,
+      teamTrips,
+      teamPassthroughs,
+      teamTpRate: teamTrips > 0 ? (teamPassthroughs / teamTrips) * 100 : 0,
+    };
+  });
+
+  // Format period labels for display
+  const formatDisplayDate = (d: Date): string => {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return {
+    destinations,
+    periodStart: historicalStartStr,
+    periodEnd: historicalEndStr,
+    periodLabel: `${formatDisplayDate(historicalStart)} - ${formatDisplayDate(historicalEnd)}`,
+    teamPeriodLabel: `${formatDisplayDate(teamStart)} - ${formatDisplayDate(teamEnd)}`,
+  };
+};
+
 interface PresentationGeneratorProps {
   metrics: Metrics[];
   seniors: string[];
@@ -615,6 +807,13 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
   const recentAchievements = useMemo(
     () => extractRecentAchievements(records, selectedTeamMembers, 7),
     [records, selectedTeamMembers]
+  );
+
+  // Extract forecast destinations from previous year's same 60-day period (department-wide)
+  // Also calculates team's T>P for each destination over last 90 days
+  const forecastDestinations = useMemo(
+    () => extractForecastDestinations(rawData || null, config.meetingDate, selectedTeamMembers, 5),
+    [rawData, config.meetingDate, selectedTeamMembers]
   );
 
   // Persist cascades to localStorage when they change
@@ -1118,6 +1317,7 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
           hotPassDestinations={hotPassDestinations}
           repeatStats={repeatDestinations}
           b2bStats={b2bDestinations}
+          forecastDestinations={forecastDestinations}
           onClose={() => setShowWebPresentation(false)}
         />
       )}

@@ -1,19 +1,21 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
-import type { SlideColors, TopDestination, AgentTopDestination } from '../../../utils/presentationGenerator';
+import type { SlideColors } from '../../../utils/presentationGenerator';
+import type { ForecastDestination } from '../../PresentationGenerator';
 import type { LayoutStyles } from '../webPresentationConfig';
 import { findCuratedImage, getFallbackImage } from '../../../utils/destinationImages';
 
-// Patagonia images for top destinations background
-const PATAGONIA_IMAGES = [
-  'https://images.pexels.com/photos/1770809/pexels-photo-1770809.jpeg?auto=compress&cs=tinysrgb&w=1600', // Torres del Paine
-  'https://images.pexels.com/photos/2901209/pexels-photo-2901209.jpeg?auto=compress&cs=tinysrgb&w=1600', // Patagonian mountains
-  'https://images.pexels.com/photos/3225529/pexels-photo-3225529.jpeg?auto=compress&cs=tinysrgb&w=1600', // Fitz Roy
+// Crystal ball / future-looking travel images for forecast background
+const FORECAST_IMAGES = [
+  'https://images.pexels.com/photos/2325446/pexels-photo-2325446.jpeg?auto=compress&cs=tinysrgb&w=1600', // Road stretching ahead
+  'https://images.pexels.com/photos/1252500/pexels-photo-1252500.jpeg?auto=compress&cs=tinysrgb&w=1600', // Sunrise over mountains
+  'https://images.pexels.com/photos/2387793/pexels-photo-2387793.jpeg?auto=compress&cs=tinysrgb&w=1600', // Hot air balloons
 ];
 
-interface WebTopDestinationsSlideProps {
-  destinations: TopDestination[];
-  agentDestinations?: AgentTopDestination[];
+interface WebForecastDestinationsSlideProps {
+  destinations: ForecastDestination[];
+  periodLabel: string;
+  teamPeriodLabel?: string;
   colors: SlideColors;
   layout?: LayoutStyles;
 }
@@ -65,16 +67,19 @@ const ImageLightbox: React.FC<{
   );
 };
 
-// Image component with loading state
-const DestinationImageCard: React.FC<{
+// Image component with loading state and T>P rate display
+const ForecastDestinationCard: React.FC<{
   destination: string;
-  count: number;
+  historicalCount: number;
+  teamTrips: number;
+  teamPassthroughs: number;
+  teamTpRate: number;
   rank: number;
   maxCount: number;
   colors: SlideColors;
   delay: number;
   onImageClick: (imageUrl: string, alt: string) => void;
-}> = ({ destination, count, rank, maxCount, colors, delay, onImageClick }) => {
+}> = ({ destination, historicalCount, teamTrips, teamPassthroughs, teamTpRate, rank, maxCount, colors, delay, onImageClick }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   // Get image URL synchronously (curated images don't need async)
@@ -82,12 +87,12 @@ const DestinationImageCard: React.FC<{
     return findCuratedImage(destination) || getFallbackImage(rank);
   }, [destination, rank]);
 
-  const barWidth = (count / maxCount) * 100;
+  const barWidth = (historicalCount / maxCount) * 100;
   const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
 
   return (
     <motion.div
-      className="flex items-stretch gap-3 rounded-lg overflow-hidden"
+      className="flex items-stretch gap-4 rounded-xl overflow-hidden"
       style={{ backgroundColor: `#${colors.cardBg}` }}
       initial={{ opacity: 0, x: -50 }}
       animate={{ opacity: 1, x: 0 }}
@@ -95,7 +100,7 @@ const DestinationImageCard: React.FC<{
     >
       {/* Image - clickable */}
       <div
-        className="w-24 h-20 flex-shrink-0 relative overflow-hidden cursor-pointer group"
+        className="w-28 h-20 flex-shrink-0 relative overflow-hidden cursor-pointer group"
         onClick={() => onImageClick(imageData.url.replace('w=1600', 'w=1920'), imageData.alt)}
       >
         <motion.img
@@ -111,7 +116,7 @@ const DestinationImageCard: React.FC<{
         {!imageLoaded && (
           <div
             className="absolute inset-0 animate-pulse"
-            style={{ backgroundColor: `#${colors.primary}30` }}
+            style={{ backgroundColor: `#${colors.secondary}30` }}
           />
         )}
         {/* Rank badge */}
@@ -124,20 +129,21 @@ const DestinationImageCard: React.FC<{
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content - destination name, historical count, and progress bar */}
       <div className="flex-1 py-2 pr-3 flex flex-col justify-center">
         <div className="flex justify-between items-baseline mb-1">
           <span
-            className="text-sm font-semibold truncate"
+            className="text-base font-semibold truncate"
             style={{ color: `#${colors.text}` }}
           >
             {destination}
           </span>
           <span
-            className="text-base font-bold ml-2"
-            style={{ color: `#${colors.primary}` }}
+            className="text-xl font-bold ml-2"
+            style={{ color: `#${colors.secondary}` }}
+            title="Historical passthroughs"
           >
-            {count}
+            {historicalCount}
           </span>
         </div>
         <div
@@ -159,23 +165,56 @@ const DestinationImageCard: React.FC<{
           />
         </div>
       </div>
+
+      {/* Team T>P stats column */}
+      <div
+        className="w-32 flex-shrink-0 py-2 px-3 flex flex-col justify-center border-l"
+        style={{ borderColor: `#${colors.background}` }}
+      >
+        <div className="text-xs mb-1" style={{ color: `#${colors.textLight}` }}>
+          Your Team T&gt;P
+        </div>
+        {teamTrips > 0 ? (
+          <>
+            <div className="flex items-baseline gap-1">
+              <motion.span
+                className="text-xl font-bold"
+                style={{ color: `#${colors.primary}` }}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: delay + 0.4, type: 'spring', stiffness: 200 }}
+              >
+                {teamTpRate.toFixed(0)}%
+              </motion.span>
+            </div>
+            <div className="text-xs" style={{ color: `#${colors.textLight}`, opacity: 0.8 }}>
+              {teamPassthroughs}/{teamTrips} trips
+            </div>
+          </>
+        ) : (
+          <div className="text-sm" style={{ color: `#${colors.textLight}`, opacity: 0.6 }}>
+            No data
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
 
-export const WebTopDestinationsSlide: React.FC<WebTopDestinationsSlideProps> = ({
+export const WebForecastDestinationsSlide: React.FC<WebForecastDestinationsSlideProps> = ({
   destinations,
-  agentDestinations = [],
+  periodLabel,
+  teamPeriodLabel,
   colors,
   layout,
 }) => {
   const [lightboxImage, setLightboxImage] = useState<{ url: string; alt: string } | null>(null);
   const [bgImageLoaded, setBgImageLoaded] = useState(false);
-  const maxCount = destinations.length > 0 ? destinations[0].count : 1;
+  const maxCount = destinations.length > 0 ? destinations[0].historicalCount : 1;
 
   // Pick consistent image based on data
-  const imageIndex = destinations.length % PATAGONIA_IMAGES.length;
-  const backgroundImage = PATAGONIA_IMAGES[imageIndex];
+  const imageIndex = destinations.length % FORECAST_IMAGES.length;
+  const backgroundImage = FORECAST_IMAGES[imageIndex];
 
   const handleImageClick = (url: string, alt: string) => {
     setLightboxImage({ url, alt });
@@ -183,7 +222,7 @@ export const WebTopDestinationsSlide: React.FC<WebTopDestinationsSlideProps> = (
 
   return (
     <div
-      className="w-full h-full flex flex-col px-10 py-5 relative overflow-hidden"
+      className="w-full h-full flex flex-col px-12 py-6 relative overflow-hidden"
       style={{ backgroundColor: `#${colors.background}` }}
     >
       {/* Background Image */}
@@ -204,7 +243,7 @@ export const WebTopDestinationsSlide: React.FC<WebTopDestinationsSlideProps> = (
       {/* Left accent bar */}
       <motion.div
         className="absolute left-0 top-0 w-2 h-full z-10"
-        style={{ backgroundColor: `#${colors.primary}` }}
+        style={{ backgroundColor: `#${colors.secondary}` }}
         initial={{ scaleY: 0 }}
         animate={{ scaleY: 1 }}
         transition={{ duration: 0.5 }}
@@ -214,7 +253,7 @@ export const WebTopDestinationsSlide: React.FC<WebTopDestinationsSlideProps> = (
       {layout?.showDecorations !== false && (
         <motion.div
           className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
-          style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
+          style={{ backgroundColor: `#${colors.primary}`, opacity: 0.5 }}
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -222,128 +261,94 @@ export const WebTopDestinationsSlide: React.FC<WebTopDestinationsSlideProps> = (
       )}
 
       {/* Header */}
-      <div className={`${layout?.headerMargin || 'mb-4'} relative z-10`}>
-        <motion.h2
-          className={`${layout?.titleSize || 'text-3xl'} font-bold`}
-          style={{ color: `#${colors.text}` }}
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          TOP DESTINATIONS
-        </motion.h2>
+      <div className={`${layout?.headerMargin || 'mb-6'} relative z-10`}>
+        <div className="flex items-center gap-3 mb-2">
+          <motion.span
+            className="text-4xl"
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ duration: 0.5, delay: 0.2, type: 'spring', stiffness: 200 }}
+          >
+            🔮
+          </motion.span>
+          <motion.h2
+            className={`${layout?.titleSize || 'text-4xl'} font-bold`}
+            style={{ color: `#${colors.text}` }}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            FORECAST: TRENDING DESTINATIONS
+          </motion.h2>
+        </div>
         <motion.div
-          className="h-1 w-40 mt-1.5"
-          style={{ backgroundColor: `#${colors.accent}` }}
+          className="h-1 w-64 mt-2"
+          style={{ backgroundColor: `#${colors.secondary}` }}
           initial={{ scaleX: 0, originX: 0 }}
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         />
         <motion.p
-          className="mt-1 text-sm"
+          className="mt-3 text-base"
           style={{ color: `#${colors.textLight}` }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          By Passthroughs
+          Department passthroughs from <span style={{ color: `#${colors.secondary}` }} className="font-semibold">{periodLabel}</span>
+          {teamPeriodLabel && (
+            <> | Your team's T&gt;P from <span style={{ color: `#${colors.primary}` }} className="font-semibold">{teamPeriodLabel}</span></>
+          )}
+        </motion.p>
+        <motion.p
+          className="mt-1 text-sm"
+          style={{ color: `#${colors.textLight}`, opacity: 0.8 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          What destinations were hot this time last year? See how your team is converting trips in these areas.
         </motion.p>
       </div>
 
-      {/* Two-column layout */}
-      <div className={`flex-1 flex ${layout?.spacing || 'gap-6'} relative z-10`}>
-        {/* Left column - Team Top Destinations with images */}
-        <div className="flex-1 flex flex-col">
-          <motion.p
-            className="text-sm font-bold tracking-wider mb-3"
-            style={{ color: `#${colors.textLight}` }}
+      {/* Destinations list */}
+      <div className={`flex-1 flex flex-col ${layout?.spacing || 'gap-4'} relative z-10`}>
+        {destinations.length > 0 ? (
+          destinations.map((dest, index) => (
+            <ForecastDestinationCard
+              key={dest.destination}
+              destination={dest.destination}
+              historicalCount={dest.historicalCount}
+              teamTrips={dest.teamTrips}
+              teamPassthroughs={dest.teamPassthroughs}
+              teamTpRate={dest.teamTpRate}
+              rank={index}
+              maxCount={maxCount}
+              colors={colors}
+              delay={0.3 + index * 0.1}
+              onImageClick={handleImageClick}
+            />
+          ))
+        ) : (
+          <motion.div
+            className="flex-1 flex flex-col items-center justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
           >
-            TEAM TOP 5
-          </motion.p>
-          <div className="flex flex-col gap-2">
-            {destinations.length > 0 ? (
-              destinations.map((dest, index) => (
-                <DestinationImageCard
-                  key={dest.destination}
-                  destination={dest.destination}
-                  count={dest.count}
-                  rank={index}
-                  maxCount={maxCount}
-                  colors={colors}
-                  delay={0.2 + index * 0.1}
-                  onImageClick={handleImageClick}
-                />
-              ))
-            ) : (
-              <motion.p
-                className="text-center text-lg"
-                style={{ color: `#${colors.textLight}` }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                No destination data available
-              </motion.p>
-            )}
-          </div>
-        </div>
-
-        {/* Right column - Per-Agent Top Destinations */}
-        {agentDestinations.length > 0 && (
-          <div className="w-80 flex flex-col">
-            <motion.p
-              className="text-sm font-bold tracking-wider mb-3"
+            <span className="text-6xl mb-4">📊</span>
+            <p
+              className="text-center text-xl"
               style={{ color: `#${colors.textLight}` }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
             >
-              AGENT TOP DESTINATIONS
-            </motion.p>
-            <div
-              className="flex-1 rounded-xl p-3 overflow-auto"
-              style={{ backgroundColor: `#${colors.cardBg}` }}
+              No historical data available for this period
+            </p>
+            <p
+              className="text-center text-sm mt-2"
+              style={{ color: `#${colors.textLight}`, opacity: 0.7 }}
             >
-              <div className="space-y-1.5">
-                {agentDestinations.map((agent, index) => (
-                  <motion.div
-                    key={agent.agentName}
-                    className="flex items-center justify-between py-1.5 px-2 rounded-md"
-                    style={{ backgroundColor: index % 2 === 0 ? 'transparent' : `#${colors.background}30` }}
-                    initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: 0.4 + index * 0.04 }}
-                  >
-                    <p
-                      className="text-sm font-medium truncate flex-1"
-                      style={{ color: `#${colors.text}` }}
-                    >
-                      {agent.agentName}
-                    </p>
-                    <div className="flex items-center gap-2 ml-2">
-                      <span
-                        className="text-xs truncate max-w-24"
-                        style={{ color: `#${colors.accent}` }}
-                      >
-                        {agent.destination}
-                      </span>
-                      <span
-                        className="text-xs font-bold px-1.5 py-0.5 rounded tabular-nums"
-                        style={{
-                          backgroundColor: `#${colors.primary}20`,
-                          color: `#${colors.primary}`
-                        }}
-                      >
-                        {agent.count}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
+              Upload data that includes last year's passthroughs to see forecasting insights
+            </p>
+          </motion.div>
         )}
       </div>
 

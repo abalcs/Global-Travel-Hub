@@ -8,6 +8,15 @@ export type AnimationStyle = 'slide' | 'fade' | 'zoom' | 'flip' | 'none';
 
 export type LayoutStyle = 'default' | 'minimalist' | 'data-focused' | 'visual-impact';
 
+export interface LayoutStyles {
+  showDecorations: boolean;
+  titleSize: string;
+  valueSize: string;
+  cardPadding: string;
+  spacing: string;
+  headerMargin: string;
+}
+
 export interface WebPresentationStyle {
   theme: WebThemeStyle;
   animation: AnimationStyle;
@@ -247,34 +256,34 @@ export const getSlideTransition = (style: AnimationStyle, direction: 'left' | 'r
 };
 
 // Layout-specific styles
-export const getLayoutStyles = (layout: LayoutStyle) => {
+export const getLayoutStyles = (layout: LayoutStyle): LayoutStyles => {
   switch (layout) {
     case 'minimalist':
       return {
         showDecorations: false,
-        titleSize: 'text-4xl',
-        valueSize: 'text-5xl',
-        cardPadding: 'p-4',
-        spacing: 'gap-4',
-        headerMargin: 'mb-4',
+        titleSize: 'text-3xl',
+        valueSize: 'text-4xl',
+        cardPadding: 'p-3',
+        spacing: 'gap-3',
+        headerMargin: 'mb-2',
       };
     case 'data-focused':
       return {
         showDecorations: false,
-        titleSize: 'text-3xl',
-        valueSize: 'text-7xl',
-        cardPadding: 'p-6',
-        spacing: 'gap-6',
+        titleSize: 'text-2xl',
+        valueSize: 'text-8xl',
+        cardPadding: 'p-4',
+        spacing: 'gap-4',
         headerMargin: 'mb-2',
       };
     case 'visual-impact':
       return {
         showDecorations: true,
-        titleSize: 'text-5xl',
-        valueSize: 'text-6xl',
-        cardPadding: 'p-8',
-        spacing: 'gap-8',
-        headerMargin: 'mb-8',
+        titleSize: 'text-6xl',
+        valueSize: 'text-7xl',
+        cardPadding: 'p-10',
+        spacing: 'gap-10',
+        headerMargin: 'mb-10',
       };
     case 'default':
     default:

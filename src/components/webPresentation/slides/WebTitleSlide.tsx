@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
 import { formatDate, formatMonth, getWeekNumber } from '../../../utils/presentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
 
 // Free stock travel videos from Pexels - verified working HD versions (no attribution required)
 const BACKGROUND_VIDEOS = [
@@ -30,6 +31,7 @@ interface WebTitleSlideProps {
   colors: SlideColors;
   backgroundVideoUrl?: string;
   showBackgroundVideo?: boolean;
+  layout?: LayoutStyles;
 }
 
 export const WebTitleSlide: React.FC<WebTitleSlideProps> = ({
@@ -38,6 +40,7 @@ export const WebTitleSlide: React.FC<WebTitleSlideProps> = ({
   colors,
   backgroundVideoUrl,
   showBackgroundVideo = true,
+  layout,
 }) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -106,8 +109,8 @@ export const WebTitleSlide: React.FC<WebTitleSlideProps> = ({
         </>
       )}
 
-      {/* Decorative elements - only show if no video or video failed */}
-      {(!showBackgroundVideo || allVideosFailed || !videoLoaded) && (
+      {/* Decorative elements - only show if no video or video failed, and layout allows decorations */}
+      {layout?.showDecorations !== false && (!showBackgroundVideo || allVideosFailed || !videoLoaded) && (
         <>
           <motion.div
             className="absolute -top-24 -right-24 w-64 h-64 rounded-full"
@@ -160,7 +163,7 @@ export const WebTitleSlide: React.FC<WebTitleSlideProps> = ({
       {/* Content */}
       <div className="relative z-10">
         <motion.h1
-          className="text-6xl font-bold mb-4 drop-shadow-lg"
+          className={`${layout?.valueSize === 'text-8xl' ? 'text-8xl' : layout?.valueSize === 'text-7xl' ? 'text-7xl' : layout?.valueSize === 'text-4xl' ? 'text-5xl' : 'text-6xl'} font-bold ${layout?.headerMargin || 'mb-4'} drop-shadow-lg`}
           style={{ color: `#${colors.text}` }}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -170,7 +173,7 @@ export const WebTitleSlide: React.FC<WebTitleSlideProps> = ({
         </motion.h1>
 
         <motion.h2
-          className="text-3xl font-bold mb-8 drop-shadow-md"
+          className={`${layout?.titleSize || 'text-3xl'} font-bold ${layout?.spacing === 'gap-10' ? 'mb-12' : layout?.spacing === 'gap-3' ? 'mb-4' : 'mb-8'} drop-shadow-md`}
           style={{ color: `#${colors.accent}` }}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

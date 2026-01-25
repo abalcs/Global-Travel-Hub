@@ -1,6 +1,15 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
 import type { RecentAchievement } from '../../PresentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
+
+// Achievement/celebration travel images
+const PERFORMER_IMAGES = [
+  'https://images.pexels.com/photos/2387418/pexels-photo-2387418.jpeg?auto=compress&cs=tinysrgb&w=1600', // Hiking summit
+  'https://images.pexels.com/photos/1271619/pexels-photo-1271619.jpeg?auto=compress&cs=tinysrgb&w=1600', // Mountain climber
+  'https://images.pexels.com/photos/2387873/pexels-photo-2387873.jpeg?auto=compress&cs=tinysrgb&w=1600', // Aurora borealis
+];
 
 interface Performer {
   agentName: string;
@@ -14,6 +23,7 @@ interface WebTopPerformersSlideProps {
   teamName: string;
   recentAchievements?: RecentAchievement[];
   colors: SlideColors;
+  layout?: LayoutStyles;
 }
 
 const medalEmojis = ['🥇', '🥈', '🥉'];
@@ -74,19 +84,41 @@ export const WebTopPerformersSlide: React.FC<WebTopPerformersSlideProps> = ({
   teamName,
   recentAchievements = [],
   colors,
+  layout,
 }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   // Show up to 4 recent achievements
   const displayAchievements = recentAchievements.slice(0, 4);
   const hasAchievements = displayAchievements.length > 0;
+
+  // Pick consistent image based on data
+  const imageIndex = topPassthroughs.length % PERFORMER_IMAGES.length;
+  const backgroundImage = PERFORMER_IMAGES[imageIndex];
 
   return (
     <div
       className="w-full h-full flex flex-col px-12 py-6 relative overflow-hidden"
       style={{ backgroundColor: `#${colors.background}` }}
     >
+      {/* Background Image */}
+      <img
+        src={backgroundImage}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ opacity: imageLoaded ? 0.4 : 0, transition: 'opacity 0.8s ease-in-out' }}
+        onLoad={() => setImageLoaded(true)}
+      />
+
+      {/* Dark overlay */}
+      <div
+        className="absolute inset-0"
+        style={{ backgroundColor: `#${colors.background}`, opacity: 0.75 }}
+      />
+
       {/* Left accent bar */}
       <motion.div
-        className="absolute left-0 top-0 w-2 h-full"
+        className="absolute left-0 top-0 w-2 h-full z-10"
         style={{ backgroundColor: `#${colors.primary}` }}
         initial={{ scaleY: 0 }}
         animate={{ scaleY: 1 }}
@@ -94,18 +126,20 @@ export const WebTopPerformersSlide: React.FC<WebTopPerformersSlideProps> = ({
       />
 
       {/* Decorative circle */}
-      <motion.div
-        className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full"
-        style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      />
+      {layout?.showDecorations !== false && (
+        <motion.div
+          className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
+          style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        />
+      )}
 
       {/* Header */}
-      <div className="mb-3">
+      <div className={`${layout?.headerMargin || 'mb-3'} relative z-10`}>
         <motion.h2
-          className="text-4xl font-bold"
+          className={`${layout?.titleSize || 'text-4xl'} font-bold`}
           style={{ color: `#${colors.text}` }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -132,7 +166,7 @@ export const WebTopPerformersSlide: React.FC<WebTopPerformersSlideProps> = ({
       </div>
 
       {/* Two columns for top performers */}
-      <div className={`grid grid-cols-2 gap-6 ${hasAchievements ? '' : 'flex-1'}`}>
+      <div className={`grid grid-cols-2 ${layout?.spacing || 'gap-6'} relative z-10 ${hasAchievements ? '' : 'flex-1'}`}>
         {/* Passthroughs */}
         <div>
           <motion.h3
@@ -187,7 +221,7 @@ export const WebTopPerformersSlide: React.FC<WebTopPerformersSlideProps> = ({
       {/* Recent Achievements / Personal Records section */}
       {hasAchievements && (
         <motion.div
-          className="mt-8"
+          className="mt-8 relative z-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}

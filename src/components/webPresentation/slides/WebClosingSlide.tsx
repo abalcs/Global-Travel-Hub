@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
 
 // Motivational travel/adventure images
 const CLOSING_IMAGES = [
@@ -13,11 +14,13 @@ const CLOSING_IMAGES = [
 interface WebClosingSlideProps {
   teamName: string;
   colors: SlideColors;
+  layout?: LayoutStyles;
 }
 
 export const WebClosingSlide: React.FC<WebClosingSlideProps> = ({
   teamName,
   colors,
+  layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -41,7 +44,7 @@ export const WebClosingSlide: React.FC<WebClosingSlideProps> = ({
 
       {/* Dark overlay */}
       <motion.div
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-black/50"
         initial={{ opacity: 0 }}
         animate={{ opacity: imageLoaded ? 1 : 0 }}
         transition={{ duration: 0.8 }}
@@ -57,7 +60,7 @@ export const WebClosingSlide: React.FC<WebClosingSlideProps> = ({
 
       {/* Content */}
       <motion.h1
-        className="text-7xl font-bold text-center mb-6 drop-shadow-2xl relative z-10"
+        className={`${layout?.valueSize === 'text-8xl' ? 'text-8xl' : layout?.valueSize === 'text-7xl' ? 'text-8xl' : layout?.valueSize === 'text-4xl' ? 'text-5xl' : 'text-7xl'} font-bold text-center ${layout?.headerMargin || 'mb-6'} drop-shadow-2xl relative z-10`}
         style={{ color: `#${colors.text}` }}
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -69,11 +72,11 @@ export const WebClosingSlide: React.FC<WebClosingSlideProps> = ({
           damping: 15,
         }}
       >
-        LET'S CRUSH IT!
+        Great Work Team!
       </motion.h1>
 
       <motion.p
-        className="text-2xl text-center drop-shadow-lg relative z-10"
+        className={`${layout?.titleSize || 'text-2xl'} text-center drop-shadow-lg relative z-10`}
         style={{ color: `#${colors.accent}` }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

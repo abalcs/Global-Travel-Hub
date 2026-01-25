@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
+import type { LayoutStyles } from '../webPresentationConfig';
 
 // Mountain images for leaderboard background
 const MOUNTAIN_IMAGES = [
@@ -25,6 +26,7 @@ interface WebLeaderboardSlideProps {
   byTPRate: LeaderboardEntry[];
   selectedTeamName: string;
   colors: SlideColors;
+  layout?: LayoutStyles;
 }
 
 const LeaderboardColumn: React.FC<{
@@ -149,6 +151,7 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
   byTPRate,
   selectedTeamName,
   colors,
+  layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -183,14 +186,14 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
         src={backgroundImage}
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: imageLoaded ? 0.2 : 0, transition: 'opacity 0.8s ease-in-out' }}
+        style={{ opacity: imageLoaded ? 0.4 : 0, transition: 'opacity 0.8s ease-in-out' }}
         onLoad={() => setImageLoaded(true)}
       />
 
       {/* Dark overlay */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: `#${colors.background}`, opacity: 0.88 }}
+        style={{ backgroundColor: `#${colors.background}`, opacity: 0.75 }}
       />
 
       {/* Left accent bar */}
@@ -203,25 +206,27 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
       />
 
       {/* Decorative circle */}
-      <motion.div
-        className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
-        style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      />
+      {layout?.showDecorations !== false && (
+        <motion.div
+          className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
+          style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        />
+      )}
 
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between relative z-10">
+      <div className={`${layout?.headerMargin || 'mb-4'} flex items-center justify-between relative z-10`}>
         <div>
           <motion.h2
-            className="text-3xl font-bold"
+            className={`${layout?.titleSize || 'text-3xl'} font-bold`}
             style={{ color: `#${colors.text}` }}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            LEADERBOARD
+            DEPARTMENT LEADERBOARD
           </motion.h2>
           <motion.div
             className="h-1 w-32 mt-1.5"
@@ -259,7 +264,7 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
       </div>
 
       {/* Six columns */}
-      <div className="flex-1 grid grid-cols-6 gap-4 relative z-10">
+      <div className={`flex-1 grid grid-cols-6 ${layout?.spacing || 'gap-4'} relative z-10`}>
         <LeaderboardColumn
           title="Passthroughs"
           entries={byPassthroughs}
