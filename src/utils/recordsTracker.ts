@@ -207,7 +207,19 @@ const aggregateByPeriod = (
   return Array.from(periods.values());
 };
 
+// Check if a period has completed (period end date is before today)
+const isPeriodComplete = (periodEnd: string): boolean => {
+  const periodEndDate = parseDate(periodEnd);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const periodEndDay = new Date(periodEndDate.getFullYear(), periodEndDate.getMonth(), periodEndDate.getDate());
+
+  // Period is complete if today is after the period end date
+  return todayStart > periodEndDay;
+};
+
 // Calculate rate for a period (needs sufficient volume)
+// Only returns rates for COMPLETED periods
 const calculatePeriodRate = (
   dailyMetrics: DailyAgentMetrics[],
   getPeriodStart: (date: Date) => Date,
@@ -228,7 +240,7 @@ const calculatePeriodRate = (
       }
       return { periodStart: p.periodStart, periodEnd: p.periodEnd, rate };
     })
-    .filter(p => p.rate > 0); // Only include periods with actual data
+    .filter(p => p.rate > 0 && isPeriodComplete(p.periodEnd)); // Only include completed periods with actual data
 };
 
 // ============ Record Checking ============
