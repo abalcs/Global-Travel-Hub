@@ -1,5 +1,11 @@
 # CLAUDE.md - Project Guidelines for Claude Code
 
+## Permissions
+
+- Full access to read, navigate, and explore all files and directories
+- Allowed to edit and write files when the user's request implies it
+- No need to ask permission for file operations or task execution when the task clearly requires them
+
 ## Git Workflow
 
 ### Branch Management

@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import type { AllRecords, AgentRecords, VolumeMetric, RateMetric, TimePeriod, RecordEntry } from '../utils/recordsTracker';
 import { formatMetricName, formatPeriodName, formatRecordValue, formatDateRange, clearRecords } from '../utils/recordsTracker';
+import type { Team } from '../types';
 
 interface RecordsViewProps {
   records: AllRecords;
+  teams: Team[];
   onClearRecords: () => void;
 }
 
@@ -39,7 +41,7 @@ const RATE_METRICS: RateMetric[] = ['tq', 'tp', 'pq'];
 const VOLUME_PERIODS: TimePeriod[] = ['day', 'week', 'month', 'quarter'];
 const RATE_PERIODS: TimePeriod[] = ['month', 'quarter'];
 
-export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecords }) => {
+export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClearRecords }) => {
   const { isAudley } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('volume');
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month');
@@ -47,6 +49,15 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showAllRecentRecords, setShowAllRecentRecords] = useState(false);
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+
+  // Get agents for the selected team filter
+  const teamAgentNames = useMemo(() => {
+    if (!selectedTeamFilter) return null;
+    const team = teams.find(t => t.id === selectedTeamFilter);
+    return team ? new Set(team.agentNames) : null;
+  }, [selectedTeamFilter, teams]);
 
   const agents = useMemo(() => {
     return Object.values(records.agents).sort((a, b) => {
@@ -96,6 +107,11 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
     }> = [];
 
     for (const agent of Object.values(records.agents)) {
+      // Filter by team if selected
+      if (teamAgentNames && !teamAgentNames.has(agent.agentName)) {
+        continue;
+      }
+
       // Check volume metrics
       for (const metric of VOLUME_METRICS) {
         for (const period of VOLUME_PERIODS) {
@@ -120,7 +136,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
     return allRecords.sort((a, b) =>
       new Date(b.record.periodEnd).getTime() - new Date(a.record.periodEnd).getTime()
     );
-  }, [records.agents]);
+  }, [records.agents, teamAgentNames]);
 
   const handleClear = () => {
     if (window.confirm('Are you sure you want to clear all records? This cannot be undone.')) {
@@ -213,7 +229,52 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
                   {recentRecords.length} records
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {/* Team Filter Toggle */}
+                {teams.length > 0 && (
+                  <div className={`flex items-center gap-1 rounded-lg p-0.5 ${
+                    isAudley ? 'bg-amber-100/50' : 'bg-slate-800/50'
+                  }`}>
+                    <button
+                      onClick={() => setSelectedTeamFilter(null)}
+                      className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                        selectedTeamFilter === null
+                          ? isAudley ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-slate-900'
+                          : isAudley ? 'text-amber-700 hover:bg-amber-100' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {teams.map(team => (
+                      <button
+                        key={team.id}
+                        onClick={() => setSelectedTeamFilter(team.id)}
+                        className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                          selectedTeamFilter === team.id
+                            ? isAudley ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-slate-900'
+                            : isAudley ? 'text-amber-700 hover:bg-amber-100' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                        }`}
+                      >
+                        {team.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Screenshot View button */}
+                <button
+                  onClick={() => setShowScreenshotModal(true)}
+                  className={`text-xs transition-colors flex items-center gap-1 cursor-pointer px-2 py-1 rounded ${
+                    isAudley
+                      ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-100'
+                      : 'text-yellow-400 hover:text-yellow-300 hover:bg-slate-700/50'
+                  }`}
+                  title="Open screenshot-friendly view"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Screenshot
+                </button>
                 {/* Expand/Collapse toggle */}
                 <button
                   onClick={() => setShowAllRecentRecords(!showAllRecentRecords)}
@@ -556,6 +617,87 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, onClearRecord
       <div className="text-center text-xs text-slate-500">
         Last updated: {new Date(records.lastUpdated).toLocaleString()}
       </div>
+
+      {/* Screenshot Modal */}
+      {showScreenshotModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/50 backdrop-blur-sm p-4">
+          <div className={`relative w-full max-w-6xl my-4 rounded-xl shadow-2xl ${
+            isAudley ? 'bg-white' : 'bg-slate-900'
+          }`}>
+            {/* Modal Header */}
+            <div className={`sticky top-0 z-10 flex items-center justify-between p-4 border-b rounded-t-xl ${
+              isAudley ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200' : 'bg-slate-800 border-slate-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                <svg className={`w-6 h-6 ${isAudley ? 'text-amber-500' : 'text-yellow-400'}`} fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6z" />
+                </svg>
+                <div>
+                  <h2 className={`text-lg font-bold ${isAudley ? 'text-amber-700' : 'text-yellow-400'}`}>
+                    Recent Records {selectedTeamFilter ? `- ${teams.find(t => t.id === selectedTeamFilter)?.name}` : ''}
+                  </h2>
+                  <p className={`text-xs ${isAudley ? 'text-amber-600' : 'text-slate-400'}`}>
+                    {recentRecords.length} records • Screenshot-friendly view
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowScreenshotModal(false)}
+                className={`p-2 rounded-lg transition-colors ${
+                  isAudley ? 'hover:bg-amber-100 text-amber-600' : 'hover:bg-slate-700 text-slate-400'
+                }`}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content - Compact Grid */}
+            <div className="p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                {recentRecords.map((item, idx) => (
+                  <div
+                    key={`screenshot-${item.agentName}-${item.metric}-${item.period}-${idx}`}
+                    className={`rounded-lg p-2 ${
+                      isAudley ? 'bg-amber-50 border border-amber-200' : 'bg-slate-800 border border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`flex-shrink-0 rounded-full p-1 ${isAudley ? 'bg-amber-100' : 'bg-yellow-500/20'}`}>
+                        <svg className={`w-3 h-3 ${isAudley ? 'text-amber-500' : 'text-yellow-400'}`} fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-xs font-semibold truncate ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                          {item.agentName}
+                        </div>
+                        <div className={`text-[10px] ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                          {formatPeriodName(item.period)} {formatMetricName(item.metric)}
+                        </div>
+                        <div className={`text-sm font-bold ${getMetricColor(item.metric)}`}>
+                          {formatRecordValue(item.metric, item.record.value)}
+                        </div>
+                        <div className={`text-[9px] ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {formatDateRange(item.record.periodStart, item.record.periodEnd)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`p-3 border-t text-center text-xs ${
+              isAudley ? 'border-amber-200 text-amber-600 bg-amber-50/50' : 'border-slate-700 text-slate-500 bg-slate-800/50'
+            }`}>
+              Global Travel Hub • Records as of {new Date().toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

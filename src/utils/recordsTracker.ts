@@ -253,9 +253,16 @@ const checkAndUpdateVolumeRecord = (
     return { updated: false, previousValue: null, newRecord: currentRecord };
   }
 
-  if (!currentRecord || value > currentRecord.value) {
+  // If this is the same period as the existing record, always update with the new value
+  // (newer data is more complete/accurate than older partial data)
+  const isSamePeriod = currentRecord &&
+    currentRecord.periodStart === periodStart &&
+    currentRecord.periodEnd === periodEnd;
+
+  if (!currentRecord || isSamePeriod || value > currentRecord.value) {
+    const isActualUpdate = !currentRecord || value !== currentRecord.value;
     return {
-      updated: true,
+      updated: isActualUpdate,
       previousValue: currentRecord?.value || null,
       newRecord: {
         value,
@@ -280,9 +287,16 @@ const checkAndUpdateRateRecord = (
     return { updated: false, previousValue: null, newRecord: currentRecord };
   }
 
-  if (!currentRecord || rate > currentRecord.value) {
+  // If this is the same period as the existing record, always update with the new value
+  // (newer data is more complete/accurate than older partial data)
+  const isSamePeriod = currentRecord &&
+    currentRecord.periodStart === periodStart &&
+    currentRecord.periodEnd === periodEnd;
+
+  if (!currentRecord || isSamePeriod || rate > currentRecord.value) {
+    const isActualUpdate = !currentRecord || rate !== currentRecord.value;
     return {
-      updated: true,
+      updated: isActualUpdate,
       previousValue: currentRecord?.value || null,
       newRecord: {
         value: rate,

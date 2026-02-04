@@ -800,7 +800,7 @@ Global Travel Hub
 
         {/* Records View */}
         {activeView === 'records' && (
-          <RecordsView records={records} onClearRecords={handleClearRecords} />
+          <RecordsView records={records} teams={teams} onClearRecords={handleClearRecords} />
         )}
 
         {/* Record Notifications disabled - records shown in Records tab */}
