@@ -25,6 +25,8 @@ const mockMetrics: Metrics[] = [
     b2bTrips: 5,
     b2bPassthroughs: 4,
     b2bTpRate: 80,
+    quotesStarted: 15,
+    potentialTQ: 65,
   },
   {
     agentName: 'Agent 2',
@@ -46,6 +48,8 @@ const mockMetrics: Metrics[] = [
     b2bTrips: 4,
     b2bPassthroughs: 3,
     b2bTpRate: 75,
+    quotesStarted: 12,
+    potentialTQ: 55,
   },
 ];
 

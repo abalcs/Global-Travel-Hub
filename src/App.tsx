@@ -30,7 +30,8 @@ import {
   buildTimeSeriesOptimized,
   calculateSegmentDailyAverages,
   countRepeatByAgent,
-  countB2bByAgent
+  countB2bByAgent,
+  countQuotesStartedByAgent
 } from './utils/metricsCalculator';
 import {
   loadRecords,
@@ -51,6 +52,7 @@ function App() {
     hotPass: null,
     bookings: null,
     nonConverted: null,
+    quotesStarted: null,
   });
 
   const [teams, setTeams] = useState<Team[]>([]);
@@ -135,6 +137,7 @@ function App() {
       let hotPassRows: CSVRow[];
       let bookingsRows: CSVRow[];
       let nonConvertedRows: CSVRow[];
+      let quotesStartedRows: CSVRow[] = [];
 
       if (hasAllFiles) {
         const result = await processFilesWithWorker({
@@ -144,6 +147,7 @@ function App() {
           hotPass: files.hotPass!,
           bookings: files.bookings!,
           nonConverted: files.nonConverted!,
+          quotesStarted: files.quotesStarted || undefined,
         });
 
         if (!result) {
@@ -156,6 +160,7 @@ function App() {
         hotPassRows = result.hotPass;
         bookingsRows = result.bookings;
         nonConvertedRows = result.nonConverted;
+        quotesStartedRows = result.quotesStarted || [];
 
         const newRawData: RawParsedData = {
           trips: tripsRows,
@@ -164,6 +169,7 @@ function App() {
           hotPass: hotPassRows,
           bookings: bookingsRows,
           nonConverted: nonConvertedRows,
+          quotesStarted: quotesStartedRows,
         };
         saveRawDataToDB(newRawData);
         setRawParsedData(newRawData);
@@ -175,6 +181,7 @@ function App() {
         hotPassRows = rawParsedData!.hotPass;
         bookingsRows = rawParsedData!.bookings;
         nonConvertedRows = rawParsedData!.nonConverted;
+        quotesStartedRows = rawParsedData!.quotesStarted || [];
         setShowDataPanel(false);
       }
 
@@ -239,6 +246,9 @@ function App() {
       const repeatData = countRepeatByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
       const b2bData = countB2bByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
 
+      // Calculate quotes started per agent
+      const quotesStartedData = countQuotesStartedByAgent(quotesStartedRows, startDate, endDate);
+
       const calculatedMetrics = calculateMetrics(
         tripsResult.total,
         quotesResult.total,
@@ -249,7 +259,8 @@ function App() {
         repeatData.repeatTrips,
         repeatData.repeatPassthroughs,
         b2bData.b2bTrips,
-        b2bData.b2bPassthroughs
+        b2bData.b2bPassthroughs,
+        quotesStartedData
       );
 
       setMetrics(calculatedMetrics);
@@ -306,6 +317,7 @@ function App() {
       hotPass: null,
       bookings: null,
       nonConverted: null,
+      quotesStarted: null,
     });
     setShowDataPanel(true);
   }, []);
@@ -331,7 +343,9 @@ function App() {
   const hasStoredData = rawParsedData !== null;
   const canAnalyze = allFilesUploaded || hasStoredData;
   const isProcessing = workerState.isProcessing;
-  const uploadedCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted].filter(Boolean).length;
+  // Count required files (6) plus optional quotesStarted
+  const requiredFilesCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted].filter(Boolean).length;
+  const optionalFilesCount = files.quotesStarted ? 1 : 0;
 
   // Calculate date range from stored data
   const dataDateRange = useMemo(() => {
@@ -531,11 +545,11 @@ Global Travel Hub
                   }
                 </span>
               )}
-              {!hasStoredData && uploadedCount > 0 && (
+              {!hasStoredData && requiredFilesCount > 0 && (
                 <span className={`px-2 py-0.5 rounded text-xs ${
                   isAudley ? 'bg-[#007bc7]/10 text-[#007bc7]' : 'bg-blue-500/20 text-blue-400'
                 }`}>
-                  {uploadedCount}/6 files
+                  {requiredFilesCount}/6 files{optionalFilesCount > 0 ? ' + 1 optional' : ''}
                 </span>
               )}
             </div>
@@ -651,6 +665,21 @@ Global Travel Hub
                   color="rose"
                   icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
                 />
+              </div>
+              {/* Optional file: Quotes Started */}
+              <div className={`mt-3 pt-3 border-t ${isAudley ? 'border-[#4d726d]/20' : 'border-slate-700/50'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-xs font-medium ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Optional</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <FileUpload
+                    label="Quotes Started"
+                    file={files.quotesStarted}
+                    onFileSelect={handleFileSelect('quotesStarted')}
+                    color="amber"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
+                  />
+                </div>
               </div>
               </div>
             </div>

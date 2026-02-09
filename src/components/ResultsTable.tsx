@@ -11,7 +11,7 @@ interface ResultsTableProps {
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors' | 'new-hires';
 
-type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatPassthroughs' | 'repeatTpRate' | 'b2bTrips' | 'b2bPassthroughs' | 'b2bTpRate' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
+type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatPassthroughs' | 'repeatTpRate' | 'b2bTrips' | 'b2bPassthroughs' | 'b2bTpRate' | 'quotesStarted' | 'potentialTQ' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
 
 // Columns that can be toggled on/off
 interface ColumnVisibility {
@@ -21,6 +21,8 @@ interface ColumnVisibility {
   b2bTrips: boolean;
   b2bPassthroughs: boolean;
   b2bTpRate: boolean;
+  quotesStarted: boolean;
+  potentialTQ: boolean;
 }
 type SortDirection = 'asc' | 'desc';
 
@@ -68,6 +70,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     b2bTrips: false,
     b2bPassthroughs: false,
     b2bTpRate: false,
+    quotesStarted: false,
+    potentialTQ: false,
   });
 
   const allColumnsVisible = Object.values(columnVisibility).every(v => v);
@@ -81,6 +85,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       b2bTrips: true,
       b2bPassthroughs: true,
       b2bTpRate: true,
+      quotesStarted: true,
+      potentialTQ: true,
     });
   };
 
@@ -92,6 +98,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       b2bTrips: false,
       b2bPassthroughs: false,
       b2bTpRate: false,
+      quotesStarted: false,
+      potentialTQ: false,
     });
   };
 
@@ -181,8 +189,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       repeatPassthroughs: acc.repeatPassthroughs + m.repeatPassthroughs,
       b2bTrips: acc.b2bTrips + m.b2bTrips,
       b2bPassthroughs: acc.b2bPassthroughs + m.b2bPassthroughs,
+      quotesStarted: acc.quotesStarted + m.quotesStarted,
     }),
-    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0 }
+    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, quotesStarted: 0 }
   ), [sortedMetrics]);
 
   const totalMetrics = useMemo(() => ({
@@ -193,6 +202,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     nonConvertedRate: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
     repeatTpRate: totals.repeatTrips > 0 ? (totals.repeatPassthroughs / totals.repeatTrips) * 100 : 0,
     b2bTpRate: totals.b2bTrips > 0 ? (totals.b2bPassthroughs / totals.b2bTrips) * 100 : 0,
+    potentialTQ: totals.trips > 0 ? ((totals.quotes + totals.quotesStarted) / totals.trips) * 100 : 0,
   }), [totals]);
 
   // Determine the label for the totals row based on active filters
@@ -393,6 +403,25 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                 />
                 <span className="text-sm text-gray-700">B2B T&gt;P %</span>
               </label>
+              <div className="h-4 w-px bg-gray-300" />
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.quotesStarted}
+                  onChange={() => toggleColumn('quotesStarted')}
+                  className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Quotes Started</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.potentialTQ}
+                  onChange={() => toggleColumn('potentialTQ')}
+                  className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Potential T&gt;Q</span>
+              </label>
             </div>
           </div>
         </div>
@@ -498,6 +527,28 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <div className="flex items-center justify-center">
                     B2B T&gt;P %
                     <SortIcon column="b2bTpRate" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.quotesStarted && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider cursor-pointer hover:bg-amber-50 transition-colors"
+                  onClick={() => handleSort('quotesStarted')}
+                >
+                  <div className="flex items-center justify-center">
+                    Quotes Started
+                    <SortIcon column="quotesStarted" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.potentialTQ && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider cursor-pointer hover:bg-amber-50 transition-colors"
+                  onClick={() => handleSort('potentialTQ')}
+                >
+                  <div className="flex items-center justify-center">
+                    Potential T&gt;Q
+                    <SortIcon column="potentialTQ" sortColumn={sortColumn} sortDirection={sortDirection} />
                   </div>
                 </th>
               )}
@@ -628,6 +679,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                       {formatPercent(m.b2bTpRate)}
                     </td>
                   )}
+                  {columnVisibility.quotesStarted && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-amber-600 text-center">
+                      {m.quotesStarted}
+                    </td>
+                  )}
+                  {columnVisibility.potentialTQ && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-amber-600 text-center">
+                      {formatPercent(m.potentialTQ)}
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 text-center">
                     {formatPercent(m.passthroughsFromTrips)}
                   </td>
@@ -693,6 +754,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               {columnVisibility.b2bTpRate && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-300 text-center">
                   {formatPercent(totalMetrics.b2bTpRate)}
+                </td>
+              )}
+              {columnVisibility.quotesStarted && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-300 text-center">
+                  {totals.quotesStarted}
+                </td>
+              )}
+              {columnVisibility.potentialTQ && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-300 text-center">
+                  {formatPercent(totalMetrics.potentialTQ)}
                 </td>
               )}
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-300 text-center">

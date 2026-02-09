@@ -12,6 +12,7 @@ export interface ProcessedFileData {
   bookings: CSVRow[];
   nonConverted: CSVRow[];
   nonConvertedCounts: Record<string, number>;
+  quotesStarted?: CSVRow[];
 }
 
 export interface WorkerMessage {
@@ -23,6 +24,7 @@ export interface WorkerMessage {
     hotPass: ArrayBuffer;
     bookings: ArrayBuffer;
     nonConverted: ArrayBuffer;
+    quotesStarted?: ArrayBuffer;
   };
 }
 
@@ -248,8 +250,15 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
     response({ type: 'progress', progress: 60, stage: 'Parsing bookings...' });
     const bookings = parseExcelFile(files.bookings);
 
-    response({ type: 'progress', progress: 75, stage: 'Parsing non-converted...' });
+    response({ type: 'progress', progress: 70, stage: 'Parsing non-converted...' });
     const { rows: nonConverted, counts: nonConvertedCounts } = parseNonConvertedFile(files.nonConverted);
+
+    // Parse quotes started if provided
+    let quotesStarted: CSVRow[] | undefined;
+    if (files.quotesStarted) {
+      response({ type: 'progress', progress: 85, stage: 'Parsing quotes started...' });
+      quotesStarted = parseExcelFile(files.quotesStarted);
+    }
 
     response({ type: 'progress', progress: 100, stage: 'Complete!' });
 
@@ -263,6 +272,7 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
         bookings,
         nonConverted,
         nonConvertedCounts,
+        quotesStarted,
       },
     });
   } catch (error) {

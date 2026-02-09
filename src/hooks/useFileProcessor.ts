@@ -19,6 +19,7 @@ export interface UseFileProcessorResult {
     hotPass: File;
     bookings: File;
     nonConverted: File;
+    quotesStarted?: File;
   }) => Promise<ProcessedFileData | null>;
   state: ProcessingState;
   cancelProcessing: () => void;
@@ -54,6 +55,7 @@ export const useFileProcessor = (): UseFileProcessorResult => {
     hotPass: File;
     bookings: File;
     nonConverted: File;
+    quotesStarted?: File;
   }): Promise<ProcessedFileData | null> => {
     setState({
       isProcessing: true,
@@ -64,15 +66,23 @@ export const useFileProcessor = (): UseFileProcessorResult => {
 
     try {
       // Read all files as ArrayBuffers in parallel
-      const [tripsBuffer, quotesBuffer, passthroughsBuffer, hotPassBuffer, bookingsBuffer, nonConvertedBuffer] =
-        await Promise.all([
-          files.trips.arrayBuffer(),
-          files.quotes.arrayBuffer(),
-          files.passthroughs.arrayBuffer(),
-          files.hotPass.arrayBuffer(),
-          files.bookings.arrayBuffer(),
-          files.nonConverted.arrayBuffer(),
-        ]);
+      const bufferPromises = [
+        files.trips.arrayBuffer(),
+        files.quotes.arrayBuffer(),
+        files.passthroughs.arrayBuffer(),
+        files.hotPass.arrayBuffer(),
+        files.bookings.arrayBuffer(),
+        files.nonConverted.arrayBuffer(),
+      ];
+
+      // Add quotesStarted if provided
+      if (files.quotesStarted) {
+        bufferPromises.push(files.quotesStarted.arrayBuffer());
+      }
+
+      const buffers = await Promise.all(bufferPromises);
+      const [tripsBuffer, quotesBuffer, passthroughsBuffer, hotPassBuffer, bookingsBuffer, nonConvertedBuffer] = buffers;
+      const quotesStartedBuffer = files.quotesStarted ? buffers[6] : undefined;
 
       // Create worker
       const worker = new FileProcessorWorker();
@@ -124,6 +134,11 @@ export const useFileProcessor = (): UseFileProcessorResult => {
         };
 
         // Send files to worker (transferable for better performance)
+        const transferables = [tripsBuffer, quotesBuffer, passthroughsBuffer, hotPassBuffer, bookingsBuffer, nonConvertedBuffer];
+        if (quotesStartedBuffer) {
+          transferables.push(quotesStartedBuffer);
+        }
+
         worker.postMessage(
           {
             type: 'process',
@@ -134,9 +149,10 @@ export const useFileProcessor = (): UseFileProcessorResult => {
               hotPass: hotPassBuffer,
               bookings: bookingsBuffer,
               nonConverted: nonConvertedBuffer,
+              quotesStarted: quotesStartedBuffer,
             },
           },
-          [tripsBuffer, quotesBuffer, passthroughsBuffer, hotPassBuffer, bookingsBuffer, nonConvertedBuffer]
+          transferables
         );
       });
     } catch (error) {

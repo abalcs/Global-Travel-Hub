@@ -178,6 +178,64 @@ export const countRepeatByAgent = (
   return { repeatTrips, repeatPassthroughs };
 };
 
+// Count quotes started by agent (each row = 1 quote started)
+export const countQuotesStartedByAgent = (
+  quotesStartedRows: CSVRow[],
+  startDate: string,
+  endDate: string
+): Map<string, number> => {
+  const quotesStarted = new Map<string, number>();
+
+  if (quotesStartedRows.length === 0) return quotesStarted;
+
+  // Find agent and date columns
+  const keys = Object.keys(quotesStartedRows[0]);
+  const agentCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('gtt owner') ||
+           lower.includes('owner name') ||
+           lower.includes('agent') ||
+           lower.includes('last gtt action by') ||
+           lower === '_agent';
+  });
+
+  const dateCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('date') || lower.includes('created');
+  });
+
+  if (!agentCol) return quotesStarted;
+
+  // Convert filter dates to integers for comparison
+  const startInt = startDate ? dateToInt(startDate) : null;
+  const endInt = endDate ? dateToInt(endDate) : null;
+  const hasDateFilter = startInt !== null || endInt !== null;
+
+  for (const row of quotesStartedRows) {
+    const agent = row[agentCol];
+    if (!agent) continue;
+
+    // Parse date if available
+    let dateStr: string | null = null;
+    if (dateCol && row[dateCol]) {
+      dateStr = parseDate(row[dateCol]);
+    }
+
+    // Apply date filter if active
+    if (hasDateFilter) {
+      if (!dateStr) continue;
+      const rowInt = dateToInt(dateStr);
+      if (startInt && rowInt < startInt) continue;
+      if (endInt && rowInt > endInt) continue;
+    }
+
+    // Count quote started (each row = 1 quote started)
+    quotesStarted.set(agent, (quotesStarted.get(agent) || 0) + 1);
+  }
+
+  return quotesStarted;
+};
+
 // Count B2B trips and passthroughs by agent
 export const countB2bByAgent = (
   tripsRows: CSVRow[],
@@ -392,7 +450,8 @@ export const calculateMetrics = (
   repeatTripsCounts?: Map<string, number>,
   repeatPassthroughsCounts?: Map<string, number>,
   b2bTripsCounts?: Map<string, number>,
-  b2bPassthroughsCounts?: Map<string, number>
+  b2bPassthroughsCounts?: Map<string, number>,
+  quotesStartedCounts?: Map<string, number>
 ): Metrics[] => {
   // Get all unique agents - include hotPassCounts to capture all agents
   const allAgents = new Set<string>();
@@ -439,6 +498,22 @@ export const calculateMetrics = (
     const b2bTrips = b2bTripsCounts?.get(agentName) || 0;
     const b2bPassthroughs = b2bPassthroughsCounts?.get(agentName) || 0;
 
+    // Get quotes started data (with case-insensitive fallback)
+    let quotesStarted = quotesStartedCounts?.get(agentName) || 0;
+    if (quotesStarted === 0 && quotesStartedCounts) {
+      // Try case-insensitive match
+      for (const [key, value] of quotesStartedCounts.entries()) {
+        if (key.toLowerCase().trim() === agentName.toLowerCase().trim()) {
+          quotesStarted = value;
+          break;
+        }
+      }
+    }
+
+    // Calculate potential T>Q: (quotes + quotesStarted) / trips * 100
+    // This shows what the T>Q rate could be if all started quotes were sent
+    const potentialTQ = trips > 0 ? ((quotes + quotesStarted) / trips) * 100 : 0;
+
     metrics.push({
       agentName,
       trips,
@@ -459,6 +534,8 @@ export const calculateMetrics = (
       b2bTrips,
       b2bPassthroughs,
       b2bTpRate: b2bTrips > 0 ? (b2bPassthroughs / b2bTrips) * 100 : 0,
+      quotesStarted,
+      potentialTQ,
     });
   }
 

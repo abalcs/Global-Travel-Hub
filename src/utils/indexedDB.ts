@@ -7,6 +7,7 @@ export interface RawParsedData {
   hotPass: CSVRow[];
   bookings: CSVRow[];
   nonConverted: CSVRow[];
+  quotesStarted?: CSVRow[];
 }
 
 const DB_NAME = 'kpi-report-db';

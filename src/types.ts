@@ -37,6 +37,9 @@ export interface Metrics {
   b2bTrips: number;
   b2bPassthroughs: number;
   b2bTpRate: number;
+  // Quotes started metrics
+  quotesStarted: number;
+  potentialTQ: number;
 }
 
 export interface FileUploadState {
@@ -46,6 +49,7 @@ export interface FileUploadState {
   hotPass: File | null;
   bookings: File | null;
   nonConverted: File | null;
+  quotesStarted: File | null;
 }
 
 export interface SeniorDesignation {
