@@ -1,13 +1,13 @@
 import { useAuthContext } from './contexts/AuthContext';
-import { AuthUI } from './components/AuthUI';
 import App from './App';
 
 /**
  * AppWrapper
- * Shows authentication UI if user is not logged in, otherwise shows the main app
+ * Shows the main app (GTT Reports is accessible without login)
+ * Authenticated features can check user state internally
  */
 export function AppWrapper() {
-  const { user, loading } = useAuthContext();
+  const { loading } = useAuthContext();
 
   if (loading) {
     return (
@@ -19,14 +19,12 @@ export function AppWrapper() {
         fontSize: '18px',
         color: '#666',
       }}>
-        Loading...
+        ⏳ Loading...
       </div>
     );
   }
 
-  if (!user) {
-    return <AuthUI />;
-  }
-
+  // Show app regardless of auth - GTT Reports tab is public
+  // Other features can show login prompt if needed
   return <App />;
 }

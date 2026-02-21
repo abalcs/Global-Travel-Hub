@@ -790,63 +790,61 @@ Global Travel Hub
           </div>
         )}
 
-        {/* View Toggle & Config */}
-        {metrics.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div className={`rounded-lg p-1 flex gap-1 transition-colors ${
-              isAudley
-                ? 'bg-white border border-[#4d726d]/20 shadow-sm'
-                : 'bg-slate-800/50'
-            }`}>
-              {(['summary', 'regional', 'channels', 'trends', 'insights', 'records', 'gtt_reports'] as const).map((view) => {
-                const isDisabled = (view === 'regional' || view === 'channels' || view === 'insights') && !rawParsedData;
-                const isActive = activeView === view;
-                const labels = {
-                  summary: 'Summary',
-                  regional: 'Regional',
-                  channels: 'Channels',
-                  trends: 'Trends',
-                  insights: 'Insights',
-                  records: 'Records',
-                  gtt_reports: 'GTT Reports'
-                };
+        {/* View Toggle & Config - Always show tabs, disable data-dependent ones */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div className={`rounded-lg p-1 flex gap-1 transition-colors ${
+            isAudley
+              ? 'bg-white border border-[#4d726d]/20 shadow-sm'
+              : 'bg-slate-800/50'
+          }`}>
+            {(['gtt_reports', 'summary', 'regional', 'channels', 'trends', 'insights', 'records'] as const).map((view) => {
+              const isDisabled = (view === 'summary' || view === 'regional' || view === 'channels' || view === 'insights') && metrics.length === 0;
+              const isActive = activeView === view;
+              const labels = {
+                gtt_reports: 'GTT Reports',
+                summary: 'Summary',
+                regional: 'Regional',
+                channels: 'Channels',
+                trends: 'Trends',
+                insights: 'Insights',
+                records: 'Records'
+              };
 
-                return (
-                  <button
-                    key={view}
-                    onClick={() => setActiveView(view)}
-                    disabled={isDisabled}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
-                      isActive
-                        ? isAudley
-                          ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-sm'
-                          : 'bg-indigo-600 text-white'
-                        : isAudley
-                          ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e6f3fb] disabled:opacity-50 disabled:cursor-not-allowed'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
-                    }`}
-                  >
-                    {labels[view]}
-                  </button>
-                );
-              })}
-            </div>
-
-            {activeView === 'summary' && (
-              <div className="flex-1 max-w-xl">
-                <ConfigPanel
-                  teams={teams}
-                  onTeamsChange={handleTeamsChange}
-                  seniors={seniors}
-                  onSeniorsChange={handleSeniorsChange}
-                  newHires={newHires}
-                  onNewHiresChange={handleNewHiresChange}
-                  availableAgents={allAgentNames}
-                />
-              </div>
-            )}
+              return (
+                <button
+                  key={view}
+                  onClick={() => setActiveView(view)}
+                  disabled={isDisabled}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
+                    isActive
+                      ? isAudley
+                        ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-sm'
+                        : 'bg-indigo-600 text-white'
+                      : isAudley
+                        ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e6f3fb] disabled:opacity-50 disabled:cursor-not-allowed'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  {labels[view]}
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          {activeView === 'summary' && metrics.length > 0 && (
+            <div className="flex-1 max-w-xl">
+              <ConfigPanel
+                teams={teams}
+                onTeamsChange={handleTeamsChange}
+                seniors={seniors}
+                onSeniorsChange={handleSeniorsChange}
+                newHires={newHires}
+                onNewHiresChange={handleNewHiresChange}
+                availableAgents={allAgentNames}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Summary View */}
         {activeView === 'summary' && metrics.length > 0 && (
