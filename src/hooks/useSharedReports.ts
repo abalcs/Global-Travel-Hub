@@ -41,20 +41,29 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
   useEffect(() => {
     try {
       const q = query(
-        collection(db, 'gtt_reports'),
-        orderBy('updatedAt', 'desc')
+        collection(db, 'gtt_reports')
+        // Don't order by updatedAt since some docs might not have it or it might be in different format
       );
 
       // Subscribe to real-time updates
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
+          console.log('Firestore snapshot:', snapshot.docs.length, 'documents');
+          
           const reports = snapshot.docs
-            .map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            } as SharedReport))
-            .filter(report => report.name && report.type); // Filter out metadata docs like _summary
+            .map((doc) => {
+              const data = doc.data();
+              console.log('Document:', doc.id, 'fields:', Object.keys(data).slice(0, 5), '... (has', Object.keys(data).length, 'fields)');
+              return {
+                id: doc.id,
+                ...data,
+              } as SharedReport;
+            });
+            // Don't filter - just show all documents
+            // .filter(report => report.name && report.type);
+
+          console.log('Total documents fetched:', reports.length);
 
           setState((prev) => ({
             ...prev,
@@ -64,6 +73,7 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
         },
         (error) => {
           const message = error instanceof Error ? error.message : 'Failed to load shared reports';
+          console.error('Firestore error:', message);
           setState((prev) => ({ ...prev, error: message, loading: false }));
         }
       );
@@ -71,6 +81,7 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
       return unsubscribe;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error setting up shared reports listener';
+      console.error('Setup error:', message);
       setState((prev) => ({ ...prev, error: message, loading: false }));
     }
   }, []);

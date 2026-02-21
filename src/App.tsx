@@ -12,6 +12,7 @@ import { RecordsView } from './components/RecordsView';
 // RecordNotification import removed - notifications disabled
 import { PresentationGenerator } from './components/PresentationGenerator';
 import { AgentAnalytics } from './components/AgentAnalytics';
+import { ReportsList } from './components/ReportsList';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
 import { useAuthContext } from './contexts/AuthContext';
@@ -108,9 +109,9 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
-  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records'>(() => {
+  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'gtt_reports'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
-    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records') {
+    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'gtt_reports') {
       return saved;
     }
     return 'summary';
@@ -797,7 +798,7 @@ Global Travel Hub
                 ? 'bg-white border border-[#4d726d]/20 shadow-sm'
                 : 'bg-slate-800/50'
             }`}>
-              {(['summary', 'regional', 'channels', 'trends', 'insights', 'records'] as const).map((view) => {
+              {(['summary', 'regional', 'channels', 'trends', 'insights', 'records', 'gtt_reports'] as const).map((view) => {
                 const isDisabled = (view === 'regional' || view === 'channels' || view === 'insights') && !rawParsedData;
                 const isActive = activeView === view;
                 const labels = {
@@ -806,7 +807,8 @@ Global Travel Hub
                   channels: 'Channels',
                   trends: 'Trends',
                   insights: 'Insights',
-                  records: 'Records'
+                  records: 'Records',
+                  gtt_reports: 'GTT Reports'
                 };
 
                 return (
@@ -878,6 +880,11 @@ Global Travel Hub
         {/* Records View */}
         {activeView === 'records' && (
           <RecordsView records={records} teams={teams} onClearRecords={handleClearRecords} />
+        )}
+
+        {/* GTT Reports View */}
+        {activeView === 'gtt_reports' && (
+          <ReportsList />
         )}
 
         {/* Record Notifications disabled - records shown in Records tab */}
