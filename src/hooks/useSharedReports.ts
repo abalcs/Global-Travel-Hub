@@ -39,22 +39,30 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
   });
 
   useEffect(() => {
+    console.log('🚀 useSharedReports hook mounted');
     try {
       const q = query(
         collection(db, 'gtt_reports')
         // Don't order by updatedAt since some docs might not have it or it might be in different format
       );
 
+      console.log('📋 Setting up Firestore listener for gtt_reports collection');
+
       // Subscribe to real-time updates
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
-          console.log('Firestore snapshot:', snapshot.docs.length, 'documents');
+          console.log('✅ Firestore snapshot received:', snapshot.docs.length, 'documents');
           
           const reports = snapshot.docs
             .map((doc) => {
               const data = doc.data();
-              console.log('Document:', doc.id, 'fields:', Object.keys(data).slice(0, 5), '... (has', Object.keys(data).length, 'fields)');
+              console.log(`  📄 ${doc.id}:`, {
+                name: data.name,
+                type: data.type,
+                recordCount: data.data?.length || 0,
+                hasDescription: !!data.description
+              });
               return {
                 id: doc.id,
                 ...data,
@@ -63,7 +71,8 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
             // Don't filter - just show all documents
             // .filter(report => report.name && report.type);
 
-          console.log('Total documents fetched:', reports.length);
+          console.log('📊 Total documents fetched:', reports.length);
+          console.log('🎉 Setting reports state:', reports);
 
           setState((prev) => ({
             ...prev,
@@ -73,7 +82,7 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
         },
         (error) => {
           const message = error instanceof Error ? error.message : 'Failed to load shared reports';
-          console.error('Firestore error:', message);
+          console.error('❌ Firestore error:', message);
           setState((prev) => ({ ...prev, error: message, loading: false }));
         }
       );
@@ -81,7 +90,7 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
       return unsubscribe;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error setting up shared reports listener';
-      console.error('Setup error:', message);
+      console.error('❌ Setup error:', message);
       setState((prev) => ({ ...prev, error: message, loading: false }));
     }
   }, []);
