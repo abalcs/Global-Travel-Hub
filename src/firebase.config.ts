@@ -20,16 +20,26 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
 };
 
+console.log('🔧 Firebase Config:', {
+  apiKey: firebaseConfig.apiKey ? '✅ Set' : '❌ Missing',
+  projectId: firebaseConfig.projectId || '❌ Missing',
+  authDomain: firebaseConfig.authDomain ? '✅ Set' : '❌ Missing',
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+console.log('🚀 Firebase app initialized:', app.name);
 
 // Initialize Auth
 export const auth: Auth = getAuth(app);
+console.log('🔐 Auth initialized');
 
 // Initialize Firestore
 export const db: Firestore = getFirestore(app);
+console.log('📦 Firestore initialized');
 
 // Initialize Storage (for uploaded Excel files)
 export const storage: FirebaseStorage = getStorage(app);
+console.log('💾 Storage initialized');
 
 export default app;

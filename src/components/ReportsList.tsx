@@ -6,10 +6,15 @@ export function ReportsList() {
   const { reports, loading, error } = useSharedReports();
   const [selectedReport, setSelectedReport] = useState<SharedReport | null>(null);
 
+  console.log('🎯 ReportsList rendered:', { loading, reportCount: reports.length, error });
+
   if (loading) {
     return (
       <div className="reports-container">
-        <p>Loading shared reports...</p>
+        <p>⏳ Loading shared reports...</p>
+        <p style={{ fontSize: '0.85em', color: '#888' }}>
+          (Check console for detailed logs)
+        </p>
       </div>
     );
   }
@@ -21,11 +26,20 @@ export function ReportsList() {
         {reports.length > 0 && <span className="reports-count">{reports.length}</span>}
       </div>
 
-      {error && <div className="reports-error">{error}</div>}
+      {error && (
+        <div className="reports-error">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
 
       {reports.length === 0 ? (
         <div className="reports-empty">
-          <p>No reports available yet. Check back soon!</p>
+          <p>❌ No reports available yet.</p>
+          {!error && (
+            <p style={{ fontSize: '0.85em', color: '#888' }}>
+              Check browser console (F12) for detailed diagnostic logs.
+            </p>
+          )}
         </div>
       ) : (
         <div className="reports-grid">
