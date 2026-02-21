@@ -12,7 +12,7 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId;
     }
 
-    // User data (reports, uploads, etc.)
+    // User data (personal reports, uploads, etc.)
     match /users/{userId}/reports/{document=**} {
       allow read, write: if request.auth.uid == userId;
       allow list: if request.auth.uid == userId;
@@ -23,7 +23,13 @@ service cloud.firestore {
       allow list: if request.auth.uid == userId;
     }
 
-    // Shared collections (admin only)
+    // Shared reports - all authenticated users can read
+    match /shared/reports/{document=**} {
+      allow read, list: if request.auth != null;
+      allow write: if false; // Admin only via backend/automation
+    }
+
+    // Shared system data
     match /system/{document=**} {
       allow read: if request.auth != null;
       allow write: if false; // Admin only via backend
