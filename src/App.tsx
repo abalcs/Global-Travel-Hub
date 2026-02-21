@@ -14,6 +14,7 @@ import { PresentationGenerator } from './components/PresentationGenerator';
 import { AgentAnalytics } from './components/AgentAnalytics';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
+import { useAuthContext } from './contexts/AuthContext';
 import audleyLogo from './assets/audley-logo.png';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
 import type { CSVRow } from './utils/csvParser';
@@ -41,6 +42,52 @@ import {
 } from './utils/recordsTracker';
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
+
+/**
+ * LogoutButton Component
+ * Displays user email and provides logout functionality
+ */
+function LogoutButton() {
+  const { user, logout } = useAuthContext();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { isAudley } = useTheme();
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      setIsLoggingOut(false);
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border"
+      style={{
+        borderColor: isAudley ? '#4d726d' : '#475569',
+        backgroundColor: isAudley ? '#f0f7fc' : '#1e293b',
+      }}>
+      <span className="text-sm" style={{ color: isAudley ? '#4d726d' : '#94a3b8' }}>
+        {user.email}
+      </span>
+      <button
+        onClick={handleLogout}
+        disabled={isLoggingOut}
+        className="text-xs px-2 py-1 rounded transition-all cursor-pointer active:scale-95"
+        style={{
+          color: isAudley ? '#dc2626' : '#f87171',
+          backgroundColor: isAudley ? '#fee2e2' : '#7f1d1d',
+          opacity: isLoggingOut ? 0.6 : 1,
+          cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+        }}>
+        {isLoggingOut ? 'Logging out...' : 'Logout'}
+      </button>
+    </div>
+  );
+}
 
 function App() {
   const { isAudley } = useTheme();
@@ -467,6 +514,7 @@ Global Travel Hub
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <LogoutButton />
             <ThemeToggle />
             {metrics.length > 0 ? (
               <div className="flex items-center gap-2">
