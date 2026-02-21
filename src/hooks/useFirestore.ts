@@ -12,9 +12,8 @@ import {
   getDocs,
   onSnapshot,
   Query,
-  DocumentData,
-  Unsubscribe,
 } from 'firebase/firestore';
+import type { DocumentData } from 'firebase/firestore';
 
 export interface UseFirestoreState<T> {
   data: T | null;
@@ -152,7 +151,7 @@ export function useFirestoreQuery<T extends DocumentData>(
         const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        } as T));
+        } as unknown as T));
         setState((prev) => ({ ...prev, data: docs, loading: false }));
       },
       (error) => {
@@ -179,7 +178,7 @@ export function useFirestoreQuery<T extends DocumentData>(
       const docs = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      } as T));
+      } as unknown as T));
       setState((prev) => ({ ...prev, data: docs, loading: false, error: null }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Refetch error';

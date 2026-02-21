@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useFirebaseAuth } from '../contexts/FirebaseAuthContext';
 import * as firestore from '../services/firestoreService';
-import type { Team, Metrics, TimeSeriesData } from '../types';
+import type { Team } from '../types';
 
 interface SyncOptions {
   fallbackToLocal?: boolean; // Use localStorage as fallback

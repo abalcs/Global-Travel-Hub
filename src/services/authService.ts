@@ -8,8 +8,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  User,
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { auth } from '../firebase.config';
 import { createUserProfile } from './firestoreService';
 
@@ -20,7 +20,11 @@ export const signUp = async (email: string, password: string): Promise<User> => 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
     // Create user profile in Firestore
-    await createUserProfile(userCredential.user.uid);
+    await createUserProfile(userCredential.user.uid, {
+      email,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
     
     console.log('✅ User created:', userCredential.user.uid);
     return userCredential.user;

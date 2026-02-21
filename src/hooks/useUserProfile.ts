@@ -1,6 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { auth } from '../firebase.config';
-import { useFirestoreDoc } from './useFirestore';
 import { updateProfile } from 'firebase/auth';
 import { useAuthContext } from '../contexts/AuthContext';
 
@@ -55,7 +53,6 @@ export function useUserProfile(): UseUserProfileState & UseUserProfileActions {
         setState((prev) => ({ ...prev, loading: true, error: null }));
 
         const path = `users/${user.uid}`;
-        const profileRef = __filename; // Placeholder - will use doc ref directly
         
         // Import and use setDoc to create profile if it doesn't exist
         const { doc, getDoc, setDoc } = await import('firebase/firestore');

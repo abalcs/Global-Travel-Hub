@@ -18,6 +18,7 @@ import {
   limit,
   Timestamp,
 } from 'firebase/firestore';
+import type { Team } from '../types';
 
 export interface Report {
   id?: string;
@@ -226,5 +227,120 @@ export async function exportReportsAsJSON(uid: string): Promise<string> {
     return JSON.stringify(reports, null, 2);
   } catch (error) {
     throw new Error(`Failed to export reports: ${error}`);
+  }
+}
+
+/**
+ * Create a user profile
+ */
+export async function createUserProfile(uid: string, profileData: Record<string, any>): Promise<void> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(userDocRef, {
+      ...profileData,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    }, { merge: true });
+  } catch (error) {
+    throw new Error(`Failed to create user profile: ${error}`);
+  }
+}
+
+/**
+ * Get teams for a user
+ */
+export async function getTeams(uid: string): Promise<Team[]> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) {
+      return [];
+    }
+    const data = userDoc.data();
+    return data.teams || [];
+  } catch (error) {
+    console.error('Failed to get teams:', error);
+    return [];
+  }
+}
+
+/**
+ * Save teams for a user
+ */
+export async function saveTeams(uid: string, teams: Team[]): Promise<void> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    await updateDoc(userDocRef, {
+      teams,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    throw new Error(`Failed to save teams: ${error}`);
+  }
+}
+
+/**
+ * Get seniors list for a user
+ */
+export async function getSeniors(uid: string): Promise<string[]> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) {
+      return [];
+    }
+    const data = userDoc.data();
+    return data.seniors || [];
+  } catch (error) {
+    console.error('Failed to get seniors:', error);
+    return [];
+  }
+}
+
+/**
+ * Save seniors list for a user
+ */
+export async function saveSeniors(uid: string, seniors: string[]): Promise<void> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    await updateDoc(userDocRef, {
+      seniors,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    throw new Error(`Failed to save seniors: ${error}`);
+  }
+}
+
+/**
+ * Get new hires list for a user
+ */
+export async function getNewHires(uid: string): Promise<string[]> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) {
+      return [];
+    }
+    const data = userDoc.data();
+    return data.newHires || [];
+  } catch (error) {
+    console.error('Failed to get new hires:', error);
+    return [];
+  }
+}
+
+/**
+ * Save new hires list for a user
+ */
+export async function saveNewHires(uid: string, newHires: string[]): Promise<void> {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    await updateDoc(userDocRef, {
+      newHires,
+      updatedAt: Timestamp.now(),
+    });
+  } catch (error) {
+    throw new Error(`Failed to save new hires: ${error}`);
   }
 }

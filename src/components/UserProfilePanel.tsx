@@ -110,7 +110,7 @@ export function UserProfilePanel() {
           <label>Theme</label>
           <select
             value={isEditing ? theme : profile.preferences?.theme || 'light'}
-            onChange={(e) => setTheme(e.target.value)}
+            onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
             disabled={!isEditing}
             className={isEditing ? '' : 'disabled-input'}
           >

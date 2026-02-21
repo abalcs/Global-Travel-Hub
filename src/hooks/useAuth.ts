@@ -5,10 +5,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  User,
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 export interface AuthState {
   user: User | null;
