@@ -23,10 +23,10 @@ service cloud.firestore {
       allow list: if request.auth.uid == userId;
     }
 
-    // Shared reports - all authenticated users can read
-    match /shared/reports/{document=**} {
+    // Shared GTT reports - all authenticated users can read, unauthenticated writes allowed for automation
+    match /gtt_reports/{document=**} {
       allow read, list: if request.auth != null;
-      allow write: if false; // Admin only via backend/automation
+      allow write: if request.auth == null; // Allow API key writes from automation scripts
     }
 
     // Shared system data

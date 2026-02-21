@@ -41,7 +41,7 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
   useEffect(() => {
     try {
       const q = query(
-        collection(db, 'shared/reports'),
+        collection(db, 'gtt_reports'),
         orderBy('updatedAt', 'desc')
       );
 
