@@ -90,7 +90,7 @@ export function useSharedReports(): UseSharedReportsState & { refetch: () => Pro
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       const q = query(
-        collection(db, 'shared/reports'),
+        collection(db, 'gtt_reports'),
         orderBy('updatedAt', 'desc')
       );
       const snapshot = await getDocs(q);

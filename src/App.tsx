@@ -114,7 +114,7 @@ function App() {
     if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'gtt_reports') {
       return saved;
     }
-    return 'summary';
+    return 'gtt_reports'; // Show GTT Reports by default
   });
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<AllRecords>(() => loadRecords());
