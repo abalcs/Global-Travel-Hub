@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User profiles - each user can only access/modify their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+    }
+
+    // User settings and preferences
+    match /users/{userId}/settings/{document=**} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // User data (reports, uploads, etc.)
+    match /users/{userId}/reports/{document=**} {
+      allow read, write: if request.auth.uid == userId;
+      allow list: if request.auth.uid == userId;
+    }
+
+    match /users/{userId}/uploads/{document=**} {
+      allow read, write: if request.auth.uid == userId;
+      allow list: if request.auth.uid == userId;
+    }
+
+    // Shared collections (admin only)
+    match /system/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin only via backend
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
