@@ -9,6 +9,8 @@ import App from './App';
 export function AppWrapper() {
   const { loading } = useAuthContext();
 
+  console.log('🎯 AppWrapper rendered, loading:', loading);
+
   if (loading) {
     return (
       <div style={{
@@ -23,6 +25,8 @@ export function AppWrapper() {
       </div>
     );
   }
+
+  console.log('✅ AppWrapper showing App component');
 
   // Show app regardless of auth - GTT Reports tab is public
   // Other features can show login prompt if needed

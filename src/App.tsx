@@ -429,6 +429,8 @@ function App() {
     };
   }, [rawParsedData?.trips]);
 
+  console.log('🎯 App component rendered, activeView:', activeView);
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       isAudley
