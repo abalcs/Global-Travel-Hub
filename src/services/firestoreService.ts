@@ -1,346 +1,235 @@
 /**
- * Firestore Service
- * High-level functions for common Firestore operations
+ * Firestore Service - Write processed metrics data to Firestore
+ * Ensures data persists across devices and sessions
  */
 
-import { db } from '../firebase.config';
-import {
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-  Timestamp,
-} from 'firebase/firestore';
-import type { Team } from '../types';
+import { getDb } from '../firebase.config';
+import type { Metrics, TimeSeriesData } from '../types';
 
-export interface Report {
-  id?: string;
-  uid: string;
-  name: string;
-  type: string;
-  description?: string;
-  data: any[];
-  createdAt: number | Timestamp;
-  updatedAt: number | Timestamp;
-  tags?: string[];
-}
-
-export interface Upload {
-  id?: string;
-  uid: string;
-  fileName: string;
-  fileSize: number;
-  uploadedAt: number | Timestamp;
-  status: 'pending' | 'processing' | 'complete' | 'failed';
-  error?: string;
-}
+const COLLECTION = 'gtt-reports';
+const METRICS_DOC = 'metrics';
+const TIMESERIES_DOC = 'timeseries';
+const SUMMARY_DOC = 'summary';
 
 /**
- * Save a report to Firestore
+ * Write metrics data to Firestore
  */
-export async function saveReport(uid: string, report: Omit<Report, 'uid'>): Promise<string> {
+export async function saveMetricsToFirestore(metrics: Metrics[]): Promise<boolean> {
   try {
-    const reportRef = doc(collection(db, `users/${uid}/reports`));
-    const now = Timestamp.now();
-
-    await setDoc(reportRef, {
-      ...report,
-      uid,
-      createdAt: report.createdAt || now,
-      updatedAt: now,
-    });
-
-    return reportRef.id;
-  } catch (error) {
-    throw new Error(`Failed to save report: ${error}`);
-  }
-}
-
-/**
- * Get a report by ID
- */
-export async function getReport(uid: string, reportId: string): Promise<Report | null> {
-  try {
-    const docRef = doc(db, `users/${uid}/reports/${reportId}`);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Report : null;
-  } catch (error) {
-    throw new Error(`Failed to get report: ${error}`);
-  }
-}
-
-/**
- * Get all reports for a user
- */
-export async function getReports(uid: string, options?: { limit?: number; tag?: string }): Promise<Report[]> {
-  try {
-    let q = query(
-      collection(db, `users/${uid}/reports`),
-      orderBy('updatedAt', 'desc')
-    );
-
-    if (options?.limit) {
-      q = query(q, limit(options.limit));
+    const db = await getDb();
+    if (!db) {
+      console.warn('[Firestore] Database not initialized, skipping metrics save');
+      return false;
     }
 
-    if (options?.tag) {
-      q = query(
-        collection(db, `users/${uid}/reports`),
-        where('tags', 'array-contains', options.tag),
-        orderBy('updatedAt', 'desc')
-      );
-    }
+    const { collection, doc, setDoc } = await import('firebase/firestore');
 
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Report[];
-  } catch (error) {
-    throw new Error(`Failed to get reports: ${error}`);
-  }
-}
+    const collectionRef = collection(db, COLLECTION);
+    const docRef = doc(collectionRef, METRICS_DOC);
 
-/**
- * Update a report
- */
-export async function updateReport(uid: string, reportId: string, updates: Partial<Report>): Promise<void> {
-  try {
-    const docRef = doc(db, `users/${uid}/reports/${reportId}`);
-    await updateDoc(docRef, {
-      ...updates,
-      updatedAt: Timestamp.now(),
-    });
-  } catch (error) {
-    throw new Error(`Failed to update report: ${error}`);
-  }
-}
-
-/**
- * Delete a report
- */
-export async function deleteReport(uid: string, reportId: string): Promise<void> {
-  try {
-    const docRef = doc(db, `users/${uid}/reports/${reportId}`);
-    await deleteDoc(docRef);
-  } catch (error) {
-    throw new Error(`Failed to delete report: ${error}`);
-  }
-}
-
-/**
- * Save an upload record
- */
-export async function saveUpload(uid: string, upload: Omit<Upload, 'uid'>): Promise<string> {
-  try {
-    const uploadRef = doc(collection(db, `users/${uid}/uploads`));
-    await setDoc(uploadRef, {
-      ...upload,
-      uid,
-    });
-    return uploadRef.id;
-  } catch (error) {
-    throw new Error(`Failed to save upload: ${error}`);
-  }
-}
-
-/**
- * Get all uploads for a user
- */
-export async function getUploads(uid: string): Promise<Upload[]> {
-  try {
-    const snapshot = await getDocs(
-      query(
-        collection(db, `users/${uid}/uploads`),
-        orderBy('uploadedAt', 'desc')
-      )
-    );
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Upload[];
-  } catch (error) {
-    throw new Error(`Failed to get uploads: ${error}`);
-  }
-}
-
-/**
- * Update an upload status
- */
-export async function updateUploadStatus(
-  uid: string,
-  uploadId: string,
-  status: Upload['status'],
-  error?: string
-): Promise<void> {
-  try {
-    const docRef = doc(db, `users/${uid}/uploads/${uploadId}`);
-    const updates: any = { status };
-    if (error) updates.error = error;
-    await updateDoc(docRef, updates);
-  } catch (error) {
-    throw new Error(`Failed to update upload: ${error}`);
-  }
-}
-
-/**
- * Delete an upload record
- */
-export async function deleteUpload(uid: string, uploadId: string): Promise<void> {
-  try {
-    const docRef = doc(db, `users/${uid}/uploads/${uploadId}`);
-    await deleteDoc(docRef);
-  } catch (error) {
-    throw new Error(`Failed to delete upload: ${error}`);
-  }
-}
-
-/**
- * Batch delete reports
- */
-export async function deleteReports(uid: string, reportIds: string[]): Promise<void> {
-  try {
-    const batch = [];
-    for (const reportId of reportIds) {
-      const docRef = doc(db, `users/${uid}/reports/${reportId}`);
-      batch.push(deleteDoc(docRef));
-    }
-    await Promise.all(batch);
-  } catch (error) {
-    throw new Error(`Failed to delete reports: ${error}`);
-  }
-}
-
-/**
- * Export reports to JSON
- */
-export async function exportReportsAsJSON(uid: string): Promise<string> {
-  try {
-    const reports = await getReports(uid);
-    return JSON.stringify(reports, null, 2);
-  } catch (error) {
-    throw new Error(`Failed to export reports: ${error}`);
-  }
-}
-
-/**
- * Create a user profile
- */
-export async function createUserProfile(uid: string, profileData: Record<string, any>): Promise<void> {
-  try {
-    const userDocRef = doc(db, 'users', uid);
-    await setDoc(userDocRef, {
-      ...profileData,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
+    // Store metrics with timestamp
+    await setDoc(docRef, {
+      data: metrics,
+      updatedAt: new Date().toISOString(),
+      rowCount: metrics.length,
     }, { merge: true });
+
+    console.log(`[Firestore] ✅ Saved ${metrics.length} metric rows`);
+    return true;
   } catch (error) {
-    throw new Error(`Failed to create user profile: ${error}`);
+    console.error('[Firestore] Error saving metrics:', error);
+    return false;
   }
 }
 
 /**
- * Get teams for a user
+ * Write time series data to Firestore
  */
-export async function getTeams(uid: string): Promise<Team[]> {
+export async function saveTimeSeriesDataToFirestore(
+  timeSeriesData: TimeSeriesData | null
+): Promise<boolean> {
   try {
-    const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      return [];
+    if (!timeSeriesData) return false;
+
+    const db = await getDb();
+    if (!db) {
+      console.warn('[Firestore] Database not initialized, skipping timeseries save');
+      return false;
     }
-    const data = userDoc.data();
-    return data.teams || [];
+
+    const { collection, doc, setDoc } = await import('firebase/firestore');
+
+    const collectionRef = collection(db, COLLECTION);
+    const docRef = doc(collectionRef, TIMESERIES_DOC);
+
+    // Store time series with timestamp
+    await setDoc(docRef, {
+      data: timeSeriesData,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    console.log(`[Firestore] ✅ Saved time series data`);
+    return true;
   } catch (error) {
-    console.error('Failed to get teams:', error);
-    return [];
+    console.error('[Firestore] Error saving time series data:', error);
+    return false;
   }
 }
 
 /**
- * Save teams for a user
+ * Write summary statistics to Firestore
  */
-export async function saveTeams(uid: string, teams: Team[]): Promise<void> {
+export async function saveSummaryToFirestore(summary: {
+  totalMetrics: number;
+  totalRows: number;
+  dataRange: { from?: string; to?: string };
+  agentCount: number;
+  lastUpdate: string;
+}): Promise<boolean> {
   try {
-    const userDocRef = doc(db, 'users', uid);
-    await updateDoc(userDocRef, {
-      teams,
-      updatedAt: Timestamp.now(),
-    });
-  } catch (error) {
-    throw new Error(`Failed to save teams: ${error}`);
-  }
-}
-
-/**
- * Get seniors list for a user
- */
-export async function getSeniors(uid: string): Promise<string[]> {
-  try {
-    const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      return [];
+    const db = await getDb();
+    if (!db) {
+      console.warn('[Firestore] Database not initialized, skipping summary save');
+      return false;
     }
-    const data = userDoc.data();
-    return data.seniors || [];
+
+    const { collection, doc, setDoc } = await import('firebase/firestore');
+
+    const collectionRef = collection(db, COLLECTION);
+    const docRef = doc(collectionRef, SUMMARY_DOC);
+
+    await setDoc(docRef, summary, { merge: true });
+
+    console.log(`[Firestore] ✅ Saved summary`);
+    return true;
   } catch (error) {
-    console.error('Failed to get seniors:', error);
-    return [];
+    console.error('[Firestore] Error saving summary:', error);
+    return false;
   }
 }
 
 /**
- * Save seniors list for a user
+ * Read metrics from Firestore
  */
-export async function saveSeniors(uid: string, seniors: string[]): Promise<void> {
+export async function readMetricsFromFirestore(): Promise<Metrics[] | null> {
   try {
-    const userDocRef = doc(db, 'users', uid);
-    await updateDoc(userDocRef, {
-      seniors,
-      updatedAt: Timestamp.now(),
-    });
-  } catch (error) {
-    throw new Error(`Failed to save seniors: ${error}`);
-  }
-}
-
-/**
- * Get new hires list for a user
- */
-export async function getNewHires(uid: string): Promise<string[]> {
-  try {
-    const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      return [];
+    const db = await getDb();
+    if (!db) {
+      console.warn('[Firestore] Database not initialized, skipping metrics read');
+      return null;
     }
-    const data = userDoc.data();
-    return data.newHires || [];
+
+    const { collection, doc, getDoc } = await import('firebase/firestore');
+
+    const collectionRef = collection(db, COLLECTION);
+    const docRef = doc(collectionRef, METRICS_DOC);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const { data } = docSnap.data();
+      console.log(`[Firestore] ✅ Read ${data?.length || 0} metric rows from Firestore`);
+      return data || [];
+    }
+
+    console.log('[Firestore] No metrics found in Firestore');
+    return null;
   } catch (error) {
-    console.error('Failed to get new hires:', error);
-    return [];
+    console.error('[Firestore] Error reading metrics:', error);
+    return null;
   }
 }
 
 /**
- * Save new hires list for a user
+ * Read time series data from Firestore
  */
-export async function saveNewHires(uid: string, newHires: string[]): Promise<void> {
+export async function readTimeSeriesDataFromFirestore(): Promise<TimeSeriesData | null> {
   try {
-    const userDocRef = doc(db, 'users', uid);
-    await updateDoc(userDocRef, {
-      newHires,
-      updatedAt: Timestamp.now(),
-    });
+    const db = await getDb();
+    if (!db) {
+      console.warn('[Firestore] Database not initialized, skipping timeseries read');
+      return null;
+    }
+
+    const { collection, doc, getDoc } = await import('firebase/firestore');
+
+    const collectionRef = collection(db, COLLECTION);
+    const docRef = doc(collectionRef, TIMESERIES_DOC);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const { data } = docSnap.data();
+      console.log('[Firestore] ✅ Read time series data from Firestore');
+      return data || null;
+    }
+
+    console.log('[Firestore] No time series data found in Firestore');
+    return null;
   } catch (error) {
-    throw new Error(`Failed to save new hires: ${error}`);
+    console.error('[Firestore] Error reading time series data:', error);
+    return null;
   }
+}
+
+/**
+ * Clear all data from Firestore collection
+ */
+export async function clearFirestoreData(): Promise<boolean> {
+  try {
+    const db = await getDb();
+    if (!db) return false;
+
+    const { collection, doc, deleteDoc } = await import('firebase/firestore');
+
+    const collectionRef = collection(db, COLLECTION);
+
+    // Delete main documents
+    const docsToDelete = [METRICS_DOC, TIMESERIES_DOC, SUMMARY_DOC];
+    for (const docName of docsToDelete) {
+      const docRef = doc(collectionRef, docName);
+      await deleteDoc(docRef);
+    }
+
+    console.log('[Firestore] ✅ Cleared all data');
+    return true;
+  } catch (error) {
+    console.error('[Firestore] Error clearing data:', error);
+    return false;
+  }
+}
+
+/**
+ * LEGACY FUNCTIONS (for backwards compatibility with old components)
+ * These are stubs for components that are no longer actively used
+ */
+
+export async function saveReport(_userId: string, _data: any): Promise<string> {
+  console.warn('[Firestore] saveReport is deprecated');
+  return '';
+}
+
+export async function getTeams(_userId: string): Promise<any[]> {
+  console.warn('[Firestore] getTeams is deprecated');
+  return [];
+}
+
+export async function saveTeams(_userId: string, _teams: any[]): Promise<void> {
+  console.warn('[Firestore] saveTeams is deprecated');
+}
+
+export async function getSeniors(_userId: string): Promise<string[]> {
+  console.warn('[Firestore] getSeniors is deprecated');
+  return [];
+}
+
+export async function saveSeniors(_userId: string, _seniors: string[]): Promise<void> {
+  console.warn('[Firestore] saveSeniors is deprecated');
+}
+
+export async function getNewHires(_userId: string): Promise<string[]> {
+  console.warn('[Firestore] getNewHires is deprecated');
+  return [];
+}
+
+export async function saveNewHires(_userId: string, _newHires: string[]): Promise<void> {
+  console.warn('[Firestore] saveNewHires is deprecated');
 }

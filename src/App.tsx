@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
+import { ConfigPanel } from './components/ConfigPanel';
 import { TeamComparison } from './components/TeamComparison';
 import { DateRangeFilter } from './components/DateRangeFilter';
 import { TrendsView } from './components/TrendsView';
@@ -12,15 +13,18 @@ import { RecordsView } from './components/RecordsView';
 // RecordNotification import removed - notifications disabled
 import { PresentationGenerator } from './components/PresentationGenerator';
 import { AgentAnalytics } from './components/AgentAnalytics';
-import { ReportsList } from './components/ReportsList';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
-import { useAuthContext } from './contexts/AuthContext';
+// Auth disabled for now — uncomment when ready to re-enable
+// import { useAuthContext } from './contexts/AuthContext';
+import { getDb } from './firebase.config';
 import audleyLogo from './assets/audley-logo.png';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
 import type { CSVRow } from './utils/csvParser';
 import { loadTeams, saveTeams, loadSeniors, saveSeniors, loadNewHires, saveNewHires, loadMetrics, saveMetrics, clearMetrics, loadTimeSeriesData, saveTimeSeriesData, clearTimeSeriesData } from './utils/storage';
 import { loadRawDataFromDB, saveRawDataToDB, clearRawDataFromDB, type RawParsedData } from './utils/indexedDB';
+import { saveRawDataToFirestore } from './utils/firestoreSync';
+import { saveMetricsToFirestore, saveTimeSeriesDataToFirestore, saveSummaryToFirestore } from './services/firestoreService';
 import { useFileProcessor } from './hooks/useFileProcessor';
 import {
   findAgentColumn,
@@ -33,7 +37,10 @@ import {
   calculateSegmentDailyAverages,
   countRepeatByAgent,
   countB2bByAgent,
-  countQuotesStartedByAgent
+  countQuotesStartedByAgent,
+  isMetadataRow,
+  isGroupedColumn,
+  fillDownAgent
 } from './utils/metricsCalculator';
 import {
   loadRecords,
@@ -44,51 +51,36 @@ import {
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
 
-/**
- * LogoutButton Component
- * Displays user email and provides logout functionality
- */
+/** Tag each row with its origin file so data doesn't get mixed up after storage */
+const tagRows = (rows: CSVRow[], source: string): CSVRow[] =>
+  rows.map(row => (row._source === source ? row : { ...row, _source: source }));
+
+/** Strip rows whose _source tag doesn't match (cross-contamination guard) */
+const filterBySource = (rows: CSVRow[], source: string): CSVRow[] =>
+  rows.filter(row => !row._source || row._source === source);
+
+// LogoutButton disabled — auth removed for now
+// Uncomment when ready to re-enable authentication
+/*
 function LogoutButton() {
   const { user, logout } = useAuthContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { isAudley } = useTheme();
-
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-      setIsLoggingOut(false);
-    }
+    try { await logout(); } catch (error) { console.error('Logout error:', error); setIsLoggingOut(false); }
   };
-
   if (!user) return null;
-
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border"
-      style={{
-        borderColor: isAudley ? '#4d726d' : '#475569',
-        backgroundColor: isAudley ? '#f0f7fc' : '#1e293b',
-      }}>
-      <span className="text-sm" style={{ color: isAudley ? '#4d726d' : '#94a3b8' }}>
-        {user.email}
-      </span>
-      <button
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        className="text-xs px-2 py-1 rounded transition-all cursor-pointer active:scale-95"
-        style={{
-          color: isAudley ? '#dc2626' : '#f87171',
-          backgroundColor: isAudley ? '#fee2e2' : '#7f1d1d',
-          opacity: isLoggingOut ? 0.6 : 1,
-          cursor: isLoggingOut ? 'not-allowed' : 'pointer',
-        }}>
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ borderColor: isAudley ? '#4d726d' : '#475569', backgroundColor: isAudley ? '#f0f7fc' : '#1e293b' }}>
+      <span className="text-sm" style={{ color: isAudley ? '#4d726d' : '#94a3b8' }}>{user.email}</span>
+      <button onClick={handleLogout} disabled={isLoggingOut} className="text-xs px-2 py-1 rounded transition-all cursor-pointer active:scale-95" style={{ color: isAudley ? '#dc2626' : '#f87171', backgroundColor: isAudley ? '#fee2e2' : '#7f1d1d', opacity: isLoggingOut ? 0.6 : 1, cursor: isLoggingOut ? 'not-allowed' : 'pointer' }}>
         {isLoggingOut ? 'Logging out...' : 'Logout'}
       </button>
     </div>
   );
 }
+*/
 
 function App() {
   const { isAudley } = useTheme();
@@ -109,20 +101,25 @@ function App() {
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
-  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'gtt_reports'>(() => {
+  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
-    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'gtt_reports') {
+    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records') {
       return saved;
     }
-    return 'gtt_reports'; // Show GTT Reports by default
+    return 'summary'; // Show Summary by default
   });
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<AllRecords>(() => loadRecords());
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [showDataPanel, setShowDataPanel] = useState(true);
+  const [dataLoadProgress, setDataLoadProgress] = useState<{ loading: boolean; progress: number; stage: string }>({
+    loading: false, progress: 0, stage: ''
+  });
+  const [autoAnalyzePending, setAutoAnalyzePending] = useState(false);
 
   const { processFiles: processFilesWithWorker, state: workerState } = useFileProcessor();
+  const isProcessing = workerState.isProcessing;
 
   useEffect(() => {
     setTeams(loadTeams());
@@ -131,12 +128,113 @@ function App() {
     setMetrics(loadMetrics());
     setTimeSeriesData(loadTimeSeriesData());
 
-    loadRawDataFromDB().then((data) => {
-      if (data) {
-        setRawParsedData(data);
+    // Try loading from IndexedDB first, then Firestore
+    const loadData = async () => {
+      setDataLoadProgress({ loading: true, progress: 5, stage: 'Checking local cache...' });
+
+      // First try IndexedDB
+      const localData = await loadRawDataFromDB();
+      if (localData) {
+        setDataLoadProgress({ loading: true, progress: 90, stage: 'Local data found' });
+        setRawParsedData(localData);
         setShowDataPanel(false);
+        setDataLoadProgress({ loading: true, progress: 100, stage: 'Data loaded' });
+        setAutoAnalyzePending(true);
+        setTimeout(() => setDataLoadProgress({ loading: false, progress: 0, stage: '' }), 400);
+        return;
       }
-    });
+
+      // Try loading from Firestore (supports both batched and single-doc formats)
+      // Dynamic import to avoid TDZ issues with Firebase SDK bundling
+      let db: any;
+      try {
+        db = await getDb();
+      } catch (e) {
+        console.warn('[App] Firebase init failed:', e);
+      }
+
+      if (!db) {
+        console.warn('[App] Firestore not available — skipping remote data load');
+        setDataLoadProgress({ loading: false, progress: 0, stage: '' });
+        return;
+      }
+
+      const { doc, getDoc } = await import('firebase/firestore');
+
+      setDataLoadProgress({ loading: true, progress: 10, stage: 'Connecting to Firestore...' });
+
+      try {
+        const datasets: any = {};
+        const allDataTypes = ['trips', 'quotes', 'passthroughs', 'hotPass', 'bookings', 'nonConverted', 'quotesStarted'];
+
+        // Helper: load a dataset, trying batched format first, then single doc
+        const loadDataset = async (dataType: string): Promise<any[]> => {
+          let batchedData: any[] = [];
+          let batchNum = 0;
+          try {
+            const firstBatch = await getDoc(doc(db, 'gtt_raw_data', `${dataType}_batch_0`));
+            if (firstBatch.exists()) {
+              batchedData = batchedData.concat(firstBatch.data()?.data || []);
+              batchNum = 1;
+              while (batchNum < 50) {
+                try {
+                  const batchSnap = await getDoc(doc(db, 'gtt_raw_data', `${dataType}_batch_${batchNum}`));
+                  if (batchSnap.exists()) {
+                    batchedData = batchedData.concat(batchSnap.data()?.data || []);
+                    batchNum++;
+                  } else { break; }
+                } catch (e) { break; }
+              }
+              return batchedData;
+            }
+          } catch (e) { /* batch format not available */ }
+
+          try {
+            const snap = await getDoc(doc(db, 'gtt_raw_data', dataType));
+            if (snap.exists()) { return snap.data()?.data || []; }
+          } catch (e) { /* ignore */ }
+
+          return [];
+        };
+
+        // Load datasets sequentially so we can show per-dataset progress
+        for (let i = 0; i < allDataTypes.length; i++) {
+          const dt = allDataTypes[i];
+          const progressBase = 10 + Math.round((i / allDataTypes.length) * 75);
+          setDataLoadProgress({ loading: true, progress: progressBase, stage: `Loading ${dt}...` });
+          datasets[dt] = await loadDataset(dt);
+        }
+
+        setDataLoadProgress({ loading: true, progress: 90, stage: 'Finalizing...' });
+
+        const hasData = Object.values(datasets).some((arr: any) => Array.isArray(arr) && arr.length > 0);
+        if (hasData) {
+          const parsedData: RawParsedData = {
+            trips: tagRows(datasets.trips || [], 'trips'),
+            quotes: tagRows(datasets.quotes || [], 'quotes'),
+            passthroughs: tagRows(datasets.passthroughs || [], 'passthroughs'),
+            hotPass: tagRows(datasets.hotPass || [], 'hotPass'),
+            bookings: tagRows(datasets.bookings || [], 'bookings'),
+            nonConverted: tagRows(datasets.nonConverted || [], 'nonConverted'),
+            quotesStarted: tagRows(datasets.quotesStarted || [], 'quotesStarted'),
+          };
+
+          setRawParsedData(parsedData);
+          saveRawDataToDB(parsedData);
+          setShowDataPanel(false);
+          setDataLoadProgress({ loading: true, progress: 100, stage: 'Data loaded' });
+          setAutoAnalyzePending(true);
+          setTimeout(() => setDataLoadProgress({ loading: false, progress: 0, stage: '' }), 400);
+        } else {
+          setDataLoadProgress({ loading: false, progress: 0, stage: '' });
+        }
+      } catch (error) {
+        console.error('[App] Firestore load error:', error);
+        setDataLoadProgress({ loading: false, progress: 0, stage: '' });
+      }
+    };
+
+    loadData();
   }, []);
 
   // Persist active view tab
@@ -211,31 +309,65 @@ function App() {
         quotesStartedRows = result.quotesStarted || [];
 
         const newRawData: RawParsedData = {
-          trips: tripsRows,
-          quotes: quotesRows,
-          passthroughs: passthroughsRows,
-          hotPass: hotPassRows,
-          bookings: bookingsRows,
-          nonConverted: nonConvertedRows,
-          quotesStarted: quotesStartedRows,
+          trips: tagRows(tripsRows, 'trips'),
+          quotes: tagRows(quotesRows, 'quotes'),
+          passthroughs: tagRows(passthroughsRows, 'passthroughs'),
+          hotPass: tagRows(hotPassRows, 'hotPass'),
+          bookings: tagRows(bookingsRows, 'bookings'),
+          nonConverted: tagRows(nonConvertedRows, 'nonConverted'),
+          quotesStarted: tagRows(quotesStartedRows, 'quotesStarted'),
         };
         saveRawDataToDB(newRawData);
+        // Also persist to Firestore so ANY browser session can load this data
+        saveRawDataToFirestore(newRawData).catch(err =>
+          console.warn('[App] Firestore write-back failed (non-critical):', err)
+        );
         setRawParsedData(newRawData);
         setShowDataPanel(false);
       } else {
-        tripsRows = rawParsedData!.trips;
-        quotesRows = rawParsedData!.quotes;
-        passthroughsRows = rawParsedData!.passthroughs;
-        hotPassRows = rawParsedData!.hotPass;
-        bookingsRows = rawParsedData!.bookings;
-        nonConvertedRows = rawParsedData!.nonConverted;
-        quotesStartedRows = rawParsedData!.quotesStarted || [];
+        // Filter by _source tag to prevent cross-contamination from storage
+        tripsRows = filterBySource(rawParsedData!.trips, 'trips');
+        quotesRows = filterBySource(rawParsedData!.quotes, 'quotes');
+        passthroughsRows = filterBySource(rawParsedData!.passthroughs, 'passthroughs');
+        hotPassRows = filterBySource(rawParsedData!.hotPass, 'hotPass');
+        bookingsRows = filterBySource(rawParsedData!.bookings, 'bookings');
+        nonConvertedRows = filterBySource(rawParsedData!.nonConverted, 'nonConverted');
+        quotesStartedRows = filterBySource(rawParsedData!.quotesStarted || [], 'quotesStarted');
         setShowDataPanel(false);
       }
 
       if (tripsRows.length === 0) {
         throw new Error('Trips file appears to be empty or invalid.');
       }
+
+      // ── Agent column detection with fill-down for grouped Salesforce reports ──
+      // Salesforce grouped reports only show the agent name on the first row of
+      // each group. All subsequent rows in the group are blank in that column.
+      // We detect this pattern and "fill down" the value to every row, writing
+      // the result into a new '_agent' column so the rest of the pipeline can
+      // work normally.
+      const applyFillDownIfNeeded = (rows: CSVRow[]): CSVRow[] => {
+        if (rows.length === 0) return rows;
+        const col = findAgentColumn(rows[0]);
+        if (!col || col === '_agent') return rows; // Already filled
+        // Guard: skip fill-down if the column name looks bogus (e.g. "undefined",
+        // "_source", or a generic first-column fallback that isn't an agent column)
+        const colLower = col.toLowerCase();
+        if (colLower === 'undefined' || colLower.startsWith('_')) return rows;
+        if (isGroupedColumn(rows, col)) {
+          console.log(`[FillDown] Detected grouped column "${col}" – applying fill-down`);
+          return fillDownAgent(rows, col);
+        }
+        return rows;
+      };
+
+      tripsRows = applyFillDownIfNeeded(tripsRows);
+      quotesRows = applyFillDownIfNeeded(quotesRows);
+      passthroughsRows = applyFillDownIfNeeded(passthroughsRows);
+      hotPassRows = applyFillDownIfNeeded(hotPassRows);
+      bookingsRows = applyFillDownIfNeeded(bookingsRows);
+      nonConvertedRows = applyFillDownIfNeeded(nonConvertedRows);
+      quotesStartedRows = applyFillDownIfNeeded(quotesStartedRows);
 
       const tripsAgentCol = findAgentColumn(tripsRows[0]);
       const quotesAgentCol = quotesRows.length > 0 ? findAgentColumn(quotesRows[0]) : null;
@@ -246,6 +378,14 @@ function App() {
       if (!tripsAgentCol) {
         throw new Error('Could not identify agent column in Trips file.');
       }
+
+      // Debug: log column detection and agent count
+      console.log('[KPI Debug] Trips agent col:', tripsAgentCol, '| rows:', tripsRows.length);
+      const rawAgentValues = new Set(tripsRows.map(r => (r[tripsAgentCol] || '').trim()).filter(Boolean));
+      const passedFilter = [...rawAgentValues].filter(v => !isMetadataRow(v));
+      const filteredOut = [...rawAgentValues].filter(v => isMetadataRow(v));
+      console.log('[KPI Debug] Agents PASS:', passedFilter.length, passedFilter.sort());
+      if (filteredOut.length) console.log('[KPI Debug] FILTERED OUT:', filteredOut.sort());
 
       const tripsDateCol = findDateColumn(tripsRows[0], ['created date', 'trip: created date']);
       const quotesDateCol = quotesRows.length > 0 ? findDateColumn(quotesRows[0], ['quote first sent', 'first sent date', 'created date']) : null;
@@ -313,6 +453,9 @@ function App() {
 
       setMetrics(calculatedMetrics);
       saveMetrics(calculatedMetrics);
+      
+      // Save metrics to Firestore for cross-session persistence
+      await saveMetricsToFirestore(calculatedMetrics);
 
       const tsData = buildTimeSeriesOptimized(
         tripsResult.byDate,
@@ -337,6 +480,18 @@ function App() {
 
       setTimeSeriesData(tsDataWithSegments);
       saveTimeSeriesData(tsDataWithSegments);
+      
+      // Save time series data to Firestore for cross-session persistence
+      await saveTimeSeriesDataToFirestore(tsDataWithSegments);
+      
+      // Save summary statistics to Firestore
+      await saveSummaryToFirestore({
+        totalMetrics: calculatedMetrics.length,
+        totalRows: Object.values(parsedData).reduce((sum, rows) => sum + (rows?.length || 0), 0),
+        dataRange: { from: startDate.toString(), to: endDate.toString() },
+        agentCount: teams.length,
+        lastUpdate: new Date().toISOString(),
+      });
 
       // Analyze and update personal records
       const currentRecords = loadRecords();
@@ -352,12 +507,22 @@ function App() {
     }
   }, [files, startDate, endDate, rawParsedData, processFilesWithWorker, seniors]);
 
+  // Auto-analyze when data finishes loading (skip the Analyze button)
+  useEffect(() => {
+    if (autoAnalyzePending && rawParsedData && !isProcessing) {
+      setAutoAnalyzePending(false);
+      processFiles();
+    }
+  }, [autoAnalyzePending, rawParsedData, isProcessing, processFiles]);
+
   const handleClearData = useCallback(() => {
-    // Clear analyzed results but preserve stored raw data
+    // Clear everything — analyzed results AND stored raw data
     setMetrics([]);
     clearMetrics();
     setTimeSeriesData(null);
     clearTimeSeriesData();
+    setRawParsedData(null);
+    clearRawDataFromDB();
     setFiles({
       passthroughs: null,
       trips: null,
@@ -390,7 +555,6 @@ function App() {
   const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted;
   const hasStoredData = rawParsedData !== null;
   const canAnalyze = allFilesUploaded || hasStoredData;
-  const isProcessing = workerState.isProcessing;
   // Count required files (6) plus optional quotesStarted
   const requiredFilesCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted].filter(Boolean).length;
   const optionalFilesCount = files.quotesStarted ? 1 : 0;
@@ -428,8 +592,6 @@ function App() {
       end: formatDate(maxDate),
     };
   }, [rawParsedData?.trips]);
-
-  console.log('🎯 App component rendered, activeView:', activeView);
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
@@ -517,9 +679,9 @@ Global Travel Hub
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <LogoutButton />
+            {/* <LogoutButton /> — auth disabled */}
             <ThemeToggle />
-            {metrics.length > 0 ? (
+            {metrics.length > 0 && (
               <div className="flex items-center gap-2">
                 <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} rawData={rawParsedData} records={records} startDate={startDate} endDate={endDate} />
                 <button
@@ -533,269 +695,267 @@ Global Travel Hub
                   Clear All
                 </button>
               </div>
-            ) : canAnalyze && (
-            <button
-              onClick={processFiles}
-              disabled={isProcessing}
-              className={`px-4 py-2 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95 ${
-                isAudley
-                  ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] hover:from-[#3d5c58] hover:to-[#005a94] shadow-md shadow-[#4d726d]/20'
-                  : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-              }`}
-            >
-              {isProcessing ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>{workerState.stage || 'Processing'}</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>Reload & Analyze</span>
-                </>
-              )}
-            </button>
             )}
           </div>
         </header>
 
-        {/* Data Source Panel - Collapsible */}
-        <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
-          isAudley
-            ? 'bg-white border-[#007bc7]/20 shadow-sm shadow-[#007bc7]/5'
-            : 'bg-slate-800/50 border-slate-700/50'
-        }`}>
-          <button
-            onClick={() => setShowDataPanel(!showDataPanel)}
-            className={`w-full px-4 py-3 flex items-center justify-between transition-all cursor-pointer active:scale-[0.99] ${
-              isAudley ? 'hover:bg-[#e6f3fb]/50' : 'hover:bg-slate-700/30'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <svg className={`w-5 h-5 ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>Data Source</span>
-              {hasStoredData && !showDataPanel && (
-                <span className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${
-                  isAudley
-                    ? 'bg-[#007bc7]/10 text-[#007bc7] border border-[#007bc7]/20'
-                    : 'bg-green-500/20 text-green-400'
-                }`}>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        {/* Loading Progress Bar — shown while fetching data from Firestore/IndexedDB */}
+        {dataLoadProgress.loading && (
+          <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
+            isAudley
+              ? 'bg-white border-[#007bc7]/20 shadow-sm shadow-[#007bc7]/5'
+              : 'bg-slate-800/50 border-slate-700/50'
+          }`}>
+            <div className="px-6 py-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <svg className={`animate-spin h-5 w-5 ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`} viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  {dataDateRange
-                    ? `${dataDateRange.start} — ${dataDateRange.end}`
-                    : 'Data loaded'
-                  }
-                </span>
-              )}
-              {!hasStoredData && requiredFilesCount > 0 && (
-                <span className={`px-2 py-0.5 rounded text-xs ${
-                  isAudley ? 'bg-[#007bc7]/10 text-[#007bc7]' : 'bg-blue-500/20 text-blue-400'
-                }`}>
-                  {requiredFilesCount}/6 files{optionalFilesCount > 0 ? ' + 1 optional' : ''}
-                </span>
-              )}
-            </div>
-            <svg
-              className={`w-5 h-5 transition-transform ${showDataPanel ? 'rotate-180' : ''} ${
-                isAudley ? 'text-[#007bc7]' : 'text-slate-400'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          <div
-            className={`grid transition-all duration-300 ease-in-out ${
-              showDataPanel ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-            }`}
-          >
-            <div className="overflow-hidden">
-              <div className={`px-4 pb-4 border-t pt-4 ${
-                isAudley ? 'border-[#4d726d]/10' : 'border-slate-700/50'
-              }`}>
-              {/* Quick Load Button for stored data */}
-              {hasStoredData && (
-                <div className={`mb-4 rounded-lg p-4 ${
-                  isAudley ? 'bg-[#4d726d]/5 border border-[#4d726d]/20' : 'bg-slate-700/30'
-                }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <svg className={`w-5 h-5 ${isAudley ? 'text-[#4d726d]' : 'text-green-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                      </svg>
-                      <span className={`font-medium ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>Stored Dataset</span>
-                      {dataDateRange && (
-                        <span className={`px-2 py-0.5 rounded text-xs ${
-                          isAudley ? 'bg-[#4d726d]/10 text-[#4d726d]' : 'bg-green-500/20 text-green-400'
-                        }`}>
-                          {dataDateRange.start} — {dataDateRange.end}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={handleClearStoredData}
-                      className={`text-xs transition-all px-2 py-1 rounded cursor-pointer active:scale-95 ${
-                        isAudley ? 'text-slate-500 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
-                      }`}
-                    >
-                      Clear Stored Data
-                    </button>
-                  </div>
-                  <button
-                    onClick={processFiles}
-                    disabled={isProcessing}
-                    className={`w-full px-4 py-3 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98] ${
-                      isAudley
-                        ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] hover:from-[#3d5c58] hover:to-[#005a94] shadow-md shadow-[#4d726d]/20'
-                        : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                    }`}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>Reload & Analyze Dataset</span>
-                  </button>
-                  <p className={`text-xs text-center mt-2 ${isAudley ? 'text-slate-600' : 'text-slate-500'}`}>
-                    Or upload new files below to replace the stored data
-                  </p>
+                  <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                    {dataLoadProgress.stage}
+                  </span>
                 </div>
-              )}
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <FileUpload
-                  label="Trips"
-                  file={files.trips}
-                  onFileSelect={handleFileSelect('trips')}
-                  color="blue"
-                  icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>}
-                />
-                <FileUpload
-                  label="Quotes"
-                  file={files.quotes}
-                  onFileSelect={handleFileSelect('quotes')}
-                  color="green"
-                  icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-                />
-                <FileUpload
-                  label="Passthroughs"
-                  file={files.passthroughs}
-                  onFileSelect={handleFileSelect('passthroughs')}
-                  color="purple"
-                  icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
-                />
-                <FileUpload
-                  label="Hot Pass"
-                  file={files.hotPass}
-                  onFileSelect={handleFileSelect('hotPass')}
-                  color="orange"
-                  icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg>}
-                />
-                <FileUpload
-                  label="Bookings"
-                  file={files.bookings}
-                  onFileSelect={handleFileSelect('bookings')}
-                  color="cyan"
-                  icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
-                />
-                <FileUpload
-                  label="Non-Converted"
-                  file={files.nonConverted}
-                  onFileSelect={handleFileSelect('nonConverted')}
-                  color="rose"
-                  icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
+                <span className={`text-sm font-mono ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`}>
+                  {dataLoadProgress.progress}%
+                </span>
+              </div>
+              <div className={`w-full rounded-full h-2.5 overflow-hidden ${
+                isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'
+              }`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${
+                    isAudley
+                      ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7]'
+                      : 'bg-gradient-to-r from-indigo-600 to-cyan-500'
+                  }`}
+                  style={{ width: `${dataLoadProgress.progress}%` }}
                 />
               </div>
-              {/* Optional file: Quotes Started */}
-              <div className={`mt-3 pt-3 border-t ${isAudley ? 'border-[#4d726d]/20' : 'border-slate-700/50'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xs font-medium ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Optional</span>
-                </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data Source Panel — HIDDEN when stored data exists, only shown when no data */}
+        {!hasStoredData && !dataLoadProgress.loading && (
+          <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
+            isAudley
+              ? 'bg-white border-[#007bc7]/20 shadow-sm shadow-[#007bc7]/5'
+              : 'bg-slate-800/50 border-slate-700/50'
+          }`}>
+            <button
+              onClick={() => setShowDataPanel(!showDataPanel)}
+              className={`w-full px-4 py-3 flex items-center justify-between transition-all cursor-pointer active:scale-[0.99] ${
+                isAudley ? 'hover:bg-[#e6f3fb]/50' : 'hover:bg-slate-700/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <svg className={`w-5 h-5 ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>Upload Data Files</span>
+                {requiredFilesCount > 0 && (
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    isAudley ? 'bg-[#007bc7]/10 text-[#007bc7]' : 'bg-blue-500/20 text-blue-400'
+                  }`}>
+                    {requiredFilesCount}/6 files{optionalFilesCount > 0 ? ' + 1 optional' : ''}
+                  </span>
+                )}
+              </div>
+              <svg
+                className={`w-5 h-5 transition-transform ${showDataPanel ? 'rotate-180' : ''} ${
+                  isAudley ? 'text-[#007bc7]' : 'text-slate-400'
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <div
+              className={`grid transition-all duration-300 ease-in-out ${
+                showDataPanel ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className={`px-4 pb-4 border-t pt-4 ${
+                  isAudley ? 'border-[#4d726d]/10' : 'border-slate-700/50'
+                }`}>
+
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   <FileUpload
-                    label="Quotes Started"
-                    file={files.quotesStarted}
-                    onFileSelect={handleFileSelect('quotesStarted')}
-                    color="amber"
-                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
+                    label="Trips"
+                    file={files.trips}
+                    onFileSelect={handleFileSelect('trips')}
+                    color="blue"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>}
+                  />
+                  <FileUpload
+                    label="Quotes"
+                    file={files.quotes}
+                    onFileSelect={handleFileSelect('quotes')}
+                    color="green"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                  />
+                  <FileUpload
+                    label="Passthroughs"
+                    file={files.passthroughs}
+                    onFileSelect={handleFileSelect('passthroughs')}
+                    color="purple"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
+                  />
+                  <FileUpload
+                    label="Hot Pass"
+                    file={files.hotPass}
+                    onFileSelect={handleFileSelect('hotPass')}
+                    color="orange"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg>}
+                  />
+                  <FileUpload
+                    label="Bookings"
+                    file={files.bookings}
+                    onFileSelect={handleFileSelect('bookings')}
+                    color="cyan"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
+                  />
+                  <FileUpload
+                    label="Non-Converted"
+                    file={files.nonConverted}
+                    onFileSelect={handleFileSelect('nonConverted')}
+                    color="rose"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
                   />
                 </div>
-              </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Controls Bar */}
-        <div className={`backdrop-blur rounded-xl border px-4 py-3 mb-4 ${
-          isAudley
-            ? 'bg-white border-[#007bc7]/20 shadow-sm'
-            : 'bg-slate-800/50 border-slate-700/50'
-        }`}>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <DateRangeFilter
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              onClear={handleClearDateFilter}
-            />
-
-            <div className="flex items-center gap-3">
-              {isProcessing && workerState.progress > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-24 bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-indigo-500 h-full transition-all duration-300"
-                      style={{ width: `${workerState.progress}%` }}
+                {/* Optional file: Quotes Started */}
+                <div className={`mt-3 pt-3 border-t ${isAudley ? 'border-[#4d726d]/20' : 'border-slate-700/50'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-xs font-medium ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Optional</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <FileUpload
+                      label="Quotes Started"
+                      file={files.quotesStarted}
+                      onFileSelect={handleFileSelect('quotesStarted')}
+                      color="amber"
+                      icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
                     />
                   </div>
-                  <span className="text-xs text-slate-400">{workerState.progress}%</span>
                 </div>
-              )}
 
-              <button
-                onClick={processFiles}
-                disabled={!canAnalyze || isProcessing}
-                className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2"
-              >
-                {isProcessing ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    {workerState.stage || 'Processing'}
-                  </>
-                ) : (
-                  'Analyze'
+                {/* Analyze button when files uploaded manually */}
+                {allFilesUploaded && (
+                  <div className="mt-4">
+                    <button
+                      onClick={processFiles}
+                      disabled={isProcessing}
+                      className={`w-full px-4 py-3 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98] ${
+                        isAudley
+                          ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] hover:from-[#3d5c58] hover:to-[#005a94] shadow-md shadow-[#4d726d]/20'
+                          : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                      }`}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span>{workerState.stage || 'Processing...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          <span>Upload & Analyze</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
-              </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Controls Bar — Date range filter + data info (shown when we have data) */}
+        {hasStoredData && !dataLoadProgress.loading && (
+          <div className={`backdrop-blur rounded-xl border px-4 py-3 mb-4 ${
+            isAudley
+              ? 'bg-white border-[#007bc7]/20 shadow-sm'
+              : 'bg-slate-800/50 border-slate-700/50'
+          }`}>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <DateRangeFilter
+                  startDate={startDate}
+                  endDate={endDate}
+                  onStartDateChange={setStartDate}
+                  onEndDateChange={setEndDate}
+                  onClear={handleClearDateFilter}
+                />
+                {dataDateRange && (
+                  <span className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${
+                    isAudley
+                      ? 'bg-[#007bc7]/10 text-[#007bc7] border border-[#007bc7]/20'
+                      : 'bg-green-500/20 text-green-400'
+                  }`}>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {dataDateRange.start} — {dataDateRange.end}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {isProcessing && workerState.progress > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className={`w-24 rounded-full h-1.5 overflow-hidden ${isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'}`}>
+                      <div
+                        className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#007bc7]' : 'bg-indigo-500'}`}
+                        style={{ width: `${workerState.progress}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`}>{workerState.progress}%</span>
+                  </div>
+                )}
+
+                <button
+                  onClick={processFiles}
+                  disabled={!canAnalyze || isProcessing}
+                  className={`px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2 ${
+                    isAudley
+                      ? 'bg-[#007bc7] hover:bg-[#005a94]'
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      {workerState.stage || 'Processing'}
+                    </>
+                  ) : (
+                    'Analyze'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
             {error}
           </div>
         )}
-
-        {/* DEBUG: This should ALWAYS render */}
-        <div style={{ backgroundColor: 'yellow', color: 'black', padding: '20px', marginBottom: '20px', fontSize: '20px', fontWeight: 'bold' }}>
-          🟡 DEBUG: View Toggle section is rendering. activeView = {activeView}
-        </div>
 
         {/* View Toggle & Config - Always show tabs, disable data-dependent ones */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -804,11 +964,10 @@ Global Travel Hub
               ? 'bg-white border border-[#4d726d]/20 shadow-sm'
               : 'bg-slate-800/50'
           }`}>
-            {(['gtt_reports', 'summary', 'regional', 'channels', 'trends', 'insights', 'records'] as const).map((view) => {
+            {(['summary', 'regional', 'channels', 'trends', 'insights', 'records'] as const).map((view) => {
               const isDisabled = (view === 'summary' || view === 'regional' || view === 'channels' || view === 'insights') && metrics.length === 0;
               const isActive = activeView === view;
               const labels = {
-                gtt_reports: 'GTT Reports',
                 summary: 'Summary',
                 regional: 'Regional',
                 channels: 'Channels',
@@ -837,6 +996,20 @@ Global Travel Hub
               );
             })}
           </div>
+
+          {activeView === 'summary' && metrics.length > 0 && (
+            <div className="flex-1 max-w-xl">
+              <ConfigPanel
+                teams={teams}
+                onTeamsChange={handleTeamsChange}
+                seniors={seniors}
+                onSeniorsChange={handleSeniorsChange}
+                newHires={newHires}
+                onNewHiresChange={handleNewHiresChange}
+                availableAgents={allAgentNames}
+              />
+            </div>
+          )}
         </div>
 
         {/* Summary View */}
@@ -873,24 +1046,17 @@ Global Travel Hub
           <RecordsView records={records} teams={teams} onClearRecords={handleClearRecords} />
         )}
 
-        {/* GTT Reports View */}
-        {activeView === 'gtt_reports' && (
-          <ReportsList />
-        )}
-
         {/* Record Notifications disabled - records shown in Records tab */}
 
-        {/* Empty State */}
-        {metrics.length === 0 && !isProcessing && (
+        {/* Empty State — only when no data and not loading */}
+        {metrics.length === 0 && !isProcessing && !dataLoadProgress.loading && !autoAnalyzePending && (
           <div className="text-center py-16">
-            <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-16 h-16 mx-auto mb-4 ${isAudley ? 'text-[#4d726d]/40' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h2 className="text-xl font-semibold text-white mb-2">Ready to Analyze</h2>
-            <p className="text-slate-400 max-w-md mx-auto">
-              {hasStoredData
-                ? 'Previous data loaded. Adjust the date range and click Analyze to update results.'
-                : 'Upload your Excel files above, then click Analyze to generate KPI metrics.'}
+            <h2 className={`text-xl font-semibold mb-2 ${isAudley ? 'text-[#313131]' : 'text-white'}`}>Ready to Analyze</h2>
+            <p className={`max-w-md mx-auto ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+              Upload your Excel files above to generate KPI metrics.
             </p>
           </div>
         )}
