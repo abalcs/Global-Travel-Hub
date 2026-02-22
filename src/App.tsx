@@ -485,9 +485,17 @@ function App() {
       await saveTimeSeriesDataToFirestore(tsDataWithSegments);
       
       // Save summary statistics to Firestore
+      const totalRows = (tripsRows?.length || 0) +
+        (quotesRows?.length || 0) +
+        (passthroughsRows?.length || 0) +
+        (hotPassRows?.length || 0) +
+        (bookingsRows?.length || 0) +
+        (nonConvertedRows?.length || 0) +
+        (quotesStartedRows?.length || 0);
+      
       await saveSummaryToFirestore({
         totalMetrics: calculatedMetrics.length,
-        totalRows: Object.values(parsedData).reduce((sum, rows) => sum + (rows?.length || 0), 0),
+        totalRows,
         dataRange: { from: startDate.toString(), to: endDate.toString() },
         agentCount: teams.length,
         lastUpdate: new Date().toISOString(),
