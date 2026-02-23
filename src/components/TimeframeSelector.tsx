@@ -1,6 +1,6 @@
 import { useTheme } from '../contexts/ThemeContext';
 
-export type Timeframe = 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'lastYear' | 'all';
+export type Timeframe = 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'lastYear' | 'all';
 
 interface TimeframeSelectorProps {
   value: Timeframe;
@@ -8,6 +8,8 @@ interface TimeframeSelectorProps {
 }
 
 const TIMEFRAME_OPTIONS: { value: Timeframe; label: string }[] = [
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'thisWeek', label: 'This Week' },
   { value: 'lastWeek', label: 'Last Week' },
   { value: 'thisMonth', label: 'This Month' },
   { value: 'lastMonth', label: 'Last Month' },
@@ -26,6 +28,18 @@ export function timeframeToDates(tf: Timeframe): { startDate: string; endDate: s
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   switch (tf) {
+    case 'yesterday': {
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      return { startDate: fmt(yesterday), endDate: fmt(yesterday) };
+    }
+    case 'thisWeek': {
+      // Sunday through today
+      const dayOfWeek = today.getDay();
+      const sunday = new Date(today);
+      sunday.setDate(today.getDate() - dayOfWeek);
+      return { startDate: fmt(sunday), endDate: fmt(today) };
+    }
     case 'lastWeek': {
       const dayOfWeek = today.getDay();
       const lastSunday = new Date(today);
