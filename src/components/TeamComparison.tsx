@@ -245,7 +245,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
         className={`w-full px-6 py-4 flex items-center justify-between text-white transition-all ${
           isAudley
             ? 'bg-gradient-to-r from-[#4d726d] to-[#5d8a84] hover:from-[#3d5c58] hover:to-[#4d7a74]'
-            : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
+            : 'bg-gradient-to-r from-[#1a5c6e] to-[#2a7a8c] hover:from-[#15506a] hover:to-[#246e80]'
         }`}
       >
         <div className="flex items-center gap-3">
@@ -274,10 +274,12 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       >
         <div className="overflow-hidden">
           <div className="p-6">
-          {/* Timeframe Selector + Generate Slides */}
+          {/* Timeframe Selector + Generate Slides (hidden on mobile) */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <TimeframeSelector value={timeframe} onChange={onTimeframeChange} />
-            <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} rawData={rawData} records={records} startDate={startDate} endDate={endDate} />
+            <div className="hidden md:block">
+              <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} rawData={rawData} records={records} startDate={startDate} endDate={endDate} />
+            </div>
           </div>
 
           {/* View Toggle and Sort Controls */}

@@ -461,8 +461,15 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ backgroundColor: `#${colors.background}` }}
+      className="flex flex-col"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: `#${colors.background}`,
+      }}
     >
       {/* Slide container */}
       <div className="flex-1 relative overflow-hidden">

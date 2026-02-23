@@ -263,7 +263,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       <div className={`px-6 py-4 flex items-center justify-between text-white ${
         isAudley
           ? 'bg-gradient-to-r from-[#4d726d] to-[#5d8a84]'
-          : 'bg-gradient-to-r from-indigo-600 to-purple-600'
+          : 'bg-gradient-to-r from-[#1a5c6e] to-[#2a7a8c]'
       }`}>
         <span className="font-bold text-lg">KPI Results</span>
 

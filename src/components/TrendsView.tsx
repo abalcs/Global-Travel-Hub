@@ -576,7 +576,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               <button
                 onClick={selectAllAgents}
                 className={`text-xs cursor-pointer active:scale-95 transition-transform ${
-                  isAudley ? 'text-[#007bc7] hover:text-[#005a94]' : 'text-indigo-400 hover:text-indigo-300'
+                  isAudley ? 'text-[#007bc7] hover:text-[#005a94]' : 'text-[#5ba8c8] hover:text-[#7ec4de]'
                 }`}
               >
                 All
@@ -608,7 +608,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   className={`rounded ${
                     isAudley
                       ? 'border-[#4d726d]/30 bg-white text-[#4d726d] focus:ring-[#4d726d]'
-                      : 'border-slate-600 bg-slate-700 text-indigo-500 focus:ring-indigo-500'
+                      : 'border-slate-600 bg-slate-700 text-[#5ba8c8] focus:ring-[#5ba8c8]'
                   }`}
                 />
                 <span
@@ -641,10 +641,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       config.selectedMetrics.includes(metric)
                         ? isAudley
                           ? 'bg-[#007bc7] text-white'
-                          : 'bg-indigo-600 text-white'
+                          : 'bg-[#1a7fa8] text-white'
                         : isAudley
                           ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                          : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                          : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                     }`}
                   >
                     {METRIC_LABELS[metric]}
@@ -663,10 +663,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                       config.selectedMetrics.includes(metric)
                         ? isAudley
                           ? 'bg-[#4d726d] text-white'
-                          : 'bg-emerald-600 text-white'
+                          : 'bg-[#2a6e5a] text-white'
                         : isAudley
                           ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                          : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                          : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                     }`}
                   >
                     {METRIC_LABELS[metric]}
@@ -687,7 +687,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     ? 'bg-gray-600 text-white'
                     : isAudley
                       ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                      : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
                 Dept Avg
@@ -699,7 +699,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     ? 'bg-amber-600 text-white'
                     : isAudley
                       ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                      : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
                 Senior Avg
@@ -711,7 +711,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     ? 'bg-slate-500 text-white'
                     : isAudley
                       ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                      : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
                 Non-Senior Avg
@@ -720,10 +720,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                 onClick={() => setShowTrendLines(!showTrendLines)}
                 className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                   showTrendLines
-                    ? 'bg-emerald-600 text-white'
+                    ? isAudley ? 'bg-emerald-600 text-white' : 'bg-[#2a6e5a] text-white'
                     : isAudley
                       ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                      : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
                 Trend Lines {showTrendLines && regressions.size > 0 && `(${regressions.size})`}
@@ -742,7 +742,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     ? 'bg-purple-600 text-white'
                     : isAudley
                       ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                      : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
                 title={timeSeriesData.repeatClientDaily ? undefined : 'Re-upload data to enable this feature'}
               >
@@ -755,7 +755,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     ? 'bg-teal-600 text-white'
                     : isAudley
                       ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
-                      : 'bg-slate-700/70 text-slate-400 hover:bg-slate-600'
+                      : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
                 title={timeSeriesData.b2bDaily ? undefined : 'Re-upload data to enable this feature'}
               >
@@ -913,7 +913,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               <button
                 onClick={fitDateRangeToSelection}
                 className={`text-xs cursor-pointer active:scale-95 transition-transform ${
-                  isAudley ? 'text-[#007bc7] hover:text-[#005a94]' : 'text-indigo-400 hover:text-indigo-300'
+                  isAudley ? 'text-[#007bc7] hover:text-[#005a94]' : 'text-[#5ba8c8] hover:text-[#7ec4de]'
                 }`}
                 title="Fit date range to selected agents"
               >
@@ -1442,7 +1442,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
       {/* Legend explanation */}
       <div className={`text-xs flex flex-wrap gap-x-4 gap-y-1 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
-        <span><span className={isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}>Rate (L):</span> T&gt;Q, T&gt;P, P&gt;Q, Hot Pass %, % Non-Conv</span>
+        <span><span className={isAudley ? 'text-[#007bc7]' : 'text-[#5ba8c8]'}>Rate (L):</span> T&gt;Q, T&gt;P, P&gt;Q, Hot Pass %, % Non-Conv</span>
         <span><span className={isAudley ? 'text-[#4d726d]' : 'text-emerald-400'}>Volume (R):</span> Trips, Quotes, Passthroughs, Bookings</span>
         <span><span className={isAudley ? 'text-slate-500' : 'text-slate-400'}>Lines:</span> solid=tq/trips, dashed=other metrics</span>
       </div>

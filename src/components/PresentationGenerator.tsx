@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { Metrics, Team } from '../types';
 import { generatePresentation, getDefaultConfig, THEME_INFO, type PresentationConfig, type ThemeStyle, type TopDestination, type AgentTopDestination } from '../utils/presentationGenerator';
 import { WebPresentationViewer } from './webPresentation';
@@ -896,7 +897,22 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
   );
 
   const modalElement = isOpen ? (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div
+      className="flex items-center justify-center"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 9999,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(4px)',
+        padding: '1rem',
+      }}
+    >
       <div className="bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
@@ -1305,21 +1321,31 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
   return (
     <>
       {buttonElement}
-      {modalElement}
-      {showWebPresentation && (
-        <WebPresentationViewer
-          metrics={metrics}
-          seniors={seniors}
-          teams={teams}
-          config={{ ...config, topDestinations, agentTopDestinations }}
-          webStyle={webStyle}
-          recentAchievements={recentAchievements}
-          hotPassDestinations={hotPassDestinations}
-          repeatStats={repeatDestinations}
-          b2bStats={b2bDestinations}
-          forecastDestinations={forecastDestinations}
-          onClose={() => setShowWebPresentation(false)}
-        />
+      {modalElement && createPortal(modalElement, document.body)}
+      {showWebPresentation && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 9999,
+        }}>
+          <WebPresentationViewer
+            metrics={metrics}
+            seniors={seniors}
+            teams={teams}
+            config={{ ...config, topDestinations, agentTopDestinations }}
+            webStyle={webStyle}
+            recentAchievements={recentAchievements}
+            hotPassDestinations={hotPassDestinations}
+            repeatStats={repeatDestinations}
+            b2bStats={b2bDestinations}
+            forecastDestinations={forecastDestinations}
+            onClose={() => setShowWebPresentation(false)}
+          />
+        </div>,
+        document.body
       )}
     </>
   );

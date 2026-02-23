@@ -12,8 +12,9 @@ import { InsightsView } from './components/InsightsView';
 import { ChannelPerformanceView } from './components/ChannelPerformanceView';
 import { RecordsView } from './components/RecordsView';
 // RecordNotification import removed - notifications disabled
-import { PresentationGenerator } from './components/PresentationGenerator';
+
 import { AgentAnalytics } from './components/AgentAnalytics';
+import { GlobeLoader } from './components/GlobeLoader';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
 // Auth disabled for now — uncomment when ready to re-enable
@@ -119,6 +120,9 @@ function App() {
   const [dataLoadProgress, setDataLoadProgress] = useState<{ loading: boolean; progress: number; stage: string }>({
     loading: false, progress: 0, stage: ''
   });
+  // Transition state: 'idle' → 'loading' → 'completing' → 'idle'
+  // 'completing' keeps the globe visible while it fades out and the UI fades in
+  const [loadTransition, setLoadTransition] = useState<'idle' | 'loading' | 'completing'>('idle');
   const [autoAnalyzePending, setAutoAnalyzePending] = useState(false);
 
   const { processFiles: processFilesWithWorker, state: workerState } = useFileProcessor();
@@ -153,10 +157,25 @@ function App() {
     setMetrics(loadMetrics());
     setTimeSeriesData(loadTimeSeriesData());
 
-    // Try loading from IndexedDB first, then Firestore
-    const loadData = async () => {
+    loadData();
+  }, []);
+
+  // Smooth transition: when loading finishes, fade out globe then fade in UI
+  const finishLoading = useCallback(() => {
+    setDataLoadProgress({ loading: true, progress: 100, stage: "Let's go!" });
+    setLoadTransition('completing');
+    // After globe fade-out (600ms), hide it and show UI
+    setTimeout(() => {
+      setDataLoadProgress({ loading: false, progress: 0, stage: '' });
+      setLoadTransition('idle');
+    }, 800);
+  }, []);
+
+  // Load raw data from IndexedDB or Firestore — extracted so it can be re-called
+  const loadData = useCallback(async () => {
       console.log('[App] loadData() starting...');
-      setDataLoadProgress({ loading: true, progress: 5, stage: 'Checking local cache...' });
+      setLoadTransition('loading');
+      setDataLoadProgress({ loading: true, progress: 5, stage: 'Planning the trip...' });
 
       // First try IndexedDB
       let localData: RawParsedData | null = null;
@@ -171,12 +190,11 @@ function App() {
       console.log('[App] IndexedDB result:', hasLocalData ? `found data` : 'empty/null');
 
       if (hasLocalData) {
-        setDataLoadProgress({ loading: true, progress: 90, stage: 'Local data found' });
+        setDataLoadProgress({ loading: true, progress: 90, stage: 'Making memories...' });
         setRawParsedData(localData);
         setShowDataPanel(false);
-        setDataLoadProgress({ loading: true, progress: 100, stage: 'Data loaded' });
         setAutoAnalyzePending(true);
-        setTimeout(() => setDataLoadProgress({ loading: false, progress: 0, stage: '' }), 400);
+        finishLoading();
         return;
       }
 
@@ -198,7 +216,7 @@ function App() {
       const { doc, getDoc } = await import('firebase/firestore');
       console.log('[App] Firestore connected, loading datasets...');
 
-      setDataLoadProgress({ loading: true, progress: 10, stage: 'Connecting to Firestore...' });
+      setDataLoadProgress({ loading: true, progress: 10, stage: 'Packing the bags...' });
 
       try {
         const datasets: any = {};
@@ -235,15 +253,24 @@ function App() {
         };
 
         // Load datasets sequentially so we can show per-dataset progress
+        const travelStages = [
+          'Heading to the airport...',
+          'Boarding the flight...',
+          'Cruising at altitude...',
+          'Touching down...',
+          'Checking into the hotel...',
+          'Exploring new places...',
+          'Collecting souvenirs...',
+        ];
         for (let i = 0; i < allDataTypes.length; i++) {
           const dt = allDataTypes[i];
           const progressBase = 10 + Math.round((i / allDataTypes.length) * 75);
-          setDataLoadProgress({ loading: true, progress: progressBase, stage: `Loading ${dt}...` });
+          setDataLoadProgress({ loading: true, progress: progressBase, stage: travelStages[i] || 'Almost there...' });
           datasets[dt] = await loadDataset(dt);
           console.log(`[App] Loaded ${dt}: ${datasets[dt].length} rows`);
         }
 
-        setDataLoadProgress({ loading: true, progress: 90, stage: 'Finalizing...' });
+        setDataLoadProgress({ loading: true, progress: 90, stage: 'Making memories...' });
 
         const hasData = Object.values(datasets).some((arr: any) => Array.isArray(arr) && arr.length > 0);
         console.log('[App] Firestore hasData:', hasData);
@@ -261,9 +288,8 @@ function App() {
           setRawParsedData(parsedData);
           saveRawDataToDB(parsedData);
           setShowDataPanel(false);
-          setDataLoadProgress({ loading: true, progress: 100, stage: 'Data loaded' });
           setAutoAnalyzePending(true);
-          setTimeout(() => setDataLoadProgress({ loading: false, progress: 0, stage: '' }), 400);
+          finishLoading();
         } else {
           setDataLoadProgress({ loading: false, progress: 0, stage: '' });
         }
@@ -271,9 +297,6 @@ function App() {
         console.error('[App] Firestore load error:', error);
         setDataLoadProgress({ loading: false, progress: 0, stage: '' });
       }
-    };
-
-    loadData();
   }, []);
 
   // Persist active view tab
@@ -581,7 +604,7 @@ function App() {
       nonConverted: null,
       quotesStarted: null,
     });
-    setShowDataPanel(true);
+    setShowDataPanel(false);
   }, []);
 
   const handleClearStoredData = useCallback(() => {
@@ -648,99 +671,81 @@ function App() {
     <div className={`min-h-screen transition-colors duration-300 ${
       isAudley
         ? 'bg-gradient-to-br from-[#e6f3fb] via-white to-[#f0f7fc]'
-        : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
+        : 'bg-gradient-to-br from-[#0c1a24] via-[#142028] to-[#0c1a24]'
     }`}>
-      {/* Audley Header Bar - Blue and Teal gradient */}
-      {isAudley && (
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#007bc7] via-[#4d726d] to-[#007bc7]" />
-      )}
+      {/* Header Bar - Audley teal/blue gradient */}
+      <div className={`w-full h-1 bg-gradient-to-r from-[#007bc7] via-[#4d726d] to-[#007bc7] ${
+        isAudley ? 'opacity-100' : 'opacity-60'
+      }`} />
 
-      <div className={`max-w-7xl mx-auto px-4 ${isAudley ? 'py-4' : 'py-6'}`}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5">
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            {/* Audley Logo when in Audley theme */}
-            {isAudley && (
-              <div className="flex items-center gap-3 pr-4 border-r border-[#4d726d]/30">
+            {/* Audley Logo - shown in both themes */}
+            <div className={`flex items-center justify-center min-w-[3.5rem] pr-4 border-r ${
+              isAudley ? 'border-[#4d726d]/30' : 'border-slate-600/50'
+            }`}>
+              {isAudley ? (
                 <img
                   src={audleyLogo}
                   alt="Audley Travel"
                   className="h-14 w-auto mix-blend-multiply"
                 />
-              </div>
-            )}
+              ) : (
+                <svg className="h-14 w-auto" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Audley Travel">
+                  {/* Stylized Audley "A" in white/teal for dark mode */}
+                  <defs>
+                    <linearGradient id="audleyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#7ec4de" />
+                      <stop offset="100%" stopColor="#4d726d" />
+                    </linearGradient>
+                  </defs>
+                  {/* Cursive A stroke */}
+                  <path
+                    d="M25,78 C25,78 30,72 35,60 C40,48 48,28 55,22 C58,19 60,20 61,22 C64,28 68,42 72,55 C74,61 76,66 78,70"
+                    fill="none" stroke="url(#audleyGrad)" strokeWidth="1.8" strokeLinecap="round"
+                  />
+                  {/* Left swash/loop */}
+                  <path
+                    d="M25,78 C20,82 15,84 14,80 C12,74 18,68 28,65 C35,63 40,63 45,64"
+                    fill="none" stroke="url(#audleyGrad)" strokeWidth="1.8" strokeLinecap="round"
+                  />
+                  {/* Right tail */}
+                  <path
+                    d="M78,70 C80,74 83,78 86,78 C89,78 90,75 88,72"
+                    fill="none" stroke="url(#audleyGrad)" strokeWidth="1.8" strokeLinecap="round"
+                  />
+                  {/* Crossbar */}
+                  <line x1="30" y1="58" x2="75" y2="58" stroke="url(#audleyGrad)" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+              )}
+            </div>
             <div>
-              <h1 className={`text-2xl font-bold flex items-center gap-2 transition-colors ${
+              <h1 className={`text-2xl font-bold transition-colors ${
                 isAudley ? 'text-[#4d726d]' : 'text-white'
               }`}>
-Global Travel Hub
-              {!isAudley && (
-              <svg className="w-7 h-7" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <radialGradient id="globeSphere" cx="30%" cy="30%" r="65%" fx="25%" fy="25%">
-                    <stop offset="0%" stopColor="#7dd3fc"/>
-                    <stop offset="40%" stopColor="#0ea5e9"/>
-                    <stop offset="70%" stopColor="#0369a1"/>
-                    <stop offset="100%" stopColor="#0c4a6e"/>
-                  </radialGradient>
-                  <radialGradient id="globeGreen" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="#86efac"/>
-                    <stop offset="40%" stopColor="#22c55e"/>
-                    <stop offset="100%" stopColor="#14532d"/>
-                  </radialGradient>
-                  <radialGradient id="globeTan" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="#fde68a"/>
-                    <stop offset="50%" stopColor="#d97706"/>
-                    <stop offset="100%" stopColor="#78350f"/>
-                  </radialGradient>
-                  <radialGradient id="globeShine" cx="25%" cy="20%" r="35%">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.7"/>
-                    <stop offset="50%" stopColor="white" stopOpacity="0.2"/>
-                    <stop offset="100%" stopColor="white" stopOpacity="0"/>
-                  </radialGradient>
-                  <radialGradient id="globeAtmo" cx="50%" cy="50%" r="50%">
-                    <stop offset="85%" stopColor="#0ea5e9" stopOpacity="0"/>
-                    <stop offset="95%" stopColor="#7dd3fc" stopOpacity="0.3"/>
-                    <stop offset="100%" stopColor="#bae6fd" stopOpacity="0.5"/>
-                  </radialGradient>
-                </defs>
-                <circle cx="50" cy="50" r="47" fill="url(#globeSphere)"/>
-                <g opacity="0.4">
-                  <ellipse cx="50" cy="50" rx="47" ry="16" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
-                  <ellipse cx="50" cy="50" rx="47" ry="32" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
-                  <ellipse cx="50" cy="50" rx="16" ry="47" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
-                  <ellipse cx="50" cy="50" rx="32" ry="47" fill="none" stroke="#bae6fd" strokeWidth="0.4" transform="rotate(-23 50 50)"/>
-                </g>
-                <path d="M22 20 C20 18 18 20 16 24 C14 28 12 34 14 38 C16 42 22 46 28 48 C32 49 36 48 40 44 C44 40 46 34 44 28 C42 24 38 20 34 18 C30 16 26 17 24 19 L22 20 Z" fill="url(#globeGreen)"/>
-                <path d="M18 52 C16 54 17 58 20 64 C22 68 24 74 22 80 C21 84 18 86 16 85" fill="none" stroke="url(#globeGreen)" strokeWidth="8" strokeLinecap="round"/>
-                <path d="M44 18 C42 16 46 14 50 16 C54 18 56 22 58 28 C59 32 58 38 54 42 C50 46 44 44 42 38 C40 32 42 26 44 22 Z" fill="url(#globeGreen)"/>
-                <path d="M48 46 C46 44 50 42 56 44 C62 46 68 52 70 60 C72 68 70 78 64 84 C58 88 50 86 46 80 C42 74 44 64 48 56 Z" fill="url(#globeGreen)"/>
-                <path d="M52 58 C54 56 58 58 60 64 C62 70 58 76 54 74 C50 72 50 64 52 58 Z" fill="url(#globeTan)"/>
-                <path d="M60 14 C58 12 64 10 72 12 C80 14 88 20 90 28 C92 36 88 44 80 48 C72 52 62 48 58 40 C54 32 58 22 64 16 Z" fill="url(#globeGreen)"/>
-                <path d="M70 24 C72 22 78 24 80 30 C82 36 78 40 74 38 C70 36 68 28 70 24 Z" fill="url(#globeTan)"/>
-                <path d="M78 56 C76 52 82 50 88 54 C92 58 94 66 90 74 C86 80 78 82 74 78 C70 74 72 64 78 56 Z" fill="url(#globeTan)"/>
-                <circle cx="50" cy="50" r="47" fill="url(#globeAtmo)"/>
-                <ellipse cx="32" cy="28" rx="16" ry="12" fill="url(#globeShine)"/>
-              </svg>
-              )}
-            </h1>
+                Global Travel Hub
+              </h1>
             <p className={`text-sm transition-colors ${isAudley ? 'text-[#4d726d]/80' : 'text-slate-400'}`}>
               Analyze agent performance metrics
             </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* <LogoutButton /> — auth disabled */}
+          <div className="flex flex-col items-end gap-2">
             <ThemeToggle />
             {metrics.length > 0 && (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={processFiles}
+                  onClick={() => {
+                    processFiles();
+                    if (navigator.vibrate) navigator.vibrate(10);
+                  }}
                   disabled={!canAnalyze || isProcessing}
                   className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2 ${
                     isAudley
                       ? 'bg-[#007bc7] hover:bg-[#005a94] text-white'
-                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      : 'bg-[#1a7fa8] hover:bg-[#15667f] text-white'
                   }`}
                 >
                   {isProcessing ? (
@@ -761,7 +766,10 @@ Global Travel Hub
                   )}
                 </button>
                 <button
-                  onClick={handleClearData}
+                  onClick={() => {
+                    handleClearData();
+                    if (navigator.vibrate) navigator.vibrate(10);
+                  }}
                   className={`px-3 py-2 text-sm rounded-lg transition-all cursor-pointer active:scale-95 ${
                     isAudley
                       ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
@@ -775,45 +783,43 @@ Global Travel Hub
           </div>
         </header>
 
-        {/* Loading Progress Bar — shown while fetching data from Firestore/IndexedDB */}
+        {/* Loading Globe — shown while fetching data from Firestore/IndexedDB */}
         {dataLoadProgress.loading && (
-          <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
-            isAudley
-              ? 'bg-white border-[#007bc7]/20 shadow-sm shadow-[#007bc7]/5'
-              : 'bg-slate-800/50 border-slate-700/50'
-          }`}>
-            <div className="px-6 py-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <svg className={`animate-spin h-5 w-5 ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`} viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
-                    {dataLoadProgress.stage}
-                  </span>
-                </div>
-                <span className={`text-sm font-mono ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`}>
-                  {dataLoadProgress.progress}%
-                </span>
-              </div>
-              <div className={`w-full rounded-full h-2.5 overflow-hidden ${
-                isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'
-              }`}>
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ease-out ${
-                    isAudley
-                      ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7]'
-                      : 'bg-gradient-to-r from-indigo-600 to-cyan-500'
-                  }`}
-                  style={{ width: `${dataLoadProgress.progress}%` }}
-                />
-              </div>
-            </div>
+          <div
+            className={`transition-all duration-700 ease-in-out ${
+              loadTransition === 'completing'
+                ? 'opacity-0 scale-95 -translate-y-4'
+                : 'opacity-100 scale-100 translate-y-0'
+            }`}
+          >
+            <GlobeLoader stage={dataLoadProgress.stage} progress={dataLoadProgress.progress} />
           </div>
         )}
 
         {/* Data Source Panel — HIDDEN when stored data exists, only shown when no data */}
+        {!hasStoredData && !dataLoadProgress.loading && (
+          <div className="flex flex-col items-center gap-4 mb-4 animate-fadeIn">
+            {/* Reload from Database button */}
+            <button
+              onClick={() => {
+                loadData();
+                if (navigator.vibrate) navigator.vibrate(10);
+              }}
+              className={`px-6 py-3 rounded-xl font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-3 shadow-lg ${
+                isAudley
+                  ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white hover:from-[#3d5c58] hover:to-[#0066a6]'
+                  : 'bg-gradient-to-r from-[#1a5c6e] to-[#1a7fa8] text-white hover:from-[#15506a] hover:to-[#15667f]'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+              </svg>
+              Reload from Database
+            </button>
+            <span className={`text-sm ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>or upload files manually</span>
+          </div>
+        )}
+
         {!hasStoredData && !dataLoadProgress.loading && (
           <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
             isAudley
@@ -966,13 +972,13 @@ Global Travel Hub
               : 'bg-slate-800/50 border-slate-700/50'
           }`}>
             <div className="flex items-center gap-3">
-              <svg className={`animate-spin h-4 w-4 ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`} viewBox="0 0 24 24">
+              <svg className={`animate-spin h-4 w-4 ${isAudley ? 'text-[#007bc7]' : 'text-[#5ba8c8]'}`} viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
               <div className={`flex-1 max-w-xs rounded-full h-1.5 overflow-hidden ${isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'}`}>
                 <div
-                  className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#007bc7]' : 'bg-indigo-500'}`}
+                  className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#007bc7]' : 'bg-[#1a7fa8]'}`}
                   style={{ width: `${workerState.progress}%` }}
                 />
               </div>
@@ -989,9 +995,13 @@ Global Travel Hub
           </div>
         )}
 
+        {/* Hide all content while loading data — fade in when ready */}
+        {!dataLoadProgress.loading && (
+        <div className="animate-fadeIn">
+
         {/* View Toggle & Config - Always show tabs, disable data-dependent ones */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div className={`rounded-lg p-1 flex gap-1 transition-colors ${
+          <div className={`rounded-lg p-1 flex gap-1 transition-colors overflow-x-auto max-w-full scrollbar-hide ${
             isAudley
               ? 'bg-white border border-[#4d726d]/20 shadow-sm'
               : 'bg-slate-800/50'
@@ -1011,13 +1021,16 @@ Global Travel Hub
               return (
                 <button
                   key={view}
-                  onClick={() => setActiveView(view)}
+                  onClick={() => {
+                    setActiveView(view);
+                    if (navigator.vibrate) navigator.vibrate(10);
+                  }}
                   disabled={isDisabled}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer active:scale-95 ${
+                  className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 ease-out cursor-pointer active:scale-95 flex-shrink-0 ${
                     isActive
                       ? isAudley
-                        ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-sm'
-                        : 'bg-indigo-600 text-white'
+                        ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-md scale-[1.02]'
+                        : 'bg-[#1a7fa8] text-white shadow-md shadow-[#1a7fa8]/30 scale-[1.02]'
                       : isAudley
                         ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e6f3fb] disabled:opacity-50 disabled:cursor-not-allowed'
                         : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
@@ -1044,39 +1057,42 @@ Global Travel Hub
           )}
         </div>
 
-        {/* Summary View */}
-        {activeView === 'summary' && metrics.length > 0 && (
-          <div className="space-y-4">
-            <TeamComparison metrics={metrics} teams={teams} seniors={seniors} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} rawData={rawParsedData} records={records} startDate={startDate} endDate={endDate} />
-            <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} />
-            <AgentAnalytics metrics={metrics} seniors={seniors} />
-          </div>
-        )}
+        {/* View Content — keyed for smooth transition on tab switch */}
+        <div key={activeView} className="animate-tabEnter">
+          {/* Summary View */}
+          {activeView === 'summary' && metrics.length > 0 && (
+            <div className="space-y-4">
+              <TeamComparison metrics={metrics} teams={teams} seniors={seniors} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} rawData={rawParsedData} records={records} startDate={startDate} endDate={endDate} />
+              <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} />
+              <AgentAnalytics metrics={metrics} seniors={seniors} />
+            </div>
+          )}
 
-        {/* Regional View */}
-        {activeView === 'regional' && rawParsedData && (
-          <RegionalView rawData={rawParsedData} />
-        )}
+          {/* Regional View */}
+          {activeView === 'regional' && rawParsedData && (
+            <RegionalView rawData={rawParsedData} />
+          )}
 
-        {/* Channel Performance View */}
-        {activeView === 'channels' && rawParsedData && (
-          <ChannelPerformanceView rawData={rawParsedData} seniors={seniors} />
-        )}
+          {/* Channel Performance View */}
+          {activeView === 'channels' && rawParsedData && (
+            <ChannelPerformanceView rawData={rawParsedData} seniors={seniors} />
+          )}
 
-        {/* Trends View */}
-        {activeView === 'trends' && timeSeriesData && (
-          <TrendsView timeSeriesData={timeSeriesData} seniors={seniors} />
-        )}
+          {/* Trends View */}
+          {activeView === 'trends' && timeSeriesData && (
+            <TrendsView timeSeriesData={timeSeriesData} seniors={seniors} />
+          )}
 
-        {/* Insights View */}
-        {activeView === 'insights' && rawParsedData && (
-          <InsightsView rawData={rawParsedData} />
-        )}
+          {/* Insights View */}
+          {activeView === 'insights' && rawParsedData && (
+            <InsightsView rawData={rawParsedData} />
+          )}
 
-        {/* Records View */}
-        {activeView === 'records' && (
-          <RecordsView records={records} teams={teams} onClearRecords={handleClearRecords} />
-        )}
+          {/* Records View */}
+          {activeView === 'records' && (
+            <RecordsView records={records} teams={teams} onClearRecords={handleClearRecords} />
+          )}
+        </div>
 
         {/* Record Notifications disabled - records shown in Records tab */}
 
@@ -1092,6 +1108,8 @@ Global Travel Hub
             </p>
           </div>
         )}
+
+        </div>)}
       </div>
     </div>
   );

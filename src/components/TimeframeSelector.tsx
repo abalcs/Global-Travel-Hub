@@ -76,15 +76,18 @@ export const TimeframeSelector = ({ value, onChange }: TimeframeSelectorProps) =
       {TIMEFRAME_OPTIONS.map(({ value: tf, label }) => (
         <button
           key={tf}
-          onClick={() => onChange(tf)}
+          onClick={() => {
+            onChange(tf);
+            if (navigator.vibrate) navigator.vibrate(10);
+          }}
           className={`px-3 py-1.5 text-sm rounded-md transition-colors cursor-pointer ${
             value === tf
               ? isAudley
                 ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-sm'
-                : 'bg-indigo-600 text-white'
+                : 'bg-gradient-to-r from-[#1a5c6e] to-[#1a7fa8] text-white shadow-sm'
               : isAudley
                 ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e8f0ef]'
-                : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                : 'text-slate-300 hover:text-white hover:bg-slate-600/60'
           }`}
         >
           {label}

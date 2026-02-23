@@ -7,6 +7,7 @@ html, body {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* ============ Theme CSS Variables ============ */
@@ -24,10 +25,10 @@ html, body {
   --theme-text-muted: #64748b;
   --theme-border: rgba(51, 65, 85, 0.5);
   --theme-border-solid: #334155;
-  --theme-accent: #2dd4bf;
-  --theme-accent-bg: #0d9488;
-  --theme-accent-hover: #0f766e;
-  --theme-header-font: 'Inter', system-ui, sans-serif;
+  --theme-accent: #5ba8c8;
+  --theme-accent-bg: #1a7fa8;
+  --theme-accent-hover: #15667f;
+  --theme-header-font: 'Merriweather', serif;
 }
 
 /* Audley Travel theme - prominent blue and teal branding */
@@ -65,11 +66,15 @@ html, body {
   --theme-header-font: 'Merriweather', serif;
 }
 
-/* Audley theme specific styles */
+/* Merriweather headings for both themes */
+h1, h2, h3 {
+  font-family: var(--theme-header-font);
+}
+
+/* Audley theme specific heading colors */
 .theme-audley h1,
 .theme-audley h2,
 .theme-audley h3 {
-  font-family: var(--theme-header-font);
   color: var(--audley-teal);
 }
 
@@ -204,4 +209,55 @@ html {
 
 .bg-audley-teal-light {
   background-color: #e8f0ef;
+}
+
+/* ============ Loading Animations ============ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-out both;
+}
+
+@keyframes tabEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-tabEnter {
+  animation: tabEnter 0.35s ease-out both;
+}
+
+@keyframes globeSpin {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100px); }
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes earthRotate {
+  from { background-position-x: 0px; }
+  to { background-position-x: -384px; }
 }
