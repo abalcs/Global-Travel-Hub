@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Metrics, Team } from '../../types';
 import type { PresentationConfig, TopDestination } from '../../utils/presentationGenerator';
@@ -12,6 +12,41 @@ import {
   getLayoutStyles,
   type WebPresentationStyle,
 } from './webPresentationConfig';
+
+// Error boundary to catch slide rendering errors without breaking navigation
+class SlideErrorBoundary extends Component<
+  { children: ReactNode; slideName: string; colors: { text: string; background: string; accent: string } },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode; slideName: string; colors: { text: string; background: string; accent: string } }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(`[Slides] Error in ${this.props.slideName}:`, error, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `#${this.props.colors.background}` }}>
+          <div className="text-center p-8">
+            <p className="text-2xl font-bold mb-2" style={{ color: `#${this.props.colors.text}` }}>Slide Error</p>
+            <p className="text-sm" style={{ color: `#${this.props.colors.accent}` }}>
+              {this.props.slideName}: {this.state.error?.message || 'Unknown error'}
+            </p>
+            <p className="text-xs mt-2 opacity-60" style={{ color: `#${this.props.colors.text}` }}>
+              Use arrow keys or click the navigation buttons to continue
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { WebTitleSlide } from './slides/WebTitleSlide';
 import { WebProgressSlide } from './slides/WebProgressSlide';
 import { WebTopPerformersSlide } from './slides/WebTopPerformersSlide';
@@ -284,11 +319,17 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleFullscreen]);
 
-  // Render current slide
+  // Render current slide with error boundary
   const renderSlide = () => {
+    const slideNames = ['Title', 'Progress', 'Key Metrics', 'Hot Pass Rate', 'Top Performers',
+      'Top Destinations', 'Leaderboard', 'Cascades', 'Forecast', 'Closing'];
+    const slideName = slideNames[currentSlide] || `Slide ${currentSlide}`;
+
+    let slideContent: ReactNode;
+
     switch (currentSlide) {
       case 0:
-        return (
+        slideContent = (
           <WebTitleSlide
             teamName={config.teamName}
             meetingDate={config.meetingDate}
@@ -296,8 +337,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 1:
-        return (
+        slideContent = (
           <WebProgressSlide
             totalPassthroughs={slideData.totalPassthroughs}
             totalQuotes={slideData.totalQuotes}
@@ -309,8 +351,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 2:
-        return (
+        slideContent = (
           <WebKeyMetricsSlide
             teamName={slideData.selectedTeamName}
             totalTrips={slideData.totalTrips}
@@ -326,8 +369,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 3:
-        return (
+        slideContent = (
           <WebHotPassRateSlide
             avgHotPassRate={slideData.avgHotPassRate}
             deptAvgHotPassRate={slideData.deptAvgHotPassRate}
@@ -337,8 +381,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 4:
-        return (
+        slideContent = (
           <WebTopPerformersSlide
             topPassthroughs={slideData.byPassthroughs}
             topQuotes={slideData.byQuotes}
@@ -348,8 +393,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 5:
-        return (
+        slideContent = (
           <WebTopDestinationsSlide
             destinations={config.topDestinations || []}
             agentDestinations={config.agentTopDestinations}
@@ -357,8 +403,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 6:
-        return (
+        slideContent = (
           <WebLeaderboardSlide
             byPassthroughs={slideData.allByPassthroughs}
             byQuotes={slideData.allByQuotes}
@@ -371,16 +418,18 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 7:
-        return (
+        slideContent = (
           <WebCascadesSlide
             cascades={config.cascades}
             colors={colors}
             layout={layout}
           />
         );
+        break;
       case 8:
-        return (
+        slideContent = (
           <WebForecastDestinationsSlide
             destinations={forecastDestinations?.destinations || []}
             periodLabel={forecastDestinations?.periodLabel || 'Previous year data unavailable'}
@@ -389,17 +438,25 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             layout={layout}
           />
         );
+        break;
       case 9:
-        return (
+        slideContent = (
           <WebClosingSlide
             teamName={config.teamName}
             colors={colors}
             layout={layout}
           />
         );
+        break;
       default:
-        return null;
+        slideContent = null;
     }
+
+    return (
+      <SlideErrorBoundary key={currentSlide} slideName={slideName} colors={colors}>
+        {slideContent}
+      </SlideErrorBoundary>
+    );
   };
 
   return (

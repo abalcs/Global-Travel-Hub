@@ -1,11 +1,22 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import type { Metrics, Team } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { TimeframeSelector } from './TimeframeSelector';
+import type { Timeframe } from './TimeframeSelector';
+import { PresentationGenerator } from './PresentationGenerator';
+import type { RawParsedData } from '../utils/indexedDB';
+import type { AllRecords } from '../utils/recordsTracker';
 
 interface TeamComparisonProps {
   metrics: Metrics[];
   teams: Team[];
   seniors: string[];
+  timeframe: Timeframe;
+  onTimeframeChange: (tf: Timeframe) => void;
+  rawData?: RawParsedData | null;
+  records?: AllRecords | null;
+  startDate?: string;
+  endDate?: string;
 }
 
 type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'hotPass' | 'bookings' | 'nonConverted' | 'potentialTQ';
@@ -77,7 +88,7 @@ const SortButton: React.FC<SortButtonProps> = ({ label, sortKeyVal, color = 'gra
   );
 };
 
-export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors }) => {
+export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors, timeframe, onTimeframeChange, rawData, records, startDate = '', endDate = '' }) => {
   const { isAudley } = useTheme();
   const [isOpen, setIsOpen] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('trips');
@@ -263,6 +274,12 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       >
         <div className="overflow-hidden">
           <div className="p-6">
+          {/* Timeframe Selector + Generate Slides */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <TimeframeSelector value={timeframe} onChange={onTimeframeChange} />
+            <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} rawData={rawData} records={records} startDate={startDate} endDate={endDate} />
+          </div>
+
           {/* View Toggle and Sort Controls */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
@@ -342,10 +359,23 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                   <tbody>
                     {metricRows.map((row, rowIdx) => {
                       const allValues = getAllValues(row.key);
+                      const isHighlightedRow = sortKey !== 'name' && row.key === sortKey;
                       return (
-                        <tr key={row.key} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                          <td className={`px-4 py-3 text-sm font-medium text-gray-700 border-b border-gray-100 sticky left-0 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                        <tr key={row.key} className={isHighlightedRow
+                          ? isAudley
+                            ? 'bg-[#4d726d]/8'
+                            : 'bg-indigo-50/70'
+                          : rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                        }>
+                          <td className={`px-4 py-3 text-sm font-medium border-b sticky left-0 ${
+                            isHighlightedRow
+                              ? isAudley
+                                ? 'bg-[#4d726d]/8 text-[#4d726d] font-bold border-[#4d726d]/20'
+                                : 'bg-indigo-50/70 text-indigo-700 font-bold border-indigo-200'
+                              : `text-gray-700 border-gray-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`
+                          }`}>
                             {row.label}
+                            {isHighlightedRow && <span className="ml-1 text-xs opacity-60">●</span>}
                           </td>
                           {sortedTeams.map((team, colIdx) => {
                             const value = team[row.key] as number;
@@ -360,8 +390,12 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                                     ? isAudley
                                       ? 'bg-[#4d726d]/5 border-[#4d726d]/10'
                                       : 'bg-amber-50/50 border-amber-100'
-                                    : 'border-gray-100'
-                                } ${colorClass}`}
+                                    : isHighlightedRow
+                                      ? isAudley
+                                        ? 'border-[#4d726d]/15'
+                                        : 'border-indigo-100'
+                                      : 'border-gray-100'
+                                } ${colorClass} ${isHighlightedRow ? 'font-semibold' : ''}`}
                               >
                                 {row.format(value)}
                               </td>

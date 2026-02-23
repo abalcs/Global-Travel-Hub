@@ -6,8 +6,6 @@ export function ReportsList() {
   const { reports, loading, error } = useSharedReports();
   const [selectedReport, setSelectedReport] = useState<SharedReport | null>(null);
 
-  console.log('🎯 ReportsList rendered:', { loading, reportCount: reports.length, error });
-
   if (loading) {
     return (
       <div className="reports-container">

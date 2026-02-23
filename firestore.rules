@@ -1,38 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User profiles - each user can only access/modify their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId;
+    // Allow public read/write to gtt_raw_data collection
+    // (Auth is disabled in the app; the cron pipeline and in-app
+    //  Firestore write-back both need unauthenticated write access)
+    match /gtt_raw_data/{document=**} {
+      allow read: if true;
+      allow write: if true;
     }
 
-    // User settings and preferences
-    match /users/{userId}/settings/{document=**} {
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    // User data (personal reports, uploads, etc.)
-    match /users/{userId}/reports/{document=**} {
-      allow read, write: if request.auth.uid == userId;
-      allow list: if request.auth.uid == userId;
-    }
-
-    match /users/{userId}/uploads/{document=**} {
-      allow read, write: if request.auth.uid == userId;
-      allow list: if request.auth.uid == userId;
-    }
-
-    // Shared GTT reports - public read/list, unauthenticated writes allowed
-    match /gtt_reports/{document=**} {
-      allow read, list: if true; // Allow everyone to read for now (debugging)
-      allow write: if true; // Allow everyone to write for now (debugging)
-    }
-
-    // Shared system data
-    match /system/{document=**} {
-      allow read: if request.auth != null;
-      allow write: if false; // Admin only via backend
+    // App configuration (teams, seniors, new hires)
+    match /gtt_app_config/{document=**} {
+      allow read: if true;
+      allow write: if true;
     }
 
     // Default deny all other access

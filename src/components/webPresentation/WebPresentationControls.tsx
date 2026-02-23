@@ -30,7 +30,7 @@ export const WebPresentationControls: React.FC<WebPresentationControlsProps> = (
   colors,
 }) => {
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-between bg-gradient-to-t from-black/30 to-transparent">
+    <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-between bg-gradient-to-t from-black/30 to-transparent z-50">
       {/* Left side - Exit button */}
       <button
         onClick={onExit}

@@ -51,10 +51,18 @@ export const FirebaseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 };
 
+// Default no-op state for when FirebaseAuthProvider is not in the tree
+const noopFirebaseAuth: FirebaseAuthContextType = {
+  user: null,
+  loading: false,
+  logout: async () => { throw new Error('Auth disabled'); },
+};
+
 export const useFirebaseAuth = (): FirebaseAuthContextType => {
   const context = useContext(FirebaseAuthContext);
   if (!context) {
-    throw new Error('useFirebaseAuth must be used within FirebaseAuthProvider');
+    // Provider not mounted — return safe defaults instead of crashing
+    return noopFirebaseAuth;
   }
   return context;
 };

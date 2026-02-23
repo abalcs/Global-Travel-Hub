@@ -50,6 +50,8 @@ for (const [program, destinations] of Object.entries(PROGRAM_DESTINATION_MAP)) {
   }
 }
 
+// Note: Debug console logs have been removed for production use
+
 // Get the correct program for a destination
 export const getProgramForDestination = (destination: string): string | null => {
   const normalized = destination.trim().toLowerCase();

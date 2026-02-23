@@ -1,34 +1,10 @@
-import { useAuthContext } from './contexts/AuthContext';
 import App from './App';
 
 /**
  * AppWrapper
- * Shows the main app (GTT Reports is accessible without login)
- * Authenticated features can check user state internally
+ * Shows the main app immediately (GTT Reports is public).
+ * Auth resolves in the background — no loading gate needed.
  */
 export function AppWrapper() {
-  const { loading } = useAuthContext();
-
-  console.log('🎯 AppWrapper rendered, loading:', loading);
-
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        fontSize: '18px',
-        color: '#666',
-      }}>
-        ⏳ Loading...
-      </div>
-    );
-  }
-
-  console.log('✅ AppWrapper showing App component');
-
-  // Show app regardless of auth - GTT Reports tab is public
-  // Other features can show login prompt if needed
   return <App />;
 }

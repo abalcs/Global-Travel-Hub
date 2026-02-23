@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { ConfigPanel } from './components/ConfigPanel';
 import { TeamComparison } from './components/TeamComparison';
-import { DateRangeFilter } from './components/DateRangeFilter';
+import { timeframeToDates } from './components/TimeframeSelector';
+import type { Timeframe } from './components/TimeframeSelector';
 import { TrendsView } from './components/TrendsView';
 import { RegionalView } from './components/RegionalView';
 import { InsightsView } from './components/InsightsView';
@@ -23,8 +24,9 @@ import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
 import type { CSVRow } from './utils/csvParser';
 import { loadTeams, saveTeams, loadSeniors, saveSeniors, loadNewHires, saveNewHires, loadMetrics, saveMetrics, clearMetrics, loadTimeSeriesData, saveTimeSeriesData, clearTimeSeriesData } from './utils/storage';
 import { loadRawDataFromDB, saveRawDataToDB, clearRawDataFromDB, type RawParsedData } from './utils/indexedDB';
-import { saveRawDataToFirestore } from './utils/firestoreSync';
-import { saveMetricsToFirestore, saveTimeSeriesDataToFirestore, saveSummaryToFirestore } from './services/firestoreService';
+import { saveRawDataToFirestore, loadConfigFromFirestore, saveConfigToFirestore } from './utils/firestoreSync';
+// firestoreService save calls removed — metrics/timeseries/summary are recalculated
+// from raw data on every load, so caching them in Firestore is unnecessary.
 import { useFileProcessor } from './hooks/useFileProcessor';
 import {
   findAgentColumn,
@@ -110,6 +112,7 @@ function App() {
   });
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<AllRecords>(() => loadRecords());
+  const [timeframe, setTimeframe] = useState<Timeframe>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [showDataPanel, setShowDataPanel] = useState(true);
@@ -122,19 +125,52 @@ function App() {
   const isProcessing = workerState.isProcessing;
 
   useEffect(() => {
-    setTeams(loadTeams());
-    setSeniors(loadSeniors());
-    setNewHires(loadNewHires());
+    // Load config: try Firestore first, fall back to localStorage
+    loadConfigFromFirestore().then((config) => {
+      if (config && (config.teams.length > 0 || config.seniors.length > 0 || config.newHires.length > 0)) {
+        console.log('[App] Loaded config from Firestore');
+        setTeams(config.teams);
+        setSeniors(config.seniors);
+        setNewHires(config.newHires);
+        // Update localStorage cache
+        saveTeams(config.teams);
+        saveSeniors(config.seniors);
+        saveNewHires(config.newHires);
+      } else {
+        // Fall back to localStorage
+        console.log('[App] No Firestore config, using localStorage');
+        setTeams(loadTeams());
+        setSeniors(loadSeniors());
+        setNewHires(loadNewHires());
+      }
+    }).catch(() => {
+      // Firestore failed, use localStorage
+      setTeams(loadTeams());
+      setSeniors(loadSeniors());
+      setNewHires(loadNewHires());
+    });
+
     setMetrics(loadMetrics());
     setTimeSeriesData(loadTimeSeriesData());
 
     // Try loading from IndexedDB first, then Firestore
     const loadData = async () => {
+      console.log('[App] loadData() starting...');
       setDataLoadProgress({ loading: true, progress: 5, stage: 'Checking local cache...' });
 
       // First try IndexedDB
-      const localData = await loadRawDataFromDB();
-      if (localData) {
+      let localData: RawParsedData | null = null;
+      try {
+        localData = await loadRawDataFromDB();
+      } catch (e) {
+        console.warn('[App] IndexedDB load failed:', e);
+      }
+
+      // Only use IndexedDB data if it actually has rows
+      const hasLocalData = localData && Object.values(localData).some((arr: any) => Array.isArray(arr) && arr.length > 0);
+      console.log('[App] IndexedDB result:', hasLocalData ? `found data` : 'empty/null');
+
+      if (hasLocalData) {
         setDataLoadProgress({ loading: true, progress: 90, stage: 'Local data found' });
         setRawParsedData(localData);
         setShowDataPanel(false);
@@ -145,7 +181,7 @@ function App() {
       }
 
       // Try loading from Firestore (supports both batched and single-doc formats)
-      // Dynamic import to avoid TDZ issues with Firebase SDK bundling
+      console.log('[App] Trying Firestore...');
       let db: any;
       try {
         db = await getDb();
@@ -160,6 +196,7 @@ function App() {
       }
 
       const { doc, getDoc } = await import('firebase/firestore');
+      console.log('[App] Firestore connected, loading datasets...');
 
       setDataLoadProgress({ loading: true, progress: 10, stage: 'Connecting to Firestore...' });
 
@@ -203,11 +240,13 @@ function App() {
           const progressBase = 10 + Math.round((i / allDataTypes.length) * 75);
           setDataLoadProgress({ loading: true, progress: progressBase, stage: `Loading ${dt}...` });
           datasets[dt] = await loadDataset(dt);
+          console.log(`[App] Loaded ${dt}: ${datasets[dt].length} rows`);
         }
 
         setDataLoadProgress({ loading: true, progress: 90, stage: 'Finalizing...' });
 
         const hasData = Object.values(datasets).some((arr: any) => Array.isArray(arr) && arr.length > 0);
+        console.log('[App] Firestore hasData:', hasData);
         if (hasData) {
           const parsedData: RawParsedData = {
             trips: tagRows(datasets.trips || [], 'trips'),
@@ -245,16 +284,25 @@ function App() {
   const handleTeamsChange = useCallback((newTeams: Team[]) => {
     setTeams(newTeams);
     saveTeams(newTeams);
+    saveConfigToFirestore({ teams: newTeams }).catch(err =>
+      console.warn('[App] Firestore config save failed (non-critical):', err)
+    );
   }, []);
 
   const handleSeniorsChange = useCallback((newSeniors: string[]) => {
     setSeniors(newSeniors);
     saveSeniors(newSeniors);
+    saveConfigToFirestore({ seniors: newSeniors }).catch(err =>
+      console.warn('[App] Firestore config save failed (non-critical):', err)
+    );
   }, []);
 
   const handleNewHiresChange = useCallback((updatedNewHires: string[]) => {
     setNewHires(updatedNewHires);
     saveNewHires(updatedNewHires);
+    saveConfigToFirestore({ newHires: updatedNewHires }).catch(err =>
+      console.warn('[App] Firestore config save failed (non-critical):', err)
+    );
   }, []);
 
   const handleFileSelect = useCallback(
@@ -355,7 +403,6 @@ function App() {
         const colLower = col.toLowerCase();
         if (colLower === 'undefined' || colLower.startsWith('_')) return rows;
         if (isGroupedColumn(rows, col)) {
-          console.log(`[FillDown] Detected grouped column "${col}" – applying fill-down`);
           return fillDownAgent(rows, col);
         }
         return rows;
@@ -369,6 +416,20 @@ function App() {
       nonConvertedRows = applyFillDownIfNeeded(nonConvertedRows);
       quotesStartedRows = applyFillDownIfNeeded(quotesStartedRows);
 
+      // Update rawParsedData with fill-down processed rows so that
+      // downstream consumers (PresentationGenerator, RegionalView, etc.)
+      // get data with agent columns fully populated.
+      setRawParsedData(prev => prev ? {
+        ...prev,
+        trips: tripsRows,
+        quotes: quotesRows,
+        passthroughs: passthroughsRows,
+        hotPass: hotPassRows,
+        bookings: bookingsRows,
+        nonConverted: nonConvertedRows,
+        quotesStarted: quotesStartedRows,
+      } : prev);
+
       const tripsAgentCol = findAgentColumn(tripsRows[0]);
       const quotesAgentCol = quotesRows.length > 0 ? findAgentColumn(quotesRows[0]) : null;
       const passthroughsAgentCol = passthroughsRows.length > 0 ? findAgentColumn(passthroughsRows[0]) : null;
@@ -378,14 +439,6 @@ function App() {
       if (!tripsAgentCol) {
         throw new Error('Could not identify agent column in Trips file.');
       }
-
-      // Debug: log column detection and agent count
-      console.log('[KPI Debug] Trips agent col:', tripsAgentCol, '| rows:', tripsRows.length);
-      const rawAgentValues = new Set(tripsRows.map(r => (r[tripsAgentCol] || '').trim()).filter(Boolean));
-      const passedFilter = [...rawAgentValues].filter(v => !isMetadataRow(v));
-      const filteredOut = [...rawAgentValues].filter(v => isMetadataRow(v));
-      console.log('[KPI Debug] Agents PASS:', passedFilter.length, passedFilter.sort());
-      if (filteredOut.length) console.log('[KPI Debug] FILTERED OUT:', filteredOut.sort());
 
       const tripsDateCol = findDateColumn(tripsRows[0], ['created date', 'trip: created date']);
       const quotesDateCol = quotesRows.length > 0 ? findDateColumn(quotesRows[0], ['quote first sent', 'first sent date', 'created date']) : null;
@@ -435,7 +488,9 @@ function App() {
       const b2bData = countB2bByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
 
       // Calculate quotes started per agent
-      const quotesStartedData = countQuotesStartedByAgent(quotesStartedRows, startDate, endDate);
+      // Quotes started is always timeframe-independent — it represents ALL pending
+      // quotes started since Oct 1, 2025 regardless of the selected date range
+      const quotesStartedData = countQuotesStartedByAgent(quotesStartedRows, '', '');
 
       const calculatedMetrics = calculateMetrics(
         tripsResult.total,
@@ -453,9 +508,6 @@ function App() {
 
       setMetrics(calculatedMetrics);
       saveMetrics(calculatedMetrics);
-      
-      // Save metrics to Firestore for cross-session persistence
-      await saveMetricsToFirestore(calculatedMetrics);
 
       const tsData = buildTimeSeriesOptimized(
         tripsResult.byDate,
@@ -480,26 +532,6 @@ function App() {
 
       setTimeSeriesData(tsDataWithSegments);
       saveTimeSeriesData(tsDataWithSegments);
-      
-      // Save time series data to Firestore for cross-session persistence
-      await saveTimeSeriesDataToFirestore(tsDataWithSegments);
-      
-      // Save summary statistics to Firestore
-      const totalRows = (tripsRows?.length || 0) +
-        (quotesRows?.length || 0) +
-        (passthroughsRows?.length || 0) +
-        (hotPassRows?.length || 0) +
-        (bookingsRows?.length || 0) +
-        (nonConvertedRows?.length || 0) +
-        (quotesStartedRows?.length || 0);
-      
-      await saveSummaryToFirestore({
-        totalMetrics: calculatedMetrics.length,
-        totalRows,
-        dataRange: { from: startDate.toString(), to: endDate.toString() },
-        agentCount: teams.length,
-        lastUpdate: new Date().toISOString(),
-      });
 
       // Analyze and update personal records
       const currentRecords = loadRecords();
@@ -522,6 +554,15 @@ function App() {
       processFiles();
     }
   }, [autoAnalyzePending, rawParsedData, isProcessing, processFiles]);
+
+  // Re-process when timeframe changes (only if we already have metrics)
+  const prevTimeframeRef = useRef(timeframe);
+  useEffect(() => {
+    if (timeframe !== prevTimeframeRef.current && metrics.length > 0 && rawParsedData && !isProcessing) {
+      prevTimeframeRef.current = timeframe;
+      processFiles();
+    }
+  }, [timeframe, metrics.length, rawParsedData, isProcessing, processFiles]);
 
   const handleClearData = useCallback(() => {
     // Clear everything — analyzed results AND stored raw data
@@ -549,9 +590,11 @@ function App() {
     clearRawDataFromDB();
   }, []);
 
-  const handleClearDateFilter = useCallback(() => {
-    setStartDate('');
-    setEndDate('');
+  const handleTimeframeChange = useCallback((tf: Timeframe) => {
+    setTimeframe(tf);
+    const { startDate: s, endDate: e } = timeframeToDates(tf);
+    setStartDate(s);
+    setEndDate(e);
   }, []);
 
   const handleClearRecords = useCallback(() => {
@@ -691,7 +734,32 @@ Global Travel Hub
             <ThemeToggle />
             {metrics.length > 0 && (
               <div className="flex items-center gap-2">
-                <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} rawData={rawParsedData} records={records} startDate={startDate} endDate={endDate} />
+                <button
+                  onClick={processFiles}
+                  disabled={!canAnalyze || isProcessing}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2 ${
+                    isAudley
+                      ? 'bg-[#007bc7] hover:bg-[#005a94] text-white'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  }`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      {workerState.stage || 'Processing'}
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh Data
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={handleClearData}
                   className={`px-3 py-2 text-sm rounded-lg transition-all cursor-pointer active:scale-95 ${
@@ -890,71 +958,27 @@ Global Travel Hub
           </div>
         )}
 
-        {/* Controls Bar — Date range filter + data info (shown when we have data) */}
-        {hasStoredData && !dataLoadProgress.loading && (
+        {/* Processing progress indicator (shown during data reprocessing) */}
+        {isProcessing && workerState.progress > 0 && (
           <div className={`backdrop-blur rounded-xl border px-4 py-3 mb-4 ${
             isAudley
               ? 'bg-white border-[#007bc7]/20 shadow-sm'
               : 'bg-slate-800/50 border-slate-700/50'
           }`}>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <DateRangeFilter
-                  startDate={startDate}
-                  endDate={endDate}
-                  onStartDateChange={setStartDate}
-                  onEndDateChange={setEndDate}
-                  onClear={handleClearDateFilter}
+            <div className="flex items-center gap-3">
+              <svg className={`animate-spin h-4 w-4 ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`} viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <div className={`flex-1 max-w-xs rounded-full h-1.5 overflow-hidden ${isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'}`}>
+                <div
+                  className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#007bc7]' : 'bg-indigo-500'}`}
+                  style={{ width: `${workerState.progress}%` }}
                 />
-                {dataDateRange && (
-                  <span className={`px-2 py-0.5 rounded text-xs flex items-center gap-1 ${
-                    isAudley
-                      ? 'bg-[#007bc7]/10 text-[#007bc7] border border-[#007bc7]/20'
-                      : 'bg-green-500/20 text-green-400'
-                  }`}>
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    {dataDateRange.start} — {dataDateRange.end}
-                  </span>
-                )}
               </div>
-
-              <div className="flex items-center gap-3">
-                {isProcessing && workerState.progress > 0 && (
-                  <div className="flex items-center gap-2">
-                    <div className={`w-24 rounded-full h-1.5 overflow-hidden ${isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'}`}>
-                      <div
-                        className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#007bc7]' : 'bg-indigo-500'}`}
-                        style={{ width: `${workerState.progress}%` }}
-                      />
-                    </div>
-                    <span className={`text-xs ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`}>{workerState.progress}%</span>
-                  </div>
-                )}
-
-                <button
-                  onClick={processFiles}
-                  disabled={!canAnalyze || isProcessing}
-                  className={`px-5 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2 ${
-                    isAudley
-                      ? 'bg-[#007bc7] hover:bg-[#005a94]'
-                      : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      {workerState.stage || 'Processing'}
-                    </>
-                  ) : (
-                    'Analyze'
-                  )}
-                </button>
-              </div>
+              <span className={`text-sm ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`}>
+                {workerState.stage || 'Processing'} {workerState.progress}%
+              </span>
             </div>
           </div>
         )}
@@ -1023,8 +1047,8 @@ Global Travel Hub
         {/* Summary View */}
         {activeView === 'summary' && metrics.length > 0 && (
           <div className="space-y-4">
-            <TeamComparison metrics={metrics} teams={teams} seniors={seniors} />
-            <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} />
+            <TeamComparison metrics={metrics} teams={teams} seniors={seniors} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} rawData={rawParsedData} records={records} startDate={startDate} endDate={endDate} />
+            <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} />
             <AgentAnalytics metrics={metrics} seniors={seniors} />
           </div>
         )}

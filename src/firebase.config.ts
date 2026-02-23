@@ -1,45 +1,73 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import type { Auth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import type { Firestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import type { FirebaseStorage } from 'firebase/storage';
+/**
+ * Firebase Configuration — Lazy Initialization
+ *
+ * Firebase is initialized lazily via getDb()/getFirebaseStorage() to avoid
+ * Temporal Dead Zone (TDZ) errors caused by module initialization order
+ * in production bundles (Vite/Rollup).
+ *
+ * IMPORTANT: Do NOT use top-level Firebase imports or initialization.
+ * All Firebase access must go through the getter functions.
+ */
+
+// Auth export is null — all auth features disabled
+export const auth = null;
+
+let _initPromise: Promise<void> | null = null;
+let _db: any = null;
+let _storage: any = null;
+let _app: any = null;
+
+async function ensureInitialized() {
+  if (_initPromise) return _initPromise;
+
+  _initPromise = (async () => {
+    try {
+      const { initializeApp } = await import('firebase/app');
+      const { getFirestore } = await import('firebase/firestore');
+      const { getStorage } = await import('firebase/storage');
+
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
+      };
+
+      _app = initializeApp(firebaseConfig);
+      _db = getFirestore(_app);
+      _storage = getStorage(_app);
+      console.log('[Firebase] Initialized successfully');
+    } catch (error) {
+      console.error('[Firebase] Initialization failed:', error);
+    }
+  })();
+
+  return _initPromise;
+}
 
 /**
- * Firebase Configuration
- * Replace with your Firebase project credentials from console.firebase.google.com
+ * Get the Firestore database instance. Initializes Firebase if needed.
  */
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
-};
+export async function getDb() {
+  await ensureInitialized();
+  return _db;
+}
 
-console.log('🔧 Firebase Config:', {
-  apiKey: firebaseConfig.apiKey ? '✅ Set' : '❌ Missing',
-  projectId: firebaseConfig.projectId || '❌ Missing',
-  authDomain: firebaseConfig.authDomain ? '✅ Set' : '❌ Missing',
-});
+/**
+ * Get the Firebase Storage instance. Initializes Firebase if needed.
+ */
+export async function getFirebaseStorage() {
+  await ensureInitialized();
+  return _storage;
+}
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-console.log('🚀 Firebase app initialized:', app.name);
-
-// Initialize Auth
-export const auth: Auth = getAuth(app);
-console.log('🔐 Auth initialized');
-
-// Initialize Firestore
-export const db: Firestore = getFirestore(app);
-console.log('📦 Firestore initialized');
-
-// Initialize Storage (for uploaded Excel files)
-export const storage: FirebaseStorage = getStorage(app);
-console.log('💾 Storage initialized');
-
-export default app;
+/**
+ * Get the Firebase App instance. Initializes Firebase if needed.
+ */
+export async function getApp() {
+  await ensureInitialized();
+  return _app;
+}
