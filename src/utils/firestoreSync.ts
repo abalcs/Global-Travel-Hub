@@ -19,7 +19,7 @@ import type { Team } from '../types';
 import { getDb } from '../firebase.config';
 
 const COLLECTION = 'gtt_raw_data';
-const BATCH_SIZE = 2000; // rows per Firestore document
+const BATCH_SIZE = 1000; // rows per Firestore document (reduced from 2000 for wider rows)
 
 /**
  * Save all parsed report data to Firestore in batched format.
@@ -51,7 +51,7 @@ export async function saveRawDataToFirestore(data: RawParsedData): Promise<boole
 
     for (const dataType of dataTypes) {
       const rows = data[dataType] || [];
-      console.log(`[FirestoreSync] Saving ${dataType}: ${rows.length} rows`);
+      // Saving dataType rows to Firestore
 
       // Write batches
       const batchCount = Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
@@ -70,7 +70,7 @@ export async function saveRawDataToFirestore(data: RawParsedData): Promise<boole
 
       // Clean up any old batches beyond the current count
       // (e.g., if data shrank from 5 batches to 3, delete batches 3 and 4)
-      for (let i = batchCount; i < 50; i++) {
+      for (let i = batchCount; i < 100; i++) {
         const docId = `${dataType}_batch_${i}`;
         try {
           const snap = await getDoc(doc(db, COLLECTION, docId));
@@ -99,7 +99,7 @@ export async function saveRawDataToFirestore(data: RawParsedData): Promise<boole
       }
     }
 
-    console.log('[FirestoreSync] All data saved to Firestore');
+    // All data saved to Firestore
     return true;
   } catch (error) {
     console.error('[FirestoreSync] Save failed:', error);
@@ -139,7 +139,7 @@ export async function loadConfigFromFirestore(): Promise<AppConfig | null> {
     const snap = await getDoc(doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID));
     if (snap.exists()) {
       const data = snap.data();
-      console.log('[FirestoreSync] Loaded config from Firestore');
+      // Loaded config from Firestore
       return {
         teams: data.teams || [],
         seniors: data.seniors || [],
@@ -147,7 +147,7 @@ export async function loadConfigFromFirestore(): Promise<AppConfig | null> {
         updatedAt: data.updatedAt || null,
       };
     }
-    console.log('[FirestoreSync] No config doc found in Firestore');
+    // No config doc found in Firestore
     return null;
   } catch (error) {
     console.error('[FirestoreSync] Failed to load config:', error);
@@ -177,7 +177,7 @@ export async function saveConfigToFirestore(config: Partial<AppConfig>): Promise
       { ...config, updatedAt: new Date().toISOString() },
       { merge: true }
     );
-    console.log('[FirestoreSync] Config saved to Firestore');
+    // Config saved to Firestore
     return true;
   } catch (error) {
     console.error('[FirestoreSync] Failed to save config:', error);

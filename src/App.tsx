@@ -4,13 +4,14 @@ import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { ConfigPanel } from './components/ConfigPanel';
 import { TeamComparison } from './components/TeamComparison';
-import { timeframeToDates } from './components/TimeframeSelector';
 import type { Timeframe } from './components/TimeframeSelector';
 import { TrendsView } from './components/TrendsView';
 import { RegionalView } from './components/RegionalView';
 import { InsightsView } from './components/InsightsView';
 import { ChannelPerformanceView } from './components/ChannelPerformanceView';
 import { RecordsView } from './components/RecordsView';
+import { SlidingPillGroup } from './components/SlidingPillGroup';
+import type { PillOption } from './components/SlidingPillGroup';
 // RecordNotification import removed - notifications disabled
 
 import { AgentAnalytics } from './components/AgentAnalytics';
@@ -61,6 +62,59 @@ const tagRows = (rows: CSVRow[], source: string): CSVRow[] =>
 /** Strip rows whose _source tag doesn't match (cross-contamination guard) */
 const filterBySource = (rows: CSVRow[], source: string): CSVRow[] =>
   rows.filter(row => !row._source || row._source === source);
+
+/**
+ * Enrich trips rows with destination/original-interest from passthroughs data.
+ * Uses "trip: trip name" as the join key. Only runs if trips lack a destination column
+ * but passthroughs have one. This lets Regional performance analysis work even when
+ * the Salesforce trips report doesn't include a destination column.
+ */
+const enrichTripsWithDestination = (data: RawParsedData): RawParsedData => {
+  if (!data.trips?.length || !data.passthroughs?.length) return data;
+
+  // Check if trips already have a destination column
+  const tripsHasDest = findColumn(data.trips[0], COLUMN_PATTERNS.region) !== null;
+  if (tripsHasDest) return data; // no enrichment needed
+
+  // Check if passthroughs have destination
+  const ptDestCol = findColumn(data.passthroughs[0], COLUMN_PATTERNS.region);
+  if (!ptDestCol) return data;
+
+  // Also try to get original interest from passthroughs
+  const ptOrigInterestCol = findColumn(data.passthroughs[0], ['original interest']);
+
+  // Find trip name columns
+  const ptTripNameCol = findColumn(data.passthroughs[0], ['trip: trip name', 'trip name']);
+  const tripsTripNameCol = findColumn(data.trips[0], ['trip: trip name', 'trip name']);
+  if (!ptTripNameCol || !tripsTripNameCol) return data;
+
+  // Build lookup: tripName → { destination, originalInterest }
+  const destLookup = new Map<string, { dest: string; origInterest: string }>();
+  for (const ptRow of data.passthroughs) {
+    const tripName = (ptRow[ptTripNameCol] || '').trim();
+    if (!tripName) continue;
+    const dest = (ptRow[ptDestCol] || '').trim();
+    if (!dest) continue;
+    const origInterest = ptOrigInterestCol ? (ptRow[ptOrigInterestCol] || '').trim() : '';
+    // Only set if not already present (first match wins)
+    if (!destLookup.has(tripName)) {
+      destLookup.set(tripName, { dest, origInterest });
+    }
+  }
+
+  // Enrich each trip row — add destination key to ALL rows (even unmatched)
+  // so that findColumn(trips[0], ...) can detect the column exists.
+  const enrichedTrips = data.trips.map(row => {
+    const tripName = (row[tripsTripNameCol] || '').trim();
+    const match = tripName ? destLookup.get(tripName) : undefined;
+    if (match) {
+      return { ...row, destination: match.dest, 'original interest': match.origInterest || '' };
+    }
+    return { ...row, destination: '', 'original interest': '' };
+  });
+
+  return { ...data, trips: enrichedTrips };
+};
 
 // LogoutButton disabled — auth removed for now
 // Uncomment when ready to re-enable authentication
@@ -132,7 +186,7 @@ function App() {
     // Load config: try Firestore first, fall back to localStorage
     loadConfigFromFirestore().then((config) => {
       if (config && (config.teams.length > 0 || config.seniors.length > 0 || config.newHires.length > 0)) {
-        console.log('[App] Loaded config from Firestore');
+        // Config loaded from Firestore
         setTeams(config.teams);
         setSeniors(config.seniors);
         setNewHires(config.newHires);
@@ -142,7 +196,7 @@ function App() {
         saveNewHires(config.newHires);
       } else {
         // Fall back to localStorage
-        console.log('[App] No Firestore config, using localStorage');
+        // No Firestore config, using localStorage
         setTeams(loadTeams());
         setSeniors(loadSeniors());
         setNewHires(loadNewHires());
@@ -173,7 +227,6 @@ function App() {
 
   // Load raw data from IndexedDB or Firestore — extracted so it can be re-called
   const loadData = useCallback(async () => {
-      console.log('[App] loadData() starting...');
       setLoadTransition('loading');
       setDataLoadProgress({ loading: true, progress: 5, stage: 'Planning the trip...' });
 
@@ -187,11 +240,9 @@ function App() {
 
       // Only use IndexedDB data if it actually has rows
       const hasLocalData = localData && Object.values(localData).some((arr: any) => Array.isArray(arr) && arr.length > 0);
-      console.log('[App] IndexedDB result:', hasLocalData ? `found data` : 'empty/null');
-
       if (hasLocalData) {
         setDataLoadProgress({ loading: true, progress: 90, stage: 'Making memories...' });
-        setRawParsedData(localData);
+        setRawParsedData(enrichTripsWithDestination(localData!));
         setShowDataPanel(false);
         setAutoAnalyzePending(true);
         finishLoading();
@@ -199,7 +250,6 @@ function App() {
       }
 
       // Try loading from Firestore (supports both batched and single-doc formats)
-      console.log('[App] Trying Firestore...');
       let db: any;
       try {
         db = await getDb();
@@ -214,7 +264,6 @@ function App() {
       }
 
       const { doc, getDoc } = await import('firebase/firestore');
-      console.log('[App] Firestore connected, loading datasets...');
 
       setDataLoadProgress({ loading: true, progress: 10, stage: 'Packing the bags...' });
 
@@ -231,7 +280,7 @@ function App() {
             if (firstBatch.exists()) {
               batchedData = batchedData.concat(firstBatch.data()?.data || []);
               batchNum = 1;
-              while (batchNum < 50) {
+              while (batchNum < 100) {
                 try {
                   const batchSnap = await getDoc(doc(db, 'gtt_raw_data', `${dataType}_batch_${batchNum}`));
                   if (batchSnap.exists()) {
@@ -267,13 +316,11 @@ function App() {
           const progressBase = 10 + Math.round((i / allDataTypes.length) * 75);
           setDataLoadProgress({ loading: true, progress: progressBase, stage: travelStages[i] || 'Almost there...' });
           datasets[dt] = await loadDataset(dt);
-          console.log(`[App] Loaded ${dt}: ${datasets[dt].length} rows`);
         }
 
         setDataLoadProgress({ loading: true, progress: 90, stage: 'Making memories...' });
 
         const hasData = Object.values(datasets).some((arr: any) => Array.isArray(arr) && arr.length > 0);
-        console.log('[App] Firestore hasData:', hasData);
         if (hasData) {
           const parsedData: RawParsedData = {
             trips: tagRows(datasets.trips || [], 'trips'),
@@ -285,8 +332,9 @@ function App() {
             quotesStarted: tagRows(datasets.quotesStarted || [], 'quotesStarted'),
           };
 
-          setRawParsedData(parsedData);
-          saveRawDataToDB(parsedData);
+          const enrichedData = enrichTripsWithDestination(parsedData);
+          setRawParsedData(enrichedData);
+          saveRawDataToDB(enrichedData);
           setShowDataPanel(false);
           setAutoAnalyzePending(true);
           finishLoading();
@@ -388,12 +436,13 @@ function App() {
           nonConverted: tagRows(nonConvertedRows, 'nonConverted'),
           quotesStarted: tagRows(quotesStartedRows, 'quotesStarted'),
         };
-        saveRawDataToDB(newRawData);
+        const enrichedRawData = enrichTripsWithDestination(newRawData);
+        saveRawDataToDB(enrichedRawData);
         // Also persist to Firestore so ANY browser session can load this data
-        saveRawDataToFirestore(newRawData).catch(err =>
+        saveRawDataToFirestore(enrichedRawData).catch(err =>
           console.warn('[App] Firestore write-back failed (non-critical):', err)
         );
-        setRawParsedData(newRawData);
+        setRawParsedData(enrichedRawData);
         setShowDataPanel(false);
       } else {
         // Filter by _source tag to prevent cross-contamination from storage
@@ -442,16 +491,19 @@ function App() {
       // Update rawParsedData with fill-down processed rows so that
       // downstream consumers (PresentationGenerator, RegionalView, etc.)
       // get data with agent columns fully populated.
-      setRawParsedData(prev => prev ? {
-        ...prev,
-        trips: tripsRows,
-        quotes: quotesRows,
-        passthroughs: passthroughsRows,
-        hotPass: hotPassRows,
-        bookings: bookingsRows,
-        nonConverted: nonConvertedRows,
-        quotesStarted: quotesStartedRows,
-      } : prev);
+      const processedRawData: RawParsedData = {
+        trips: tagRows(tripsRows, 'trips'),
+        quotes: tagRows(quotesRows, 'quotes'),
+        passthroughs: tagRows(passthroughsRows, 'passthroughs'),
+        hotPass: tagRows(hotPassRows, 'hotPass'),
+        bookings: tagRows(bookingsRows, 'bookings'),
+        nonConverted: tagRows(nonConvertedRows, 'nonConverted'),
+        quotesStarted: tagRows(quotesStartedRows, 'quotesStarted'),
+      };
+      setRawParsedData(processedRawData);
+      // Persist the fill-down processed data to IndexedDB so that
+      // on next load the agent columns are already fully populated.
+      saveRawDataToDB(processedRawData);
 
       const tripsAgentCol = findAgentColumn(tripsRows[0]);
       const quotesAgentCol = quotesRows.length > 0 ? findAgentColumn(quotesRows[0]) : null;
@@ -578,14 +630,19 @@ function App() {
     }
   }, [autoAnalyzePending, rawParsedData, isProcessing, processFiles]);
 
-  // Re-process when timeframe changes (only if we already have metrics)
-  const prevTimeframeRef = useRef(timeframe);
+  // Pending date range state — only applied when user clicks "Update"
+  const [pendingStartDate, setPendingStartDate] = useState<string>('');
+  const [pendingEndDate, setPendingEndDate] = useState<string>('');
+  const [dateRangeTrigger, setDateRangeTrigger] = useState(0);
+
+  // Re-process when date range is applied via the Update button
+  const prevTriggerRef = useRef(dateRangeTrigger);
   useEffect(() => {
-    if (timeframe !== prevTimeframeRef.current && metrics.length > 0 && rawParsedData && !isProcessing) {
-      prevTimeframeRef.current = timeframe;
+    if (dateRangeTrigger !== prevTriggerRef.current && metrics.length > 0 && rawParsedData && !isProcessing) {
+      prevTriggerRef.current = dateRangeTrigger;
       processFiles();
     }
-  }, [timeframe, metrics.length, rawParsedData, isProcessing, processFiles]);
+  }, [dateRangeTrigger, metrics.length, rawParsedData, isProcessing, processFiles]);
 
   const handleClearData = useCallback(() => {
     // Clear everything — analyzed results AND stored raw data
@@ -613,11 +670,21 @@ function App() {
     clearRawDataFromDB();
   }, []);
 
-  const handleTimeframeChange = useCallback((tf: Timeframe) => {
-    setTimeframe(tf);
-    const { startDate: s, endDate: e } = timeframeToDates(tf);
-    setStartDate(s);
-    setEndDate(e);
+
+  const handleApplyDateRange = useCallback(() => {
+    setStartDate(pendingStartDate);
+    setEndDate(pendingEndDate);
+    setTimeframe('all');
+    setDateRangeTrigger(prev => prev + 1);
+  }, [pendingStartDate, pendingEndDate]);
+
+  const handleClearDateRange = useCallback(() => {
+    setPendingStartDate('');
+    setPendingEndDate('');
+    setStartDate('');
+    setEndDate('');
+    setTimeframe('all');
+    setDateRangeTrigger(prev => prev + 1);
   }, []);
 
   const handleClearRecords = useCallback(() => {
@@ -1001,46 +1068,19 @@ function App() {
 
         {/* View Toggle & Config - Always show tabs, disable data-dependent ones */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div className={`rounded-lg p-1 flex gap-1 transition-colors overflow-x-auto max-w-full scrollbar-hide ${
-            isAudley
-              ? 'bg-white border border-[#4d726d]/20 shadow-sm'
-              : 'bg-slate-800/50'
-          }`}>
-            {(['summary', 'regional', 'channels', 'trends', 'insights', 'records'] as const).map((view) => {
-              const isDisabled = (view === 'summary' || view === 'regional' || view === 'channels' || view === 'insights') && metrics.length === 0;
-              const isActive = activeView === view;
-              const labels = {
-                summary: 'Summary',
-                regional: 'Regional',
-                channels: 'Channels',
-                trends: 'Trends',
-                insights: 'Insights',
-                records: 'Records'
-              };
-
-              return (
-                <button
-                  key={view}
-                  onClick={() => {
-                    setActiveView(view);
-                    if (navigator.vibrate) navigator.vibrate(10);
-                  }}
-                  disabled={isDisabled}
-                  className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 ease-out cursor-pointer active:scale-95 flex-shrink-0 ${
-                    isActive
-                      ? isAudley
-                        ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-md scale-[1.02]'
-                        : 'bg-[#1a7fa8] text-white shadow-md shadow-[#1a7fa8]/30 scale-[1.02]'
-                      : isAudley
-                        ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e6f3fb] disabled:opacity-50 disabled:cursor-not-allowed'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {labels[view]}
-                </button>
-              );
-            })}
-          </div>
+          <SlidingPillGroup
+            options={[
+              { value: 'summary', label: 'Summary', disabled: metrics.length === 0 },
+              { value: 'regional', label: 'Regional', disabled: metrics.length === 0 },
+              { value: 'channels', label: 'Channels', disabled: metrics.length === 0 },
+              { value: 'trends', label: 'Trends' },
+              { value: 'insights', label: 'Insights', disabled: metrics.length === 0 },
+              { value: 'records', label: 'Records' },
+            ]}
+            value={activeView}
+            onChange={(v) => setActiveView(v as typeof activeView)}
+            className="overflow-x-auto max-w-full scrollbar-hide"
+          />
 
           {activeView === 'summary' && metrics.length > 0 && (
             <div className="flex-1 max-w-xl">
@@ -1062,8 +1102,20 @@ function App() {
           {/* Summary View */}
           {activeView === 'summary' && metrics.length > 0 && (
             <div className="space-y-4">
-              <TeamComparison metrics={metrics} teams={teams} seniors={seniors} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} rawData={rawParsedData} records={records} startDate={startDate} endDate={endDate} />
-              <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} timeframe={timeframe} onTimeframeChange={handleTimeframeChange} />
+              <TeamComparison
+                metrics={metrics}
+                teams={teams}
+                seniors={seniors}
+                rawData={rawParsedData}
+                records={records}
+                startDate={pendingStartDate}
+                endDate={pendingEndDate}
+                onStartDateChange={setPendingStartDate}
+                onEndDateChange={setPendingEndDate}
+                onApplyDateRange={handleApplyDateRange}
+                onClearDateRange={handleClearDateRange}
+              />
+              <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} />
               <AgentAnalytics metrics={metrics} seniors={seniors} />
             </div>
           )}

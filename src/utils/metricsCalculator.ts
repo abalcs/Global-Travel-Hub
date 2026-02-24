@@ -209,6 +209,7 @@ export const countByAgentOptimized = (
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    if (row['_groupHeader']) continue; // Skip Salesforce group header rows
     const agent = row[agentColumn];
     if (!agent || isMetadataRow(agent)) continue;
 
@@ -276,6 +277,7 @@ export const countRepeatByAgent = (
   const hasDateFilter = startInt !== null || endInt !== null;
 
   for (const row of tripsRows) {
+    if (row['_groupHeader']) continue;
     const agent = row[agentColumn];
     if (!agent || isMetadataRow(agent)) continue;
 
@@ -341,6 +343,7 @@ export const countQuotesStartedByAgent = (
   const hasDateFilter = startInt !== null || endInt !== null;
 
   for (const row of quotesStartedRows) {
+    if (row['_groupHeader']) continue;
     const agent = row[agentCol];
     if (!agent || isMetadataRow(agent)) continue;
 
@@ -397,6 +400,7 @@ export const countB2bByAgent = (
   const hasDateFilter = startInt !== null || endInt !== null;
 
   for (const row of tripsRows) {
+    if (row['_groupHeader']) continue;
     const agent = row[agentColumn];
     if (!agent || isMetadataRow(agent)) continue;
 

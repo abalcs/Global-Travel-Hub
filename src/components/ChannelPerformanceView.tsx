@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { SlidingPillGroup } from './SlidingPillGroup';
 import type { RawParsedData } from '../utils/indexedDB';
 import {
   analyzeRepeatClientPerformance,
@@ -162,10 +163,8 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
               Repeat Client T&gt;P Performance
             </h3>
             {/* Timeframe Toggle */}
-            <div className={`flex flex-wrap gap-1 p-1 rounded-lg ${
-              isAudley ? 'bg-slate-100' : 'bg-slate-800/50'
-            }`}>
-              {[
+            <SlidingPillGroup
+              options={[
                 { value: 'lastWeek', label: 'Last Wk' },
                 { value: 'thisMonth', label: 'This Mo' },
                 { value: 'lastMonth', label: 'Last Mo' },
@@ -173,24 +172,12 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                 { value: 'lastQuarter', label: 'Last Q' },
                 { value: 'lastYear', label: 'Last Yr' },
                 { value: 'all', label: 'All' },
-              ].map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setRepeatTimeframe(value as RegionalTimeframe)}
-                  className={`px-2 py-1 text-xs rounded transition-colors cursor-pointer ${
-                    repeatTimeframe === value
-                      ? isAudley
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-600 text-white'
-                      : isAudley
-                        ? 'text-slate-600 hover:text-slate-800 hover:bg-white'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+              ]}
+              value={repeatTimeframe}
+              onChange={(v) => setRepeatTimeframe(v as RegionalTimeframe)}
+              activeGradient={{ light: 'linear-gradient(to right, #059669, #10b981)', dark: 'linear-gradient(to right, #059669, #10b981)' }}
+              size="sm"
+            />
           </div>
 
           {/* Department Level Stats */}
@@ -429,10 +416,8 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
               B2B vs B2C T&gt;P Performance
             </h3>
             {/* Timeframe Toggle */}
-            <div className={`flex flex-wrap gap-1 p-1 rounded-lg ${
-              isAudley ? 'bg-slate-100' : 'bg-slate-800/50'
-            }`}>
-              {[
+            <SlidingPillGroup
+              options={[
                 { value: 'lastWeek', label: 'Last Wk' },
                 { value: 'thisMonth', label: 'This Mo' },
                 { value: 'lastMonth', label: 'Last Mo' },
@@ -440,22 +425,12 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                 { value: 'lastQuarter', label: 'Last Q' },
                 { value: 'lastYear', label: 'Last Yr' },
                 { value: 'all', label: 'All' },
-              ].map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setB2bTimeframe(value as RegionalTimeframe)}
-                  className={`px-2 py-1 text-xs rounded transition-colors cursor-pointer ${
-                    b2bTimeframe === value
-                      ? 'bg-blue-600 text-white'
-                      : isAudley
-                        ? 'text-slate-600 hover:text-slate-800 hover:bg-white'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+              ]}
+              value={b2bTimeframe}
+              onChange={(v) => setB2bTimeframe(v as RegionalTimeframe)}
+              activeGradient={{ light: 'linear-gradient(to right, #2563eb, #3b82f6)', dark: 'linear-gradient(to right, #2563eb, #3b82f6)' }}
+              size="sm"
+            />
           </div>
 
           {/* Department Level Stats */}

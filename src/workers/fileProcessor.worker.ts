@@ -87,18 +87,27 @@ const parseExcelFile = (buffer: ArrayBuffer): CSVRow[] => {
     );
   }
 
-  // Find owner key once
-  const ownerKey = headers.find(h =>
-    h.includes('gtt owner') ||
-    h.includes('owner name') ||
-    h.includes('agent') ||
-    h.includes('last gtt action by')
-  );
+  // Find owner key using the same priority order as findAgentColumn
+  // in metricsCalculator.ts to avoid column mismatch:
+  //   1. gtt owner (authoritative GTT agent column)
+  //   2. last gtt action by
+  //   3. owner name
+  //   4. agent (generic)
+  const ownerKey =
+    headers.find(h => h.includes('gtt owner')) ||
+    headers.find(h => h.includes('last gtt action by')) ||
+    headers.find(h => h.includes('owner name')) ||
+    headers.find(h => h.includes('agent')) ||
+    undefined;
 
-  // Pre-allocate array
+  // ------------------------------------------------------------------
+  // Simple row parser — no fill-down or group header detection here.
+  // App.tsx's fillDownAgent() handles grouped-column detection and
+  // fill-down correctly (it already works on manual upload). Keeping
+  // the Worker as a dumb parser avoids fragile heuristics that miss
+  // some agents' group headers.
+  // ------------------------------------------------------------------
   const rows: CSVRow[] = [];
-
-  let currentAgent = '';
   const headerLen = headers.length;
 
   for (let i = headerRowIndex + 1; i < rawData.length; i++) {
@@ -121,36 +130,18 @@ const parseExcelFile = (buffer: ArrayBuffer): CSVRow[] => {
       rowObj[headers[j]] = String(row[j] ?? '').trim();
     }
 
-    // Check for group header
-    const firstValue = rowObj[headers[0]] || '';
-    const nonEmptyCount = Object.values(rowObj).filter(v => v && v !== '').length;
-
-    const looksLikeGroupHeader = nonEmptyCount <= 2 &&
-      firstValue.length > 3 &&
-      (firstValue.includes(' ') || firstValue.includes(',')) &&
-      !/^\d/.test(firstValue) &&
-      !firstValue.toLowerCase().includes('total');
-
-    if (looksLikeGroupHeader) {
-      currentAgent = firstValue;
+    // Skip summary / totals rows
+    const firstValue = (rowObj[headers[0]] || '').toLowerCase();
+    if (firstValue === 'total' || firstValue === 'subtotal' ||
+        firstValue.includes('grand total')) {
       continue;
     }
-
-    // Handle owner column
     if (ownerKey) {
-      if (rowObj[ownerKey] && rowObj[ownerKey] !== '') {
-        currentAgent = rowObj[ownerKey];
-      } else {
-        rowObj[ownerKey] = currentAgent;
+      const ownerVal = (rowObj[ownerKey] || '').toLowerCase();
+      if (ownerVal === 'total' || ownerVal === 'subtotal' ||
+          ownerVal.includes('grand total')) {
+        continue;
       }
-    } else if (currentAgent) {
-      rowObj['_agent'] = currentAgent;
-    }
-
-    // Skip summary rows
-    const ownerVal = ownerKey ? rowObj[ownerKey].toLowerCase() : '';
-    if (ownerVal === 'total' || ownerVal === 'subtotal' || ownerVal.includes('grand total')) {
-      continue;
     }
 
     rows.push(rowObj);

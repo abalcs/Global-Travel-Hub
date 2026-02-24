@@ -1,4 +1,4 @@
-import { useTheme } from '../contexts/ThemeContext';
+import { SlidingPillGroup } from './SlidingPillGroup';
 
 export type Timeframe = 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'lastYear' | 'all';
 
@@ -81,32 +81,11 @@ export function timeframeToDates(tf: Timeframe): { startDate: string; endDate: s
 }
 
 export const TimeframeSelector = ({ value, onChange }: TimeframeSelectorProps) => {
-  const { isAudley } = useTheme();
-
   return (
-    <div className={`flex flex-wrap gap-1 p-1 rounded-lg w-fit ${
-      isAudley ? 'bg-[#eef5f4] border border-[#4d726d]/30 shadow-sm' : 'bg-slate-800/50'
-    }`}>
-      {TIMEFRAME_OPTIONS.map(({ value: tf, label }) => (
-        <button
-          key={tf}
-          onClick={() => {
-            onChange(tf);
-            if (navigator.vibrate) navigator.vibrate(10);
-          }}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors cursor-pointer ${
-            value === tf
-              ? isAudley
-                ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white shadow-sm'
-                : 'bg-gradient-to-r from-[#1a5c6e] to-[#1a7fa8] text-white shadow-sm'
-              : isAudley
-                ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e8f0ef]'
-                : 'text-slate-300 hover:text-white hover:bg-slate-600/60'
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <SlidingPillGroup
+      options={TIMEFRAME_OPTIONS}
+      value={value}
+      onChange={(v) => onChange(v as Timeframe)}
+    />
   );
 };

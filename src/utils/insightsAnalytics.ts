@@ -1,7 +1,7 @@
 import type { CSVRow } from './csvParser';
 import type { RawParsedData } from './indexedDB';
 import Anthropic from '@anthropic-ai/sdk';
-import { parseDateTime as parseDateTimeUtil, parseDate as parseDateUtil, DAY_NAMES, TIME_SLOTS, getTimeframeDates } from './dateParser';
+import { parseDateTime as parseDateTimeUtil, parseDate as parseDateUtil, formatDateString as formatDateStringUtil, DAY_NAMES, TIME_SLOTS, getTimeframeDates } from './dateParser';
 import { findColumn as findColumnUtil } from './columnDetection';
 
 // ============ US Program to Destination Mapping ============
@@ -40,6 +40,12 @@ export const PROGRAM_DESTINATION_MAP: Record<string, string[]> = {
     'Benelux', 'Luxembourg', 'Netherlands', 'Switzerland', 'Norway',
     'Sweden', 'Denmark', 'Scandinavia', 'Scandanavia', 'Turkey'
   ]
+};
+
+// Combined program pairs for Champ meetings
+export const COMBINED_PROGRAMS: Record<string, string[]> = {
+  'CANAL & ASIA': [...PROGRAM_DESTINATION_MAP['CANAL'], ...PROGRAM_DESTINATION_MAP['ASIA']],
+  'ESE & WEMEA': [...PROGRAM_DESTINATION_MAP['ESE'], ...PROGRAM_DESTINATION_MAP['WEMEA']],
 };
 
 // Create reverse lookup: destination -> program
@@ -582,12 +588,25 @@ const getTimeframeRange = (timeframe: RegionalTimeframe): TimeframeRange => {
   }
 };
 
+/**
+ * Check if a date string falls within a timeframe range.
+ * Uses YYYY-MM-DD string comparison to avoid timezone drift issues
+ * (e.g. new Date("2026-02-23") is UTC midnight, which is Feb 22 in US timezones).
+ */
+const fmtDateForCompare = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const isWithinTimeframe = (dateStr: string, startDate: Date | null, endDate?: Date | null): boolean => {
   if (!startDate && !endDate) return true; // 'all' timeframe
-  const date = parseDate(dateStr);
-  if (!date) return false;
-  if (startDate && date < startDate) return false;
-  if (endDate && date > endDate) return false;
+  // Parse the CSV date to a YYYY-MM-DD string (timezone-safe)
+  const rowDate = formatDateStringUtil(dateStr);
+  if (!rowDate) return false;
+  if (startDate && rowDate < fmtDateForCompare(startDate)) return false;
+  if (endDate && rowDate > fmtDateForCompare(endDate)) return false;
   return true;
 };
 
@@ -595,8 +614,8 @@ export const analyzeRegionalPerformance = (
   trips: CSVRow[],
   timeframe: RegionalTimeframe = 'all',
   hotPassData: CSVRow[] = [],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _quotesData: CSVRow[] = [] // Kept for backwards compatibility; P>Q now calculated from trips data
+  quotesData: CSVRow[] = [],
+  passthroughsData: CSVRow[] = []
 ): DepartmentRegionalPerformance => {
   const emptyResult: DepartmentRegionalPerformance = {
     topRegions: [],
@@ -623,9 +642,6 @@ export const analyzeRegionalPerformance = (
   const regionCol = findColumn(trips[0], ['destination', 'region', 'country', 'original interest']);
   const passthroughDateCol = findColumn(trips[0], ['passthrough to sales date', 'passthrough date']);
   const dateCol = findColumn(trips[0], ['created date', 'trip: created date', 'date']);
-  // Check for quote first sent in trips data - more accurate P>Q calculation
-  const tripsQuoteDateCol = findColumn(trips[0], ['quote first sent', 'first sent date']);
-
   if (!regionCol) {
     return emptyResult;
   }
@@ -635,7 +651,23 @@ export const analyzeRegionalPerformance = (
     ? findColumn(hotPassData[0], ['destination', 'region', 'country', 'original interest'])
     : null;
   const hotPassDateCol = hotPassData.length > 0
-    ? findColumn(hotPassData[0], ['created date', 'enquiry date', 'trip created', 'date'])
+    ? findColumn(hotPassData[0], ['passthrough to sales date', 'passthrough date', 'created date'])
+    : null;
+
+  // Find region column in passthroughs report for accurate PT counting (matches KPI pipeline)
+  const ptRegionCol = passthroughsData.length > 0
+    ? findColumn(passthroughsData[0], ['destination', 'region', 'country', 'original interest'])
+    : null;
+  const ptDateCol = passthroughsData.length > 0
+    ? findColumn(passthroughsData[0], ['passthrough to sales date', 'passthrough date', 'created date', 'date'])
+    : null;
+
+  // Find region column in quotes data for P>Q calculation
+  const quotesRegionCol = quotesData.length > 0
+    ? findColumn(quotesData[0], ['destination', 'region', 'country', 'original interest'])
+    : null;
+  const quotesDateCol = quotesData.length > 0
+    ? findColumn(quotesData[0], ['quote first sent', 'first sent date', 'created date', 'date'])
     : null;
 
   // Group by region - include hot passes and quotes
@@ -646,7 +678,7 @@ export const analyzeRegionalPerformance = (
   const isExcluded = (region: string) =>
     excludedRegions.some(excluded => region.toLowerCase().includes(excluded));
 
-  // Process trips data
+  // Process trips data — count trips per destination
   for (const row of trips) {
     const region = (row[regionCol] || '').trim();
     if (!region || region.length < 2) continue;
@@ -661,19 +693,29 @@ export const analyzeRegionalPerformance = (
 
     regionStats[region].trips++;
 
-    // Check for passthrough
-    const hasPassthrough = passthroughDateCol && (row[passthroughDateCol] || '').trim().length > 0;
-    if (hasPassthrough) {
-      regionStats[region].passthroughs++;
-
-      // Check if this passthrough also has a quote (more accurate P>Q calculation)
-      // A passthrough with a "quote first sent" date means it converted to a quote
-      if (tripsQuoteDateCol) {
-        const quoteDate = (row[tripsQuoteDateCol] || '').trim();
-        if (quoteDate && quoteDate.length > 0) {
-          regionStats[region].quotes++;
-        }
+    // Fallback: count passthroughs from trips report if no separate PT report
+    if (!ptRegionCol) {
+      const hasPassthrough = passthroughDateCol && (row[passthroughDateCol] || '').trim().length > 0;
+      if (hasPassthrough) {
+        regionStats[region].passthroughs++;
       }
+    }
+  }
+
+  // Count passthroughs from the separate passthroughs report (matches KPI pipeline)
+  if (ptRegionCol) {
+    for (const row of passthroughsData) {
+      const region = (row[ptRegionCol] || '').trim();
+      if (!region || region.length < 2) continue;
+      if (isExcluded(region)) continue;
+
+      const rowDate = ptDateCol ? row[ptDateCol] : '';
+      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+
+      if (!regionStats[region]) {
+        regionStats[region] = { trips: 0, passthroughs: 0, hotPasses: 0, quotes: 0 };
+      }
+      regionStats[region].passthroughs++;
     }
   }
 
@@ -694,9 +736,22 @@ export const analyzeRegionalPerformance = (
     }
   }
 
-  // Note: Quotes are now counted from trips data directly (passthroughs with "quote first sent" date)
-  // This provides a more accurate P>Q rate than counting rows from the quotes file,
-  // which may contain multiple entries per trip (revisions, etc.)
+  // Process quotes data to count quotes by destination for P>Q calculation
+  if (quotesRegionCol) {
+    for (const row of quotesData) {
+      const region = (row[quotesRegionCol] || '').trim();
+      if (!region || region.length < 2) continue;
+      if (isExcluded(region)) continue;
+
+      const rowDate = quotesDateCol ? row[quotesDateCol] : '';
+      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+
+      // Only count if we have trips/passthrough data for this region
+      if (regionStats[region]) {
+        regionStats[region].quotes++;
+      }
+    }
+  }
 
   // Convert to array and calculate rates
   const allRegions: RegionalPerformance[] = Object.entries(regionStats)
@@ -712,10 +767,108 @@ export const analyzeRegionalPerformance = (
       pqRate: stats.passthroughs > 0 ? (stats.quotes / stats.passthroughs) * 100 : 0,
     }));
 
-  const totalTrips = allRegions.reduce((sum, r) => sum + r.trips, 0);
-  const totalPassthroughs = allRegions.reduce((sum, r) => sum + r.passthroughs, 0);
-  const totalHotPasses = allRegions.reduce((sum, r) => sum + r.hotPasses, 0);
-  const totalQuotes = allRegions.reduce((sum, r) => sum + r.quotes, 0);
+  // Compute overall totals directly from raw CSVs (matching KPI Summary pipeline exactly).
+  // This bypasses destination-grouping, exclusions, and guards so totals match the Summary tab.
+  // Helper: find an agent-like column in a CSV row for metadata filtering
+  const findAgentCol = (row: CSVRow): string | null => {
+    const keys = Object.keys(row);
+    const agentNames = ['_agent', 'gtt owner', 'last gtt action by', 'owner name', 'agent', 'name'];
+    for (const name of agentNames) {
+      const match = keys.find(k => k.toLowerCase().includes(name));
+      if (match) return match;
+    }
+    return null;
+  };
+
+  // Inline metadata detection (avoids cross-module import that can cause bundling issues)
+  const METADATA_RX = [
+    /^as of \d{4}/i, /^channel:/i, /^date field:/i, /^filtered by$/i,
+    /^field \//i, /^show:/i, /^total$/i, /^grand total/i, /^subtotal/i,
+    /^gtt owner/i, /^last gtt action by/i, /^new value /i,
+    /^passthrough date vs/i, /^passthrough to sales date /i, /^trip channel /i,
+    /equals /i, /^you've reached/i, /generated by .* sorted by/i, / ↑$/, / ↓$/,
+    /\bcount\b/i, /\bunique\b/i, /\bsum\b/i, /\baverage\b/i, /\brecord/i,
+    /\bformula/i, /\breport\b/i, /^group /i, /^powered by/i, /^confidential/i,
+    /^copyright/i, /^\d+\s*row/i, /^page \d/i, /^-+$/, /^=+$/, /^\d+$/,
+    /\bsorted\b/i, /\bfiltered\b/i, /\bgrouped\b/i, /\bgenerated\b/i,
+  ];
+  const isMetaValue = (v: string): boolean => {
+    if (!v) return true;
+    const t = v.trim();
+    if (t.length === 0 || t.length > 60) return true;
+    if (/[=<>{}|\\[\]#@:;()\/]/.test(t)) return true;
+    const lc = (t.match(/[a-zA-Z]/g) || []).length;
+    if (lc < 2) return true;
+    if (METADATA_RX.some(p => p.test(t))) return true;
+    if (t.split(/\s+/).length > 5) return true;
+    const tc = t.replace(/\s/g, '').length;
+    if (tc > 0 && lc / tc < 0.7) return true;
+    return false;
+  };
+  const isMetaRow = (row: CSVRow, agentCol: string | null): boolean => {
+    if (agentCol) return isMetaValue((row[agentCol] || '').trim());
+    return Object.values(row).some(v => {
+      const s = (v || '').trim().toLowerCase();
+      return s === 'grand total' || s === 'total' || s.startsWith('subtotal');
+    });
+  };
+
+  const tripsAgentCol = findAgentCol(trips[0]);
+  let totalTrips = 0;
+  for (const row of trips) {
+    if (row['_groupHeader']) continue;
+    if (isMetaRow(row, tripsAgentCol)) continue;
+    const rowDate = dateCol ? row[dateCol] : '';
+    if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+    totalTrips++;
+  }
+
+  let totalPassthroughs = 0;
+  if (passthroughsData.length > 0) {
+    const ptAgentCol = findAgentCol(passthroughsData[0]);
+    // Count from the separate passthroughs report (same source as KPI)
+    for (const row of passthroughsData) {
+      if (row['_groupHeader']) continue;
+      if (isMetaRow(row, ptAgentCol)) continue;
+      const rowDate = ptDateCol ? row[ptDateCol] : '';
+      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+      totalPassthroughs++;
+    }
+  } else {
+    // Fallback: derive from trips report passthrough date column
+    for (const row of trips) {
+      if (row['_groupHeader']) continue;
+      if (isMetaRow(row, tripsAgentCol)) continue;
+      const rowDate = dateCol ? row[dateCol] : '';
+      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+      const hasPassthrough = passthroughDateCol && (row[passthroughDateCol] || '').trim().length > 0;
+      if (hasPassthrough) totalPassthroughs++;
+    }
+  }
+
+  let totalHotPasses = 0;
+  if (hotPassData.length > 0) {
+    const hpAgentCol = findAgentCol(hotPassData[0]);
+    for (const row of hotPassData) {
+      if (row['_groupHeader']) continue;
+      if (isMetaRow(row, hpAgentCol)) continue;
+      const rowDate = hotPassDateCol ? row[hotPassDateCol] : '';
+      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+      totalHotPasses++;
+    }
+  }
+
+  let totalQuotes = 0;
+  if (quotesData.length > 0) {
+    const qAgentCol = findAgentCol(quotesData[0]);
+    for (const row of quotesData) {
+      if (row['_groupHeader']) continue;
+      if (isMetaRow(row, qAgentCol)) continue;
+      const rowDate = quotesDateCol ? row[quotesDateCol] : '';
+      if (!isWithinTimeframe(rowDate, startDate, endDate)) continue;
+      totalQuotes++;
+    }
+  }
   const overallTpRate = totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0;
   const overallHotPassRate = totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0;
   const overallPqRate = totalPassthroughs > 0 ? (totalQuotes / totalPassthroughs) * 100 : 0;
@@ -782,43 +935,46 @@ export const analyzeRegionalPerformance = (
 };
 
 export const generateDepartmentRecommendations = (
-  performance: DepartmentRegionalPerformance
+  performance: DepartmentRegionalPerformance,
+  prevQuarterPerformance?: DepartmentRegionalPerformance
 ): DepartmentImprovementRecommendation[] => {
   if (performance.allRegions.length === 0) return [];
 
+  // Build prev quarter lookup for QTD vs prev quarter comparison
+  const prevLookup = new Map<string, number>();
+  if (prevQuarterPerformance) {
+    for (const r of prevQuarterPerformance.allRegions) {
+      prevLookup.set(r.region, r.tpRate);
+    }
+  }
   const deptAvgRate = performance.overallTpRate;
 
-  // Find regions performing below department average
-  const belowAverage = performance.allRegions
-    .filter(r => r.tpRate < deptAvgRate && r.trips >= 3)
+  // Compare each destination's QTD rate vs its previous quarter rate (or dept avg as fallback)
+  const belowPrev = performance.allRegions
+    .filter(r => r.trips >= 3)
     .map(r => {
-      const deviation = r.tpRate - deptAvgRate;
-      // Calculate potential gain: if this region matched dept avg, how many more passthroughs?
-      const expectedPassthroughs = (deptAvgRate / 100) * r.trips;
+      const baselineRate = prevLookup.get(r.region) ?? deptAvgRate;
+      const deviation = r.tpRate - baselineRate;
+      // potentialGain: extra passthroughs if matched previous quarter rate
+      const expectedPassthroughs = (baselineRate / 100) * r.trips;
       const potentialGain = Math.max(0, expectedPassthroughs - r.passthroughs);
-
-      // Impact score: prioritizes potential gain (actual training lift)
-      // Primary factor: potential passthroughs gained
-      // Secondary factor: volume × gap (training opportunity size)
-      const impactScore = (potentialGain * 10) + (r.trips * Math.abs(deviation) / 100);
 
       return {
         region: r.region,
         tpRate: r.tpRate,
-        departmentAvgRate: deptAvgRate,
+        departmentAvgRate: baselineRate, // prev quarter rate (or dept avg fallback)
         deviation,
         trips: r.trips,
         passthroughs: r.passthroughs,
         potentialGain,
-        impactScore,
+        impactScore: potentialGain, // Rank directly by quantitative gain
       };
     })
-    .sort((a, b) => b.impactScore - a.impactScore);
+    .filter(r => r.deviation < -1 && prevLookup.has(r.region)) // only destinations that declined vs prev qtr
+    .sort((a, b) => b.potentialGain - a.potentialGain);
 
-  // Generate recommendations with priorities based on potential training lift
-  return belowAverage.slice(0, 5).map((r) => {
+  return belowPrev.slice(0, 5).map((r) => {
     let priority: 'high' | 'medium' | 'low';
-    // Priority based on potential gain and volume
     if (r.potentialGain >= 10 || (r.trips >= 100 && r.potentialGain >= 5)) {
       priority = 'high';
     } else if (r.potentialGain >= 5 || r.trips >= 50) {
@@ -827,70 +983,64 @@ export const generateDepartmentRecommendations = (
       priority = 'low';
     }
 
-    // Generate reason focused on training impact
-    let reason: string;
     const deviationAbs = Math.abs(r.deviation).toFixed(1);
     const potentialGainRounded = Math.round(r.potentialGain);
+    let reason: string;
 
     if (r.trips >= 100 && potentialGainRounded >= 10) {
-      reason = `High-impact training opportunity: ${r.trips} trips with ${deviationAbs}pp gap. Training here could yield ~${potentialGainRounded} additional passthroughs.`;
+      reason = `High-impact: ${r.trips} trips, down ${deviationAbs}pp vs prev quarter. Could recover ~${potentialGainRounded} passthroughs.`;
     } else if (r.trips >= 100) {
-      reason = `High-volume region (${r.trips} trips). Training focus here maximizes reach - could gain ~${potentialGainRounded} passthroughs.`;
+      reason = `High-volume (${r.trips} trips), down ${deviationAbs}pp. Recovery potential: ~${potentialGainRounded} PTs.`;
     } else if (potentialGainRounded >= 5) {
-      reason = `Training opportunity: ~${potentialGainRounded} potential passthroughs by closing the ${deviationAbs}pp gap.`;
-    } else if (Math.abs(r.deviation) > 15) {
-      reason = `Significant skill gap of ${deviationAbs}pp. Consider targeted training for this destination.`;
+      reason = `Down ${deviationAbs}pp vs prev quarter. ~${potentialGainRounded} potential passthroughs to recover.`;
     } else {
-      reason = `${r.trips} trips at ${deviationAbs}pp below average. Incremental training gains available.`;
+      reason = `${r.trips} trips, down ${deviationAbs}pp vs prev quarter. ~${potentialGainRounded} PTs recoverable.`;
     }
 
-    return {
-      ...r,
-      priority,
-      reason,
-    };
+    return { ...r, priority, reason };
   });
 };
 
-// Generate P>Q improvement recommendations (volume-weighted like T>P)
+// Generate P>Q improvement recommendations (QTD vs previous quarter, ranked by potentialGain)
 export const generatePqDepartmentRecommendations = (
-  performance: DepartmentRegionalPerformance
+  performance: DepartmentRegionalPerformance,
+  prevQuarterPerformance?: DepartmentRegionalPerformance
 ): DepartmentImprovementRecommendation[] => {
   if (performance.allRegions.length === 0 || performance.totalPassthroughs === 0) return [];
 
+  // Build prev quarter lookup for P>Q
+  const prevLookup = new Map<string, number>();
+  if (prevQuarterPerformance) {
+    for (const r of prevQuarterPerformance.allRegions) {
+      prevLookup.set(r.region, r.pqRate);
+    }
+  }
   const deptAvgRate = performance.overallPqRate;
 
-  // Find regions with below-average P>Q rate (need at least 3 passthroughs for meaningful analysis)
-  const belowAverage = performance.allRegions
-    .filter(r => r.passthroughs >= 3 && r.pqRate < deptAvgRate)
+  const belowPrev = performance.allRegions
+    .filter(r => r.passthroughs >= 3)
     .map(r => {
-      const deviation = r.pqRate - deptAvgRate;
-      // Calculate potential gain: if this region matched dept avg P>Q, how many more quotes?
-      const expectedQuotes = (deptAvgRate / 100) * r.passthroughs;
+      const baselineRate = prevLookup.get(r.region) ?? deptAvgRate;
+      const deviation = r.pqRate - baselineRate;
+      const expectedQuotes = (baselineRate / 100) * r.passthroughs;
       const potentialGain = Math.max(0, expectedQuotes - r.quotes);
-
-      // Impact score: prioritizes potential gain (actual training lift for quotes)
-      // Primary factor: potential quotes gained
-      // Secondary factor: volume × gap (training opportunity size)
-      const impactScore = (potentialGain * 10) + (r.passthroughs * Math.abs(deviation) / 100);
 
       return {
         region: r.region,
-        tpRate: r.pqRate, // Using tpRate field to store P>Q rate for compatibility
-        departmentAvgRate: deptAvgRate,
+        tpRate: r.pqRate,
+        departmentAvgRate: baselineRate,
         deviation,
-        trips: r.passthroughs, // Using trips field to store passthroughs for compatibility
-        passthroughs: r.quotes, // Using passthroughs field to store quotes for compatibility
+        trips: r.passthroughs,
+        passthroughs: r.quotes,
         potentialGain,
-        impactScore,
+        impactScore: potentialGain,
       };
     })
-    .sort((a, b) => b.impactScore - a.impactScore);
+    .filter(r => r.deviation < -1 && prevLookup.has(r.region))
+    .sort((a, b) => b.potentialGain - a.potentialGain);
 
-  // Generate recommendations with priorities based on potential training lift
-  return belowAverage.slice(0, 5).map((r) => {
+  return belowPrev.slice(0, 5).map((r) => {
     let priority: 'high' | 'medium' | 'low';
-    // Priority based on potential gain and volume (passthroughs)
     if (r.potentialGain >= 8 || (r.trips >= 50 && r.potentialGain >= 4)) {
       priority = 'high';
     } else if (r.potentialGain >= 4 || r.trips >= 25) {
@@ -899,28 +1049,21 @@ export const generatePqDepartmentRecommendations = (
       priority = 'low';
     }
 
-    // Generate reason focused on training impact for P>Q
-    let reason: string;
     const deviationAbs = Math.abs(r.deviation).toFixed(1);
     const potentialGainRounded = Math.round(r.potentialGain);
+    let reason: string;
 
     if (r.trips >= 50 && potentialGainRounded >= 8) {
-      reason = `High-impact quoting opportunity: ${r.trips} passthroughs with ${deviationAbs}pp P>Q gap. Focus here could yield ~${potentialGainRounded} additional quotes.`;
+      reason = `High-impact: ${r.trips} PTs, P>Q down ${deviationAbs}pp vs prev quarter. Could recover ~${potentialGainRounded} quotes.`;
     } else if (r.trips >= 50) {
-      reason = `High-volume destination (${r.trips} passthroughs). Training focus here maximizes quote potential - could gain ~${potentialGainRounded} quotes.`;
+      reason = `High-volume (${r.trips} PTs), P>Q down ${deviationAbs}pp. Recovery potential: ~${potentialGainRounded} quotes.`;
     } else if (potentialGainRounded >= 4) {
-      reason = `Quoting opportunity: ~${potentialGainRounded} potential quotes by closing the ${deviationAbs}pp P>Q gap.`;
-    } else if (Math.abs(r.deviation) > 15) {
-      reason = `Significant P>Q gap of ${deviationAbs}pp. Consider quoting skills training for this destination.`;
+      reason = `P>Q down ${deviationAbs}pp vs prev quarter. ~${potentialGainRounded} potential quotes to recover.`;
     } else {
-      reason = `${r.trips} passthroughs at ${deviationAbs}pp below P>Q average. Incremental quoting gains available.`;
+      reason = `${r.trips} PTs, P>Q down ${deviationAbs}pp vs prev quarter. ~${potentialGainRounded} quotes recoverable.`;
     }
 
-    return {
-      ...r,
-      priority,
-      reason,
-    };
+    return { ...r, priority, reason };
   });
 };
 
@@ -1729,7 +1872,7 @@ export const generateInsightsData = (rawData: RawParsedData, timeframe: Regional
   );
 
   // Regional performance analysis (uses its own timeframe filtering)
-  const departmentRegionalPerformance = analyzeRegionalPerformance(rawData.trips, timeframe, rawData.hotPass, rawData.quotes);
+  const departmentRegionalPerformance = analyzeRegionalPerformance(rawData.trips, timeframe, rawData.hotPass, rawData.quotes, rawData.passthroughs);
   const agentRegionalPerformance = analyzeRegionalPerformanceByAgent(rawData.trips, timeframe);
   const regionalTrends = analyzeRegionalTrends(rawData.trips, 6);
   const hasRegionalData = departmentRegionalPerformance.allRegions.length > 0;
@@ -1927,54 +2070,47 @@ export const extractProgramDestinationAssociations = (rawData: RawParsedData): R
   return result;
 };
 
-// Extract unique US Programs from passthrough data
+// Extract US Programs - returns combined pairs (Canal & Asia, ESE & WEMEA)
 export const extractUSPrograms = (rawData: RawParsedData): string[] => {
-  const passthroughs = rawData.passthroughs;
-  if (!passthroughs || passthroughs.length === 0) return [];
+  // Check if we have destination data in any dataset to determine if programs are relevant
+  const hasDestinationData = (rawData.trips?.length > 0 || rawData.passthroughs?.length > 0);
+  if (!hasDestinationData) return [];
 
-  // Find the program column
-  const programCol = findColumn(passthroughs[0], ['us program', 'program', 'department', 'team', 'business unit']);
-  if (!programCol) return [];
-
-  // Extract unique programs
-  const programs = new Set<string>();
-  for (const row of passthroughs) {
-    const program = (row[programCol] || '').trim();
-    if (program && program.length > 0) {
-      programs.add(program);
-    }
-  }
-
-  return Array.from(programs).sort();
+  // Return the individual program names from the hardcoded mapping
+  return Object.keys(PROGRAM_DESTINATION_MAP).sort();
 };
 
-// Filter data by program using hardcoded destination mapping
+// Filter data by program(s) using hardcoded destination mapping
+// program can be a single program name or multiple separated by " & "
 export const filterDataByProgram = (
   rawData: RawParsedData,
   program: string
 ): RawParsedData => {
-  // Get allowed destinations for this program from the hardcoded mapping
-  const allowedDestinations = PROGRAM_DESTINATION_MAP[program.toUpperCase()] || [];
+  // Split by " & " to support multi-program selection (e.g. "CANAL & ASIA")
+  const programNames = program.split(' & ').map(p => p.trim().toUpperCase());
+
+  // Collect all allowed destinations from all selected programs
+  const allowedDestinations: string[] = [];
+  for (const pName of programNames) {
+    const dests = PROGRAM_DESTINATION_MAP[pName] || [];
+    allowedDestinations.push(...dests);
+  }
   const allowedDestLower = new Set(allowedDestinations.map(d => d.toLowerCase()));
 
   const filterByDestination = (rows: CSVRow[], datasetName: string): CSVRow[] => {
     if (!rows || rows.length === 0) return [];
 
-    // Find the destination column
     const destCol = findColumn(rows[0], ['destination', 'region', 'country', 'original interest']);
-
     if (!destCol) {
       console.warn(`No destination column found in ${datasetName} data.`);
       return [];
     }
 
-    // Filter to only rows where destination matches the program's allowed destinations
     const filtered = rows.filter(row => {
       const dest = (row[destCol] || '').trim().toLowerCase();
       return allowedDestLower.has(dest);
     });
 
-    console.log(`Filtered ${datasetName} by destination: ${filtered.length} of ${rows.length} rows for program "${program}" (${allowedDestinations.length} allowed destinations)`);
     return filtered;
   };
 
@@ -1989,100 +2125,217 @@ export const filterDataByProgram = (
 };
 
 // Generate meeting agenda
+export interface DestinationOpportunity {
+  region: string;
+  currentRate: number;
+  historicalRate: number;       // Previous quarter rate for this destination
+  deviation: number;            // currentRate - historicalRate (pp)
+  volume: number;               // trips (for TP), passthroughs (for PQ/HP)
+  potentialGain: number;        // Concrete gain if matched prev qtr rate (extra PTs/quotes/HPs)
+  volumeWeightedScore: number;  // For ranking: potentialGain (direct quantitative impact)
+}
+
+export interface ProgramStats {
+  program: string;
+  totalTrips: number;
+  totalPassthroughs: number;
+  tpRate: number;
+  hotPassRate: number;
+  pqRate: number;
+}
+
+// Per-department opportunity breakdown
+export interface ProgramOpportunities {
+  program: string;
+  topBestTp: DestinationOpportunity[];    // Top 2 best T>P (outperforming prev qtr)
+  tpNeeding: DestinationOpportunity[];    // Top 2 needing improvement T>P
+  topBestPq: DestinationOpportunity[];    // Top 2 best P>Q
+  pqNeeding: DestinationOpportunity[];    // Top 2 needing improvement P>Q
+}
+
+export interface TopHotPassDestination {
+  region: string;
+  hotPassRate: number;
+  volume: number;       // passthroughs
+  program?: string;     // which dept, when multiple selected
+}
+
 export interface MeetingAgendaData {
   program: string;
   date: string;
-  tpRecommendations: DepartmentImprovementRecommendation[];
-  pqRecommendations: DepartmentImprovementRecommendation[];
-  topTpDestinations: Array<{ region: string; tpRate: number; trips: number; passthroughs: number }>;
-  topPqDestinations: Array<{ region: string; pqRate: number; passthroughs: number; quotes: number }>;
-  topAgents: Array<{ name: string; tpRate: number; trips: number; regions: string[] }>;
-  bottomAgents: Array<{ name: string; tpRate: number; trips: number; focusRegions: string[] }>;
+  hotPassOpportunities: DestinationOpportunity[];   // Top Hot Pass improvement opps (QTD vs prev quarter)
+  topHotPassDestinations: TopHotPassDestination[];   // Top 4 by HP rate (fallback when no significant changes)
+  perProgramOpportunities: ProgramOpportunities[];  // Per-dept T>P and P>Q top/bottom
+  programStats: ProgramStats[];                     // Per-department breakdown when multiple selected
   overallStats: {
     totalTrips: number;
     totalPassthroughs: number;
     tpRate: number;
     hotPassRate: number;
     pqRate: number;
-    destinationsTracked: number;
   };
 }
 
 export const generateMeetingAgendaData = (
   rawData: RawParsedData,
   program: string,
-  timeframe: RegionalTimeframe = 'all'
+  _timeframe: RegionalTimeframe = 'all'
 ): MeetingAgendaData | null => {
-  // Filter data by program
+  // Filter data by all selected programs combined
   const filteredData = filterDataByProgram(rawData, program);
 
   if (filteredData.trips.length === 0) {
+    console.warn(`[MeetingAgenda] No trips after filtering for program "${program}"`);
     return null;
   }
 
-  // Analyze regional performance
+  // Use QTD (thisQuarter) for current performance
+  const qtdTimeframe: RegionalTimeframe = 'thisQuarter';
   const regionalPerformance = analyzeRegionalPerformance(
-    filteredData.trips,
-    timeframe,
-    filteredData.hotPass,
-    filteredData.quotes
+    filteredData.trips, qtdTimeframe, filteredData.hotPass, filteredData.quotes, filteredData.passthroughs
   );
 
   if (regionalPerformance.allRegions.length === 0) {
+    console.warn(`[MeetingAgenda] No regions found after analysis for program "${program}"`);
     return null;
   }
 
-  // Get recommendations
-  const tpRecommendations = generateDepartmentRecommendations(regionalPerformance);
-  const pqRecommendations = generatePqDepartmentRecommendations(regionalPerformance);
+  // Helper: build opportunity arrays ranked by potentialGain (quantitative impact)
+  // potentialGain = extra conversions if destination matched its prev quarter rate
+  const buildOpportunities = (
+    qtdRegions: DepartmentRegionalPerformance['allRegions'],
+    prevQtrLookup: Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>,
+    metricKey: 'tpRate' | 'pqRate' | 'hotPassRate',
+    volumeKey: 'trips' | 'passthroughs',
+    outputKey: 'passthroughs' | 'quotes' | 'hotPasses',
+    minVolume: number,
+  ): { best: DestinationOpportunity[]; needing: DestinationOpportunity[] } => {
+    const mapped = qtdRegions
+      .filter(r => r[volumeKey] >= minVolume)
+      .map(r => {
+        const prev = prevQtrLookup.get(r.region);
+        if (!prev) return null; // skip if no prev quarter data
+        const prevRate = prev[metricKey];
+        const deviation = r[metricKey] - prevRate;
+        // potentialGain: how many more conversions if we matched prev quarter rate
+        const potentialGain = Math.max(0, (prevRate / 100) * r[volumeKey] - r[outputKey]);
+        // Rank by potentialGain directly — this IS the quantitative materiality
+        return {
+          region: r.region,
+          currentRate: r[metricKey],
+          historicalRate: prevRate,
+          deviation,
+          volume: r[volumeKey],
+          potentialGain,
+          volumeWeightedScore: potentialGain,
+        };
+      })
+      .filter((o): o is DestinationOpportunity => o !== null);
 
-  // Analyze agent performance
-  const agentRegionalAnalysis = analyzeAgentRegionalDeviations(
-    filteredData.trips,
-    regionalPerformance,
-    timeframe
+    // Best: outperforming prev quarter, ranked by how much extra volume gained
+    // For "best" we compute gain in reverse: extra conversions above prev quarter expectation
+    const bestMapped = qtdRegions
+      .filter(r => r[volumeKey] >= minVolume)
+      .map(r => {
+        const prev = prevQtrLookup.get(r.region);
+        if (!prev) return null;
+        const prevRate = prev[metricKey];
+        const deviation = r[metricKey] - prevRate;
+        if (deviation <= 0) return null;
+        // Surplus: how many MORE conversions vs what prev quarter rate would have predicted
+        const surplus = r[outputKey] - Math.max(0, (prevRate / 100) * r[volumeKey]);
+        return {
+          region: r.region,
+          currentRate: r[metricKey],
+          historicalRate: prevRate,
+          deviation,
+          volume: r[volumeKey],
+          potentialGain: Math.max(0, surplus),
+          volumeWeightedScore: Math.max(0, surplus),
+        };
+      })
+      .filter((o): o is DestinationOpportunity => o !== null && o.deviation > 1);
+
+    const best = [...bestMapped]
+      .sort((a, b) => b.volumeWeightedScore - a.volumeWeightedScore)
+      .slice(0, 2);
+
+    // Needing: underperforming prev quarter, ranked by potential gain (biggest quantitative upside)
+    const needing = [...mapped]
+      .filter(o => o.deviation < -1)
+      .sort((a, b) => b.potentialGain - a.potentialGain)
+      .slice(0, 2);
+
+    return { best, needing };
+  };
+
+  // Build per-program opportunities
+  const programNames = program.split(' & ').map(p => p.trim().toUpperCase());
+  const perProgramOpportunities: ProgramOpportunities[] = [];
+  const programStats: ProgramStats[] = [];
+  const topHotPassDestinations: TopHotPassDestination[] = [];
+
+  for (const pName of programNames) {
+    const pData = filterDataByProgram(rawData, pName);
+    if (pData.trips.length === 0) continue;
+
+    const pQtd = analyzeRegionalPerformance(pData.trips, qtdTimeframe, pData.hotPass, pData.quotes, pData.passthroughs);
+    const pPrev = analyzeRegionalPerformance(pData.trips, 'lastQuarter', pData.hotPass, pData.quotes, pData.passthroughs);
+
+    // Build prev quarter lookup for this program
+    const pPrevLookup = new Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>();
+    for (const r of pPrev.allRegions) {
+      pPrevLookup.set(r.region, { tpRate: r.tpRate, pqRate: r.pqRate, hotPassRate: r.hotPassRate });
+    }
+
+    const tp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5);
+    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3);
+
+    perProgramOpportunities.push({
+      program: pName,
+      topBestTp: tp.best,
+      tpNeeding: tp.needing,
+      topBestPq: pq.best,
+      pqNeeding: pq.needing,
+    });
+
+    // Stats for overview slide (always build, even for single program)
+    programStats.push({
+      program: pName,
+      totalTrips: pQtd.totalTrips,
+      totalPassthroughs: pQtd.totalPassthroughs,
+      tpRate: pQtd.overallTpRate,
+      hotPassRate: pQtd.overallHotPassRate,
+      pqRate: pQtd.overallPqRate,
+    });
+
+    // Top 2 hot pass destinations by rate for this dept (used as fallback)
+    const perDeptTop = [...pQtd.allRegions]
+      .filter(r => r.hotPasses > 0 && r.passthroughs >= 3)
+      .sort((a, b) => b.hotPassRate - a.hotPassRate)
+      .slice(0, 2)
+      .map(r => ({
+        region: r.region,
+        hotPassRate: r.hotPassRate,
+        volume: r.passthroughs,
+        program: programNames.length > 1 ? pName : undefined,
+      }));
+    topHotPassDestinations.push(...perDeptTop);
+  }
+
+  // Sort all top hot pass destinations by rate descending, cap at 4
+  topHotPassDestinations.sort((a, b) => b.hotPassRate - a.hotPassRate);
+  topHotPassDestinations.splice(4);
+
+  // Hot pass opportunities across all selected programs combined
+  const prevQuarterPerformance = analyzeRegionalPerformance(
+    filteredData.trips, 'lastQuarter', filteredData.hotPass, filteredData.quotes, filteredData.passthroughs
   );
-
-  // Get top and bottom agents by overall T>P rate
-  const sortedAgents = [...agentRegionalAnalysis].sort((a, b) => b.overallTpRate - a.overallTpRate);
-
-  const topAgents = sortedAgents.slice(0, 3).map(agent => ({
-    name: agent.agentName,
-    tpRate: agent.overallTpRate,
-    trips: agent.totalTrips,
-    regions: agent.aboveAverage.slice(0, 3).map(r => r.region),
-  }));
-
-  const bottomAgents = sortedAgents.slice(-3).reverse().map(agent => ({
-    name: agent.agentName,
-    tpRate: agent.overallTpRate,
-    trips: agent.totalTrips,
-    focusRegions: agent.recommendations.slice(0, 3).map(r => r.region),
-  }));
-
-  // Get top destinations for T>P (sorted by T>P rate, descending)
-  const topTpDestinations = [...regionalPerformance.allRegions]
-    .filter(r => r.trips >= 10) // Minimum volume threshold
-    .sort((a, b) => b.tpRate - a.tpRate)
-    .slice(0, 5)
-    .map(r => ({
-      region: r.region,
-      tpRate: r.tpRate,
-      trips: r.trips,
-      passthroughs: r.passthroughs,
-    }));
-
-  // Get top destinations for P>Q (sorted by P>Q rate, descending)
-  const topPqDestinations = [...regionalPerformance.allRegions]
-    .filter(r => r.passthroughs >= 5) // Minimum volume threshold
-    .sort((a, b) => b.pqRate - a.pqRate)
-    .slice(0, 5)
-    .map(r => ({
-      region: r.region,
-      pqRate: r.pqRate,
-      passthroughs: r.passthroughs,
-      quotes: r.quotes,
-    }));
+  const prevQtrLookupAll = new Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>();
+  for (const r of prevQuarterPerformance.allRegions) {
+    prevQtrLookupAll.set(r.region, { tpRate: r.tpRate, pqRate: r.pqRate, hotPassRate: r.hotPassRate });
+  }
+  const hp = buildOpportunities(regionalPerformance.allRegions, prevQtrLookupAll, 'hotPassRate', 'passthroughs', 'hotPasses', 3);
 
   return {
     program,
@@ -2092,21 +2345,37 @@ export const generateMeetingAgendaData = (
       month: 'long',
       day: 'numeric'
     }),
-    tpRecommendations: tpRecommendations.slice(0, 3),
-    pqRecommendations: pqRecommendations.slice(0, 3),
-    topTpDestinations,
-    topPqDestinations,
-    topAgents,
-    bottomAgents,
+    hotPassOpportunities: hp.needing,
+    topHotPassDestinations,
+    perProgramOpportunities,
+    programStats,
     overallStats: {
       totalTrips: regionalPerformance.totalTrips,
       totalPassthroughs: regionalPerformance.totalPassthroughs,
       tpRate: regionalPerformance.overallTpRate,
       hotPassRate: regionalPerformance.overallHotPassRate,
       pqRate: regionalPerformance.overallPqRate,
-      destinationsTracked: regionalPerformance.allRegions.length,
     },
   };
+};
+
+const formatOpportunities = (opps: DestinationOpportunity[], metricLabel: string, volumeLabel: string): string[] => {
+  const lines: string[] = [];
+  if (opps.length > 0) {
+    opps.forEach((opp, i) => {
+      lines.push(`  ${i + 1}. ${opp.region}`);
+      lines.push(`     QTD: ${opp.currentRate.toFixed(1)}% vs Prev Qtr: ${opp.historicalRate.toFixed(1)}%`);
+      lines.push(`     Gap: ${Math.abs(opp.deviation).toFixed(1)}pp | Volume: ${opp.volume} ${volumeLabel}`);
+      if (opp.potentialGain > 0) {
+        lines.push(`     Potential Gain: +${Math.round(opp.potentialGain)} ${metricLabel}`);
+      }
+      lines.push('');
+    });
+  } else {
+    lines.push(`  No significant ${metricLabel} improvement opportunities identified.`);
+    lines.push('');
+  }
+  return lines;
 };
 
 export const formatMeetingAgenda = (data: MeetingAgendaData): string => {
@@ -2128,87 +2397,38 @@ export const formatMeetingAgenda = (data: MeetingAgendaData): string => {
   lines.push(`T>P Rate: ${data.overallStats.tpRate.toFixed(1)}%`);
   lines.push(`Hot Pass Rate: ${data.overallStats.hotPassRate.toFixed(1)}%`);
   lines.push(`P>Q Rate: ${data.overallStats.pqRate.toFixed(1)}%`);
-  lines.push(`Destinations Tracked: ${data.overallStats.destinationsTracked}`);
+  if (data.programStats.length > 0) {
+    lines.push('');
+    for (const ps of data.programStats) {
+      lines.push(`  ${ps.program}: ${ps.totalTrips} trips, ${ps.totalPassthroughs} PTs, T>P ${ps.tpRate.toFixed(1)}%, HP ${ps.hotPassRate.toFixed(1)}%, P>Q ${ps.pqRate.toFixed(1)}%`);
+    }
+  }
   lines.push('');
 
-  // T>P Opportunities (10 min)
-  lines.push('───────────────────────────────────────────────────────────────');
-  lines.push('  1. T>P IMPROVEMENT OPPORTUNITIES (10 min)');
-  lines.push('───────────────────────────────────────────────────────────────');
-  if (data.tpRecommendations.length > 0) {
-    data.tpRecommendations.forEach((rec, i) => {
-      lines.push(`  ${i + 1}. ${rec.region}`);
-      lines.push(`     Current: ${rec.tpRate.toFixed(1)}% vs Dept Avg: ${rec.departmentAvgRate.toFixed(1)}%`);
-      lines.push(`     Gap: ${Math.abs(rec.deviation).toFixed(1)}pp | Volume: ${rec.trips} trips`);
-      lines.push(`     Potential Gain: +${Math.round(rec.potentialGain)} passthroughs`);
-      lines.push('');
-    });
-  } else {
-    lines.push('  No significant T>P improvement opportunities identified.');
-    lines.push('');
+  // Per-department T>P and P>Q
+  for (const po of data.perProgramOpportunities) {
+    lines.push('───────────────────────────────────────────────────────────────');
+    lines.push(`  T>P PERFORMANCE — ${po.program} (QTD vs Prev Quarter)`);
+    lines.push('───────────────────────────────────────────────────────────────');
+    lines.push('  Top Performing:');
+    lines.push(...formatOpportunities(po.topBestTp, 'passthroughs', 'trips'));
+    lines.push('  Opportunity Areas:');
+    lines.push(...formatOpportunities(po.tpNeeding, 'passthroughs', 'trips'));
+
+    lines.push('───────────────────────────────────────────────────────────────');
+    lines.push(`  P>Q PERFORMANCE — ${po.program} (QTD vs Prev Quarter)`);
+    lines.push('───────────────────────────────────────────────────────────────');
+    lines.push('  Top Performing:');
+    lines.push(...formatOpportunities(po.topBestPq, 'quotes', 'passthroughs'));
+    lines.push('  Opportunity Areas:');
+    lines.push(...formatOpportunities(po.pqNeeding, 'quotes', 'passthroughs'));
   }
 
-  // P>Q Opportunities (5 min)
+  // Hot Pass Opportunities (combined)
   lines.push('───────────────────────────────────────────────────────────────');
-  lines.push('  2. P>Q IMPROVEMENT OPPORTUNITIES (5 min)');
+  lines.push('  HOT PASS IMPROVEMENT OPPORTUNITIES (5 min)');
   lines.push('───────────────────────────────────────────────────────────────');
-  if (data.pqRecommendations.length > 0) {
-    data.pqRecommendations.forEach((rec, i) => {
-      lines.push(`  ${i + 1}. ${rec.region}`);
-      lines.push(`     Current: ${rec.tpRate.toFixed(1)}% vs Dept Avg: ${rec.departmentAvgRate.toFixed(1)}%`);
-      lines.push(`     Gap: ${Math.abs(rec.deviation).toFixed(1)}pp | Volume: ${rec.trips} passthroughs`);
-      lines.push(`     Potential Gain: +${Math.round(rec.potentialGain)} quotes`);
-      lines.push('');
-    });
-  } else {
-    lines.push('  No significant P>Q improvement opportunities identified.');
-    lines.push('');
-  }
-
-  // Agent Performance (10 min)
-  lines.push('───────────────────────────────────────────────────────────────');
-  lines.push('  3. AGENT PERFORMANCE HIGHLIGHTS (10 min)');
-  lines.push('───────────────────────────────────────────────────────────────');
-  lines.push('');
-  lines.push('  TOP PERFORMERS:');
-  if (data.topAgents.length > 0) {
-    data.topAgents.forEach((agent, i) => {
-      lines.push(`  ${i + 1}. ${agent.name}`);
-      lines.push(`     T>P Rate: ${agent.tpRate.toFixed(1)}% | Trips: ${agent.trips}`);
-      if (agent.regions.length > 0) {
-        lines.push(`     Strong Regions: ${agent.regions.join(', ')}`);
-      }
-      lines.push('');
-    });
-  } else {
-    lines.push('  No agent data available.');
-    lines.push('');
-  }
-
-  lines.push('  DEVELOPMENT FOCUS:');
-  if (data.bottomAgents.length > 0) {
-    data.bottomAgents.forEach((agent, i) => {
-      lines.push(`  ${i + 1}. ${agent.name}`);
-      lines.push(`     T>P Rate: ${agent.tpRate.toFixed(1)}% | Trips: ${agent.trips}`);
-      if (agent.focusRegions.length > 0) {
-        lines.push(`     Focus Regions: ${agent.focusRegions.join(', ')}`);
-      }
-      lines.push('');
-    });
-  } else {
-    lines.push('  No agent data available.');
-    lines.push('');
-  }
-
-  // Actions (5 min)
-  lines.push('───────────────────────────────────────────────────────────────');
-  lines.push('  4. ACTIONS & NEXT STEPS (5 min)');
-  lines.push('───────────────────────────────────────────────────────────────');
-  lines.push('  □ Review training materials for focus destinations');
-  lines.push('  □ Schedule 1:1s with development focus agents');
-  lines.push('  □ Share best practices from top performers');
-  lines.push('  □ Update destination knowledge resources');
-  lines.push('  □ Set improvement targets for next review');
+  lines.push(...formatOpportunities(data.hotPassOpportunities, 'hot passes', 'passthroughs'));
   lines.push('');
   lines.push('═══════════════════════════════════════════════════════════════');
   lines.push('                     END OF AGENDA');

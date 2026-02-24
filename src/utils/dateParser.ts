@@ -80,17 +80,57 @@ export const parseDate = (value: string | number | null | undefined): Date | nul
   return null;
 };
 
+// Regex for ISO date format YYYY-MM-DD (with optional time portion)
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})/;
+// Regex for common US date formats: M/D/YYYY or MM/DD/YYYY (with optional time)
+const US_DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+
 /**
  * Format a date to YYYY-MM-DD string.
  * Returns null if date is invalid.
+ *
+ * IMPORTANT: Avoids timezone drift by extracting date components directly
+ * from the string when possible, rather than going through new Date() which
+ * treats ISO strings as UTC but getFullYear/getMonth/getDate as local time.
  */
 export const formatDateString = (value: string | number | null | undefined): string | null => {
+  if (value === null || value === undefined) return null;
+
+  const strValue = String(value).trim();
+  if (strValue === '') return null;
+
+  // Fast path: if already YYYY-MM-DD, extract directly (avoids timezone issues)
+  const isoMatch = strValue.match(ISO_DATE_RE);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2];
+    const d = isoMatch[3];
+    // Validate the components are reasonable
+    const mi = parseInt(m, 10);
+    const di = parseInt(d, 10);
+    if (mi >= 1 && mi <= 12 && di >= 1 && di <= 31) {
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  // Fast path: US format M/D/YYYY — extract directly
+  const usMatch = strValue.match(US_DATE_RE);
+  if (usMatch) {
+    const m = parseInt(usMatch[1], 10);
+    const d = parseInt(usMatch[2], 10);
+    const y = usMatch[3];
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+
+  // Fallback: parse through Date object using UTC to avoid timezone drift
   const date = parseDate(value);
   if (!date) return null;
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 

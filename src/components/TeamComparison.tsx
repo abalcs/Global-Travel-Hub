@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import type { Metrics, Team } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { TimeframeSelector } from './TimeframeSelector';
-import type { Timeframe } from './TimeframeSelector';
+import { DateRangeFilter } from './DateRangeFilter';
 import { PresentationGenerator } from './PresentationGenerator';
 import type { RawParsedData } from '../utils/indexedDB';
 import type { AllRecords } from '../utils/recordsTracker';
@@ -11,12 +10,14 @@ interface TeamComparisonProps {
   metrics: Metrics[];
   teams: Team[];
   seniors: string[];
-  timeframe: Timeframe;
-  onTimeframeChange: (tf: Timeframe) => void;
   rawData?: RawParsedData | null;
   records?: AllRecords | null;
   startDate?: string;
   endDate?: string;
+  onStartDateChange: (date: string) => void;
+  onEndDateChange: (date: string) => void;
+  onApplyDateRange: () => void;
+  onClearDateRange: () => void;
 }
 
 type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'hotPass' | 'bookings' | 'nonConverted' | 'potentialTQ';
@@ -88,7 +89,7 @@ const SortButton: React.FC<SortButtonProps> = ({ label, sortKeyVal, color = 'gra
   );
 };
 
-export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors, timeframe, onTimeframeChange, rawData, records, startDate = '', endDate = '' }) => {
+export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors, rawData, records, startDate = '', endDate = '', onStartDateChange, onEndDateChange, onApplyDateRange, onClearDateRange }) => {
   const { isAudley } = useTheme();
   const [isOpen, setIsOpen] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('trips');
@@ -274,9 +275,27 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       >
         <div className="overflow-hidden">
           <div className="p-6">
-          {/* Timeframe Selector + Generate Slides (hidden on mobile) */}
+          {/* Date Range Filter + Update + Generate Slides */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <TimeframeSelector value={timeframe} onChange={onTimeframeChange} />
+            <div className="flex flex-wrap items-center gap-3">
+              <DateRangeFilter
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={onStartDateChange}
+                onEndDateChange={onEndDateChange}
+                onClear={onClearDateRange}
+              />
+              <button
+                onClick={onApplyDateRange}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  isAudley
+                    ? 'bg-[#4d726d] text-white hover:bg-[#3d5f5a] shadow-sm'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                }`}
+              >
+                Update
+              </button>
+            </div>
             <div className="hidden md:block">
               <PresentationGenerator metrics={metrics} seniors={seniors} teams={teams} rawData={rawData} records={records} startDate={startDate} endDate={endDate} />
             </div>

@@ -39,7 +39,7 @@ async function ensureInitialized() {
       _app = initializeApp(firebaseConfig);
       _db = getFirestore(_app);
       _storage = getStorage(_app);
-      console.log('[Firebase] Initialized successfully');
+      // Firebase initialized
     } catch (error) {
       console.error('[Firebase] Initialization failed:', error);
     }

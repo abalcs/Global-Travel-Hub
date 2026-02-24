@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { SlidingPillGroup } from './SlidingPillGroup';
 import type { AllRecords, AgentRecords, VolumeMetric, RateMetric, TimePeriod, RecordEntry } from '../utils/recordsTracker';
 import { formatMetricName, formatPeriodName, formatRecordValue, formatDateRange, clearRecords } from '../utils/recordsTracker';
 import type { Team } from '../types';
@@ -232,33 +233,16 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
               <div className="flex items-center gap-3">
                 {/* Team Filter Toggle */}
                 {teams.length > 0 && (
-                  <div className={`flex items-center gap-1 rounded-lg p-0.5 ${
-                    isAudley ? 'bg-amber-100/50' : 'bg-slate-800/50'
-                  }`}>
-                    <button
-                      onClick={() => setSelectedTeamFilter(null)}
-                      className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                        selectedTeamFilter === null
-                          ? isAudley ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-slate-900'
-                          : isAudley ? 'text-amber-700 hover:bg-amber-100' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                      }`}
-                    >
-                      All
-                    </button>
-                    {teams.map(team => (
-                      <button
-                        key={team.id}
-                        onClick={() => setSelectedTeamFilter(team.id)}
-                        className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                          selectedTeamFilter === team.id
-                            ? isAudley ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-slate-900'
-                            : isAudley ? 'text-amber-700 hover:bg-amber-100' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                        }`}
-                      >
-                        {team.name}
-                      </button>
-                    ))}
-                  </div>
+                  <SlidingPillGroup
+                    options={[
+                      { value: '__all__', label: 'All' },
+                      ...teams.map(t => ({ value: t.id, label: t.name })),
+                    ]}
+                    value={selectedTeamFilter ?? '__all__'}
+                    onChange={(v) => setSelectedTeamFilter(v === '__all__' ? null : v)}
+                    activeGradient={{ light: 'linear-gradient(to right, #d97706, #f59e0b)', dark: 'linear-gradient(to right, #d97706, #eab308)' }}
+                    size="sm"
+                  />
                 )}
                 {/* Screenshot View button */}
                 <button
@@ -384,50 +368,35 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
 
       {/* View Toggle & Period Selector */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className={`rounded-lg p-1 flex gap-1 ${
-          isAudley ? 'bg-white border border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50'
-        }`}>
-          <button
-            onClick={() => setViewMode('volume')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'volume'
-                ? isAudley ? 'bg-[#007bc7] text-white' : 'bg-indigo-600 text-white'
-                : isAudley ? 'text-[#4d726d] hover:bg-[#e8f0ef]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            }`}
-          >
-            Volume Records
-          </button>
-          <button
-            onClick={() => setViewMode('rates')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'rates'
-                ? isAudley ? 'bg-[#007bc7] text-white' : 'bg-indigo-600 text-white'
-                : isAudley ? 'text-[#4d726d] hover:bg-[#e8f0ef]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            }`}
-          >
-            Rate Records
-          </button>
-        </div>
+        <SlidingPillGroup
+          options={[
+            { value: 'volume', label: 'Volume Records' },
+            { value: 'rates', label: 'Rate Records' },
+          ]}
+          value={viewMode}
+          onChange={(v) => {
+            const newMode = v as ViewMode;
+            setViewMode(newMode);
+            // Reset period if current selection isn't available in the new mode
+            const availablePeriods = newMode === 'volume' ? VOLUME_PERIODS : RATE_PERIODS;
+            if (!availablePeriods.includes(selectedPeriod)) {
+              setSelectedPeriod(availablePeriods[0]);
+            }
+          }}
+        />
 
         <div className="flex items-center gap-2">
           <span className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Period:</span>
-          <div className={`rounded-lg p-1 flex gap-1 ${
-            isAudley ? 'bg-white border border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50'
-          }`}>
-            {(viewMode === 'volume' ? VOLUME_PERIODS : RATE_PERIODS).map(period => (
-              <button
-                key={period}
-                onClick={() => setSelectedPeriod(period)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  selectedPeriod === period
-                    ? isAudley ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-slate-900'
-                    : isAudley ? 'text-[#4d726d] hover:bg-[#e8f0ef]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                }`}
-              >
-                {formatPeriodName(period)}
-              </button>
-            ))}
-          </div>
+          <SlidingPillGroup
+            options={(viewMode === 'volume' ? VOLUME_PERIODS : RATE_PERIODS).map(p => ({
+              value: p,
+              label: formatPeriodName(p),
+            }))}
+            value={selectedPeriod}
+            onChange={(v) => setSelectedPeriod(v as TimePeriod)}
+            activeGradient={{ light: 'linear-gradient(to right, #d97706, #f59e0b)', dark: 'linear-gradient(to right, #d97706, #eab308)' }}
+            size="sm"
+          />
         </div>
       </div>
 

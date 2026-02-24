@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { SlidingPillGroup } from './SlidingPillGroup';
 import {
   BarChart,
   Bar,
@@ -197,10 +198,8 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
       </div>
 
       {/* Time Period Selector */}
-      <div className={`flex flex-wrap gap-1 p-1 rounded-lg w-fit ${
-        isAudley ? 'bg-white border border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50'
-      }`}>
-        {[
+      <SlidingPillGroup
+        options={[
           { value: 'lastWeek', label: 'Last Week' },
           { value: 'thisMonth', label: 'This Month' },
           { value: 'lastMonth', label: 'Last Month' },
@@ -208,24 +207,10 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
           { value: 'lastQuarter', label: 'Last Qtr' },
           { value: 'lastYear', label: 'Last Year' },
           { value: 'all', label: 'All Time' },
-        ].map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => setTimeframe(value as RegionalTimeframe)}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              timeframe === value
-                ? isAudley
-                  ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white'
-                  : 'bg-indigo-600 text-white'
-                : isAudley
-                  ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e8f0ef]'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        ]}
+        value={timeframe}
+        onChange={(v) => setTimeframe(v as RegionalTimeframe)}
+      />
 
       {/* Column Discovery (debug) */}
       <div

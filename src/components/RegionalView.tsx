@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import type { RawParsedData } from '../utils/indexedDB';
 import {
@@ -7,14 +8,15 @@ import {
   generateDepartmentRecommendations,
   generatePqDepartmentRecommendations,
   extractUSPrograms,
-  extractProgramDestinationAssociations,
   generateMeetingAgendaData,
+  DESTINATION_TO_PROGRAM,
   type RegionalTimeframe,
   type DepartmentRegionalPerformance,
   type AgentRegionalAnalysis,
   type DepartmentImprovementRecommendation,
   type MeetingAgendaData,
 } from '../utils/insightsAnalytics';
+import { SlidingPillGroup, type PillOption } from './SlidingPillGroup';
 import { generatePDFDocument, generatePowerPoint, generateDestinationTraining } from '../utils/documentGenerator';
 import { loadAnthropicApiKey } from '../utils/storage';
 
@@ -26,6 +28,15 @@ type SortColumn = 'region' | 'tpRate' | 'hotPassRate' | 'pqRate' | 'trips' | 'pa
 type SortDirection = 'asc' | 'desc';
 
 type RecommendationType = 'tp' | 'pq';
+type RegionGroup = 'all' | 'CANAL' | 'WEMEA' | 'ESE' | 'ASIA';
+
+const REGION_GROUP_OPTIONS: PillOption<RegionGroup>[] = [
+  { value: 'all', label: 'All' },
+  { value: 'CANAL', label: 'CANAL' },
+  { value: 'WEMEA', label: 'WEMEA' },
+  { value: 'ESE', label: 'ESE' },
+  { value: 'ASIA', label: 'Asia' },
+];
 
 export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const { isAudley } = useTheme();
@@ -34,6 +45,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const [sortColumn, setSortColumn] = useState<SortColumn>('tpRate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [recommendationType, setRecommendationType] = useState<RecommendationType>('tp');
+  const [regionGroupFilter, setRegionGroupFilter] = useState<RegionGroup>('all');
 
   // Meeting agenda state
   const [showAgendaModal, setShowAgendaModal] = useState(false);
@@ -56,23 +68,36 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   // Regional performance analysis
   const filteredRegionalPerformance = useMemo((): DepartmentRegionalPerformance | null => {
     if (!rawData.trips || rawData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(rawData.trips, regionalTimeframe, rawData.hotPass, rawData.quotes);
-  }, [rawData.trips, rawData.hotPass, rawData.quotes, regionalTimeframe]);
+    return analyzeRegionalPerformance(rawData.trips, regionalTimeframe, rawData.hotPass, rawData.quotes, rawData.passthroughs);
+  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs, regionalTimeframe]);
 
   const filteredAgentRegionalAnalysis = useMemo((): AgentRegionalAnalysis[] => {
     if (!rawData.trips || rawData.trips.length === 0 || !filteredRegionalPerformance) return [];
     return analyzeAgentRegionalDeviations(rawData.trips, filteredRegionalPerformance, regionalTimeframe);
   }, [rawData.trips, filteredRegionalPerformance, regionalTimeframe]);
 
+  // Always-pinned current quarter performance for focus areas (ignores user-selected timeframe)
+  const thisQuarterPerformance = useMemo((): DepartmentRegionalPerformance | null => {
+    if (!rawData.trips || rawData.trips.length === 0) return null;
+    return analyzeRegionalPerformance(rawData.trips, 'thisQuarter', rawData.hotPass, rawData.quotes, rawData.passthroughs);
+  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs]);
+
+  // Previous quarter performance for QTD vs prev quarter comparisons in focus areas
+  const prevQuarterPerformance = useMemo((): DepartmentRegionalPerformance | null => {
+    if (!rawData.trips || rawData.trips.length === 0) return null;
+    return analyzeRegionalPerformance(rawData.trips, 'lastQuarter', rawData.hotPass, rawData.quotes, rawData.passthroughs);
+  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs]);
+
+  // Focus area recommendations always compare current quarter vs previous quarter
   const departmentRecommendations = useMemo((): DepartmentImprovementRecommendation[] => {
-    if (!filteredRegionalPerformance) return [];
-    return generateDepartmentRecommendations(filteredRegionalPerformance);
-  }, [filteredRegionalPerformance]);
+    if (!thisQuarterPerformance) return [];
+    return generateDepartmentRecommendations(thisQuarterPerformance, prevQuarterPerformance ?? undefined);
+  }, [thisQuarterPerformance, prevQuarterPerformance]);
 
   const pqDepartmentRecommendations = useMemo((): DepartmentImprovementRecommendation[] => {
-    if (!filteredRegionalPerformance) return [];
-    return generatePqDepartmentRecommendations(filteredRegionalPerformance);
-  }, [filteredRegionalPerformance]);
+    if (!thisQuarterPerformance) return [];
+    return generatePqDepartmentRecommendations(thisQuarterPerformance, prevQuarterPerformance ?? undefined);
+  }, [thisQuarterPerformance, prevQuarterPerformance]);
 
   // Get the active recommendations based on toggle
   const activeRecommendations = recommendationType === 'tp' ? departmentRecommendations : pqDepartmentRecommendations;
@@ -191,10 +216,18 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
     return filteredAgentRegionalAnalysis.find(a => a.agentName === selectedAgentForRegions) || null;
   }, [filteredAgentRegionalAnalysis, selectedAgentForRegions]);
 
-  // Sorted regions for the table
+  // Sorted regions for the table (with optional program group filter)
   const sortedRegions = useMemo(() => {
     if (!filteredRegionalPerformance) return [];
-    const regions = [...filteredRegionalPerformance.allRegions];
+    let regions = [...filteredRegionalPerformance.allRegions];
+
+    // Filter by program group if not "all"
+    if (regionGroupFilter !== 'all') {
+      regions = regions.filter(r => {
+        const program = DESTINATION_TO_PROGRAM[r.region.toLowerCase()];
+        return program === regionGroupFilter;
+      });
+    }
 
     regions.sort((a, b) => {
       let aVal: number | string;
@@ -237,7 +270,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
     });
 
     return regions;
-  }, [filteredRegionalPerformance, sortColumn, sortDirection]);
+  }, [filteredRegionalPerformance, sortColumn, sortDirection, regionGroupFilter]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -288,8 +321,6 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
         {availablePrograms.length > 0 && (
           <button
             onClick={() => {
-              // Log program-destination associations for debugging
-              extractProgramDestinationAssociations(rawData);
               setShowAgendaModal(true);
               setSelectedProgram('');
               setAgendaData(null);
@@ -541,7 +572,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
               </svg>
               <h3 className={`text-base font-medium ${isAudley ? 'text-indigo-700' : 'text-indigo-300'}`}>Recommended Focus Areas</h3>
               <span className={`text-xs ${isAudley ? 'text-indigo-500' : 'text-indigo-500/70'}`}>
-                {recommendationType === 'tp' ? 'T>P training opportunities' : 'P>Q quoting opportunities'}
+                {recommendationType === 'tp' ? 'T>P — QTD vs prev quarter' : 'P>Q — QTD vs prev quarter'}
               </span>
             </div>
             {/* T>P / P>Q Toggle */}
@@ -620,7 +651,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                         {rec.tpRate.toFixed(1)}%
                       </span>
                       <span className={`mx-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>vs</span>
-                      <span className={isAudley ? 'text-slate-600' : 'text-slate-300'}>{rec.departmentAvgRate.toFixed(1)}% avg</span>
+                      <span className={isAudley ? 'text-slate-600' : 'text-slate-300'}>{rec.departmentAvgRate.toFixed(1)}% prev qtr</span>
                     </div>
                     <span className={`text-xs ${recommendationType === 'tp' ? (isAudley ? 'text-rose-600' : 'text-rose-400') : (isAudley ? 'text-purple-600' : 'text-purple-400')}`}>
                       {rec.deviation.toFixed(1)}pp
@@ -650,10 +681,18 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
       <div className={`rounded-xl p-5 border ${
         isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
       }`}>
-        <h3 className={`text-base font-medium mb-4 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>
-          All Destinations ({filteredRegionalPerformance.allRegions.length} destinations)
-          <span className={`text-xs ml-2 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>Click column headers to sort</span>
-        </h3>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className={`text-base font-medium ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>
+            All Destinations ({sortedRegions.length} destinations)
+            <span className={`text-xs ml-2 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>Click column headers to sort</span>
+          </h3>
+          <SlidingPillGroup
+            options={REGION_GROUP_OPTIONS}
+            value={regionGroupFilter}
+            onChange={setRegionGroupFilter}
+            size="sm"
+          />
+        </div>
         <div className="max-h-[400px] overflow-y-auto">
           <table className="w-full">
             <thead className={`sticky top-0 ${isAudley ? 'bg-white' : 'bg-slate-800'}`}>
@@ -900,9 +939,10 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
         </div>
       )}
 
-      {/* Training Confirmation Modal */}
-      {showTrainingConfirm && trainingDestination && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      {/* Training Confirmation Modal - rendered via portal */}
+      {showTrainingConfirm && trainingDestination && createPortal(
+        <div className="fixed inset-0 bg-black/70 z-[9999] overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="bg-slate-800 rounded-xl border border-slate-700 max-w-md w-full overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-700 bg-gradient-to-r from-indigo-900/50 to-purple-900/50">
@@ -1021,12 +1061,15 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
               )}
             </div>
           </div>
-        </div>
+          </div>
+        </div>,
+        document.body
       )}
 
-      {/* Champ Meeting Modal */}
-      {showAgendaModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      {/* Champ Meeting Modal - rendered via portal to guarantee viewport centering */}
+      {showAgendaModal && createPortal(
+        <div className="fixed inset-0 bg-black/70 z-[9999] overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) setShowAgendaModal(false); }}>
+          <div className="flex min-h-full items-center justify-center p-4">
           <div className="bg-slate-800 rounded-xl border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-700 bg-gradient-to-r from-indigo-900/50 to-purple-900/50">
@@ -1057,18 +1100,41 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                 <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Which US Program is this meeting for?
+                      Select programs to include in this meeting:
                     </label>
-                    <select
-                      value={selectedProgram}
-                      onChange={(e) => setSelectedProgram(e.target.value)}
-                      className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 text-white text-base"
-                    >
-                      <option value="">Select a program...</option>
-                      {availablePrograms.map(program => (
-                        <option key={program} value={program}>{program}</option>
-                      ))}
-                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      {availablePrograms.map(program => {
+                        const selected = selectedProgram.split(' & ').filter(Boolean).includes(program);
+                        return (
+                          <button
+                            key={program}
+                            onClick={() => {
+                              const current = selectedProgram.split(' & ').filter(Boolean);
+                              const updated = selected
+                                ? current.filter(p => p !== program)
+                                : [...current, program];
+                              setSelectedProgram(updated.join(' & '));
+                            }}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all text-left ${
+                              selected
+                                ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                                : 'bg-slate-700/30 border-slate-600/50 text-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                              selected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-500'
+                            }`}>
+                              {selected && (
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <span className="font-medium">{program}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-xl p-5 border border-slate-600/50">
@@ -1078,19 +1144,19 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="flex items-center gap-2 text-slate-300">
                         <span className="w-2 h-2 bg-teal-400 rounded-full"></span>
-                        T&gt;P Opportunities (10 min)
+                        T&gt;P Performance (10 min)
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
                         <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                        P&gt;Q Opportunities (5 min)
+                        P&gt;Q Performance (10 min)
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
                         <span className="w-2 h-2 bg-amber-400 rounded-full"></span>
-                        Agent Performance (10 min)
+                        Hot Pass Performance (5 min)
                       </div>
                       <div className="flex items-center gap-2 text-slate-300">
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full"></span>
-                        Actions & Next Steps (5 min)
+                        <span className="w-2 h-2 bg-amber-400 rounded-full"></span>
+                        Capacity Constraints (5 min)
                       </div>
                     </div>
                   </div>
@@ -1131,7 +1197,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                         : 'bg-slate-700 text-slate-500 cursor-not-allowed'
                     }`}
                   >
-                    {selectedProgram ? `Generate Materials for ${selectedProgram}` : 'Select a Program'}
+                    {selectedProgram ? `Generate Materials for ${selectedProgram}` : 'Select at Least One Program'}
                   </button>
                 </div>
               ) : (
@@ -1233,7 +1299,9 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
               </div>
             )}
           </div>
-        </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

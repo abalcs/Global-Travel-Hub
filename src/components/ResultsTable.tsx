@@ -1,16 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import type { Metrics, Team } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { TimeframeSelector } from './TimeframeSelector';
-import type { Timeframe } from './TimeframeSelector';
-
 interface ResultsTableProps {
   metrics: Metrics[];
   teams: Team[];
   seniors: string[];
   newHires: string[];
-  timeframe: Timeframe;
-  onTimeframeChange: (tf: Timeframe) => void;
 }
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors' | 'new-hires';
@@ -60,7 +55,7 @@ const SortIcon: React.FC<SortIconProps> = ({ column, sortColumn, sortDirection }
   );
 };
 
-export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seniors, newHires, timeframe, onTimeframeChange }) => {
+export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seniors, newHires }) => {
   const { isAudley } = useTheme();
   const [sortColumn, setSortColumn] = useState<SortColumn>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -336,10 +331,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
         </div>
       </div>
 
-      {/* Timeframe Selector */}
-      <div className="px-6 pt-4">
-        <TimeframeSelector value={timeframe} onChange={onTimeframeChange} />
-      </div>
 
       {/* Column visibility toggles with smooth transition */}
       <div
