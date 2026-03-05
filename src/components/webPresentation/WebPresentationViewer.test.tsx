@@ -27,6 +27,12 @@ const mockMetrics: Metrics[] = [
     b2bTpRate: 80,
     quotesStarted: 15,
     potentialTQ: 65,
+    partnerTrips: 3,
+    partnerPassthroughs: 2,
+    partnerTpRate: 66.7,
+    taTrips: 5,
+    taPassthroughs: 3,
+    taTpRate: 60,
   },
   {
     agentName: 'Agent 2',
@@ -50,6 +56,12 @@ const mockMetrics: Metrics[] = [
     b2bTpRate: 75,
     quotesStarted: 12,
     potentialTQ: 55,
+    partnerTrips: 2,
+    partnerPassthroughs: 1,
+    partnerTpRate: 50,
+    taTrips: 4,
+    taPassthroughs: 2,
+    taTpRate: 50,
   },
 ];
 

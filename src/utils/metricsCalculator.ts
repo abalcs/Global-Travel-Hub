@@ -438,6 +438,91 @@ export const countB2bByAgent = (
   return { b2bTrips, b2bPassthroughs };
 };
 
+// Count Partner and TA trips and passthroughs by agent
+// Partner = Trip Classification is "Partnership Trip" or "Partner Trip"
+// TA = Trip Classification is "Travel Agent Sale"
+export const countByTripClassification = (
+  tripsRows: CSVRow[],
+  agentColumn: string,
+  dateColumn: string | null,
+  startDate: string,
+  endDate: string
+): {
+  partnerTrips: Map<string, number>;
+  partnerPassthroughs: Map<string, number>;
+  taTrips: Map<string, number>;
+  taPassthroughs: Map<string, number>;
+} => {
+  const partnerTrips = new Map<string, number>();
+  const partnerPassthroughs = new Map<string, number>();
+  const taTrips = new Map<string, number>();
+  const taPassthroughs = new Map<string, number>();
+
+  if (tripsRows.length === 0) return { partnerTrips, partnerPassthroughs, taTrips, taPassthroughs };
+
+  // Find trip classification and passthrough columns
+  const keys = Object.keys(tripsRows[0]);
+  const classificationCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('trip classification') || lower.includes('classification');
+  });
+  const passthroughDateCol = keys.find(k => {
+    const lower = k.toLowerCase();
+    return lower.includes('passthrough to sales date') || lower.includes('passthrough date');
+  });
+
+  if (!classificationCol) return { partnerTrips, partnerPassthroughs, taTrips, taPassthroughs };
+
+  // Convert filter dates to integers for comparison
+  const startInt = startDate ? dateToInt(startDate) : null;
+  const endInt = endDate ? dateToInt(endDate) : null;
+  const hasDateFilter = startInt !== null || endInt !== null;
+
+  for (const row of tripsRows) {
+    if (row['_groupHeader']) continue;
+    const agent = row[agentColumn];
+    if (!agent || isMetadataRow(agent)) continue;
+
+    const classification = (row[classificationCol] || '').toString().toLowerCase().trim();
+    const isPartner = classification === 'partnership trip' || classification === 'partner trip';
+    const isTA = classification === 'travel agent sale';
+    if (!isPartner && !isTA) continue;
+
+    // Parse date
+    let dateStr: string | null = null;
+    if (dateColumn && row[dateColumn]) {
+      dateStr = parseDate(row[dateColumn]);
+    }
+
+    // Apply date filter if active
+    if (hasDateFilter) {
+      if (!dateStr) continue;
+      const rowInt = dateToInt(dateStr);
+      if (startInt && rowInt < startInt) continue;
+      if (endInt && rowInt > endInt) continue;
+    }
+
+    // Check for passthrough
+    const hasPassthrough = passthroughDateCol &&
+      row[passthroughDateCol] &&
+      row[passthroughDateCol].toString().trim() !== '';
+
+    if (isPartner) {
+      partnerTrips.set(agent, (partnerTrips.get(agent) || 0) + 1);
+      if (hasPassthrough) {
+        partnerPassthroughs.set(agent, (partnerPassthroughs.get(agent) || 0) + 1);
+      }
+    } else {
+      taTrips.set(agent, (taTrips.get(agent) || 0) + 1);
+      if (hasPassthrough) {
+        taPassthroughs.set(agent, (taPassthroughs.get(agent) || 0) + 1);
+      }
+    }
+  }
+
+  return { partnerTrips, partnerPassthroughs, taTrips, taPassthroughs };
+};
+
 // Build a map of trip names to their dates
 export const buildTripDateMap = (
   tripsRows: CSVRow[],
@@ -584,7 +669,11 @@ export const calculateMetrics = (
   repeatPassthroughsCounts?: Map<string, number>,
   b2bTripsCounts?: Map<string, number>,
   b2bPassthroughsCounts?: Map<string, number>,
-  quotesStartedCounts?: Map<string, number>
+  quotesStartedCounts?: Map<string, number>,
+  partnerTripsCounts?: Map<string, number>,
+  partnerPassthroughsCounts?: Map<string, number>,
+  taTripsCounts?: Map<string, number>,
+  taPassthroughsCounts?: Map<string, number>
 ): Metrics[] => {
   // Build agent roster from the UNION of all data files.
   // Salesforce exports may be truncated, so one file might only have a subset
@@ -636,6 +725,14 @@ export const calculateMetrics = (
     const b2bTrips = b2bTripsCounts?.get(agentName) || 0;
     const b2bPassthroughs = b2bPassthroughsCounts?.get(agentName) || 0;
 
+    // Get Partner trip data
+    const partnerTrips = partnerTripsCounts?.get(agentName) || 0;
+    const partnerPassthroughs = partnerPassthroughsCounts?.get(agentName) || 0;
+
+    // Get TA trip data
+    const taTrips = taTripsCounts?.get(agentName) || 0;
+    const taPassthroughs = taPassthroughsCounts?.get(agentName) || 0;
+
     // Get quotes started data (with case-insensitive fallback)
     let quotesStarted = quotesStartedCounts?.get(agentName) || 0;
     if (quotesStarted === 0 && quotesStartedCounts) {
@@ -674,6 +771,12 @@ export const calculateMetrics = (
       b2bTpRate: b2bTrips > 0 ? (b2bPassthroughs / b2bTrips) * 100 : 0,
       quotesStarted,
       potentialTQ,
+      partnerTrips,
+      partnerPassthroughs,
+      partnerTpRate: partnerTrips > 0 ? (partnerPassthroughs / partnerTrips) * 100 : 0,
+      taTrips,
+      taPassthroughs,
+      taTpRate: taTrips > 0 ? (taPassthroughs / taTrips) * 100 : 0,
     });
   }
 

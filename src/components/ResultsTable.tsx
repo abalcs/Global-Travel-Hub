@@ -10,7 +10,7 @@ interface ResultsTableProps {
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors' | 'new-hires';
 
-type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatPassthroughs' | 'repeatTpRate' | 'b2bTrips' | 'b2bPassthroughs' | 'b2bTpRate' | 'quotesStarted' | 'potentialTQ' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
+type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatPassthroughs' | 'repeatTpRate' | 'b2bTrips' | 'b2bPassthroughs' | 'b2bTpRate' | 'partnerTrips' | 'partnerPassthroughs' | 'partnerTpRate' | 'taTrips' | 'taPassthroughs' | 'taTpRate' | 'quotesStarted' | 'potentialTQ' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
 
 // Columns that can be toggled on/off
 interface ColumnVisibility {
@@ -20,6 +20,12 @@ interface ColumnVisibility {
   b2bTrips: boolean;
   b2bPassthroughs: boolean;
   b2bTpRate: boolean;
+  partnerTrips: boolean;
+  partnerPassthroughs: boolean;
+  partnerTpRate: boolean;
+  taTrips: boolean;
+  taPassthroughs: boolean;
+  taTpRate: boolean;
   quotesStarted: boolean;
   potentialTQ: boolean;
 }
@@ -69,6 +75,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     b2bTrips: false,
     b2bPassthroughs: false,
     b2bTpRate: false,
+    partnerTrips: false,
+    partnerPassthroughs: false,
+    partnerTpRate: true,
+    taTrips: false,
+    taPassthroughs: false,
+    taTpRate: true,
     quotesStarted: false,
     potentialTQ: false,
   });
@@ -84,6 +96,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       b2bTrips: true,
       b2bPassthroughs: true,
       b2bTpRate: true,
+      partnerTrips: true,
+      partnerPassthroughs: true,
+      partnerTpRate: true,
+      taTrips: true,
+      taPassthroughs: true,
+      taTpRate: true,
       quotesStarted: true,
       potentialTQ: true,
     });
@@ -97,6 +115,12 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       b2bTrips: false,
       b2bPassthroughs: false,
       b2bTpRate: false,
+      partnerTrips: false,
+      partnerPassthroughs: false,
+      partnerTpRate: false,
+      taTrips: false,
+      taPassthroughs: false,
+      taTpRate: false,
       quotesStarted: false,
       potentialTQ: false,
     });
@@ -199,9 +223,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       repeatPassthroughs: acc.repeatPassthroughs + m.repeatPassthroughs,
       b2bTrips: acc.b2bTrips + m.b2bTrips,
       b2bPassthroughs: acc.b2bPassthroughs + m.b2bPassthroughs,
+      partnerTrips: acc.partnerTrips + m.partnerTrips,
+      partnerPassthroughs: acc.partnerPassthroughs + m.partnerPassthroughs,
+      taTrips: acc.taTrips + m.taTrips,
+      taPassthroughs: acc.taPassthroughs + m.taPassthroughs,
       quotesStarted: acc.quotesStarted + m.quotesStarted,
     }),
-    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, quotesStarted: 0 }
+    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, partnerTrips: 0, partnerPassthroughs: 0, taTrips: 0, taPassthroughs: 0, quotesStarted: 0 }
   ), [sortedMetrics]);
 
   const totalMetrics = useMemo(() => ({
@@ -212,6 +240,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     nonConvertedRate: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
     repeatTpRate: totals.repeatTrips > 0 ? (totals.repeatPassthroughs / totals.repeatTrips) * 100 : 0,
     b2bTpRate: totals.b2bTrips > 0 ? (totals.b2bPassthroughs / totals.b2bTrips) * 100 : 0,
+    partnerTpRate: totals.partnerTrips > 0 ? (totals.partnerPassthroughs / totals.partnerTrips) * 100 : 0,
+    taTpRate: totals.taTrips > 0 ? (totals.taPassthroughs / totals.taTrips) * 100 : 0,
     potentialTQ: totals.trips > 0 ? ((totals.quotes + totals.quotesStarted) / totals.trips) * 100 : 0,
   }), [totals]);
 
@@ -418,6 +448,61 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  checked={columnVisibility.partnerTrips}
+                  onChange={() => toggleColumn('partnerTrips')}
+                  className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Partner Trips</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.partnerPassthroughs}
+                  onChange={() => toggleColumn('partnerPassthroughs')}
+                  className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Partner TP</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.partnerTpRate}
+                  onChange={() => toggleColumn('partnerTpRate')}
+                  className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Partner T&gt;P %</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.taTrips}
+                  onChange={() => toggleColumn('taTrips')}
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">TA Trips</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.taPassthroughs}
+                  onChange={() => toggleColumn('taPassthroughs')}
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">TA TP</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.taTpRate}
+                  onChange={() => toggleColumn('taTpRate')}
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">TA T&gt;P %</span>
+              </label>
+              <div className="h-4 w-px bg-gray-300" />
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
                   checked={columnVisibility.quotesStarted}
                   onChange={() => toggleColumn('quotesStarted')}
                   className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
@@ -538,6 +623,72 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <div className="flex items-center justify-center">
                     B2B T&gt;P %
                     <SortIcon column="b2bTpRate" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.partnerTrips && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-pink-600 uppercase tracking-wider cursor-pointer hover:bg-pink-50 transition-colors"
+                  onClick={() => handleSort('partnerTrips')}
+                >
+                  <div className="flex items-center justify-center">
+                    Partner Trips
+                    <SortIcon column="partnerTrips" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.partnerPassthroughs && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-pink-600 uppercase tracking-wider cursor-pointer hover:bg-pink-50 transition-colors"
+                  onClick={() => handleSort('partnerPassthroughs')}
+                >
+                  <div className="flex items-center justify-center">
+                    Partner TP
+                    <SortIcon column="partnerPassthroughs" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.partnerTpRate && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-pink-600 uppercase tracking-wider cursor-pointer hover:bg-pink-50 transition-colors"
+                  onClick={() => handleSort('partnerTpRate')}
+                >
+                  <div className="flex items-center justify-center">
+                    Partner T&gt;P %
+                    <SortIcon column="partnerTpRate" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.taTrips && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-indigo-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-50 transition-colors"
+                  onClick={() => handleSort('taTrips')}
+                >
+                  <div className="flex items-center justify-center">
+                    TA Trips
+                    <SortIcon column="taTrips" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.taPassthroughs && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-indigo-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-50 transition-colors"
+                  onClick={() => handleSort('taPassthroughs')}
+                >
+                  <div className="flex items-center justify-center">
+                    TA TP
+                    <SortIcon column="taPassthroughs" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.taTpRate && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-indigo-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-50 transition-colors"
+                  onClick={() => handleSort('taTpRate')}
+                >
+                  <div className="flex items-center justify-center">
+                    TA T&gt;P %
+                    <SortIcon column="taTpRate" sortColumn={sortColumn} sortDirection={sortDirection} />
                   </div>
                 </th>
               )}
@@ -690,6 +841,36 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                       {formatPercent(m.b2bTpRate)}
                     </td>
                   )}
+                  {columnVisibility.partnerTrips && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-pink-600 text-center">
+                      {m.partnerTrips}
+                    </td>
+                  )}
+                  {columnVisibility.partnerPassthroughs && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-pink-600 text-center">
+                      {m.partnerPassthroughs}
+                    </td>
+                  )}
+                  {columnVisibility.partnerTpRate && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-pink-600 text-center">
+                      {formatPercent(m.partnerTpRate)}
+                    </td>
+                  )}
+                  {columnVisibility.taTrips && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 text-center">
+                      {m.taTrips}
+                    </td>
+                  )}
+                  {columnVisibility.taPassthroughs && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 text-center">
+                      {m.taPassthroughs}
+                    </td>
+                  )}
+                  {columnVisibility.taTpRate && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-indigo-600 text-center">
+                      {formatPercent(m.taTpRate)}
+                    </td>
+                  )}
                   {columnVisibility.quotesStarted && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-amber-600 text-center">
                       {m.quotesStarted}
@@ -765,6 +946,36 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               {columnVisibility.b2bTpRate && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-teal-300 text-center">
                   {formatPercent(totalMetrics.b2bTpRate)}
+                </td>
+              )}
+              {columnVisibility.partnerTrips && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-pink-300 text-center">
+                  {totals.partnerTrips}
+                </td>
+              )}
+              {columnVisibility.partnerPassthroughs && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-pink-300 text-center">
+                  {totals.partnerPassthroughs}
+                </td>
+              )}
+              {columnVisibility.partnerTpRate && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-pink-300 text-center">
+                  {formatPercent(totalMetrics.partnerTpRate)}
+                </td>
+              )}
+              {columnVisibility.taTrips && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-300 text-center">
+                  {totals.taTrips}
+                </td>
+              )}
+              {columnVisibility.taPassthroughs && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-300 text-center">
+                  {totals.taPassthroughs}
+                </td>
+              )}
+              {columnVisibility.taTpRate && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-300 text-center">
+                  {formatPercent(totalMetrics.taTpRate)}
                 </td>
               )}
               {columnVisibility.quotesStarted && (

@@ -40,6 +40,14 @@ export interface Metrics {
   // Quotes started metrics
   quotesStarted: number;
   potentialTQ: number;
+  // Partner trip metrics
+  partnerTrips: number;
+  partnerPassthroughs: number;
+  partnerTpRate: number;
+  // TA trip metrics
+  taTrips: number;
+  taPassthroughs: number;
+  taTpRate: number;
 }
 
 export interface FileUploadState {

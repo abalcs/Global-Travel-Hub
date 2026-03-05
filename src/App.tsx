@@ -41,6 +41,7 @@ import {
   calculateSegmentDailyAverages,
   countRepeatByAgent,
   countB2bByAgent,
+  countByTripClassification,
   countQuotesStartedByAgent,
   isMetadataRow,
   isGroupedColumn,
@@ -561,6 +562,7 @@ function App() {
       // Calculate repeat client and B2B data per agent
       const repeatData = countRepeatByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
       const b2bData = countB2bByAgent(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
+      const classificationData = countByTripClassification(tripsRows, tripsAgentCol, tripsDateCol, startDate, endDate);
 
       // Calculate quotes started per agent
       // Quotes started is always timeframe-independent — it represents ALL pending
@@ -578,7 +580,11 @@ function App() {
         repeatData.repeatPassthroughs,
         b2bData.b2bTrips,
         b2bData.b2bPassthroughs,
-        quotesStartedData
+        quotesStartedData,
+        classificationData.partnerTrips,
+        classificationData.partnerPassthroughs,
+        classificationData.taTrips,
+        classificationData.taPassthroughs
       );
 
       setMetrics(calculatedMetrics);
