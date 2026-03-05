@@ -699,12 +699,10 @@ function App() {
 
 
   const allAgentNames = useMemo(() => metrics.map((m) => m.agentName), [metrics]);
-  const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted;
+  const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted && files.quotesStarted;
   const hasStoredData = rawParsedData !== null;
   const canAnalyze = allFilesUploaded || hasStoredData;
-  // Count required files (6) plus optional quotesStarted
-  const requiredFilesCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted].filter(Boolean).length;
-  const optionalFilesCount = files.quotesStarted ? 1 : 0;
+  const requiredFilesCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted, files.quotesStarted].filter(Boolean).length;
 
   // Calculate date range from stored data
   const dataDateRange = useMemo(() => {
@@ -914,7 +912,7 @@ function App() {
                   <span className={`px-2 py-0.5 rounded text-xs ${
                     isAudley ? 'bg-[#007bc7]/10 text-[#007bc7]' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {requiredFilesCount}/6 files{optionalFilesCount > 0 ? ' + 1 optional' : ''}
+                    {requiredFilesCount}/7 files
                   </span>
                 )}
               </div>
@@ -940,7 +938,7 @@ function App() {
                   isAudley ? 'border-[#4d726d]/10' : 'border-slate-700/50'
                 }`}>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
                   <FileUpload
                     label="Trips"
                     file={files.trips}
@@ -983,21 +981,13 @@ function App() {
                     color="rose"
                     icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
                   />
-                </div>
-                {/* Optional file: Quotes Started */}
-                <div className={`mt-3 pt-3 border-t ${isAudley ? 'border-[#4d726d]/20' : 'border-slate-700/50'}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-xs font-medium ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Optional</span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <FileUpload
-                      label="Quotes Started"
-                      file={files.quotesStarted}
-                      onFileSelect={handleFileSelect('quotesStarted')}
-                      color="amber"
-                      icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
-                    />
-                  </div>
+                  <FileUpload
+                    label="Quotes Started"
+                    file={files.quotesStarted}
+                    onFileSelect={handleFileSelect('quotesStarted')}
+                    color="amber"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
+                  />
                 </div>
 
                 {/* Analyze button when files uploaded manually */}
