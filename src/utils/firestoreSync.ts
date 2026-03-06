@@ -20,12 +20,17 @@ import { getDb } from '../firebase.config';
 
 const COLLECTION = 'gtt_raw_data';
 const BATCH_SIZE = 1000; // rows per Firestore document (reduced from 2000 for wider rows)
+const PARALLEL_WRITES = 5; // concurrent Firestore writes
 
 /**
  * Save all parsed report data to Firestore in batched format.
  * Overwrites any existing data for each data type.
+ * Uses parallel writes for speed. Reports progress via optional callback.
  */
-export async function saveRawDataToFirestore(data: RawParsedData): Promise<boolean> {
+export async function saveRawDataToFirestore(
+  data: RawParsedData,
+  onProgress?: (progress: number, stage: string) => void
+): Promise<boolean> {
   let db: any;
   try {
     db = await getDb();
@@ -49,35 +54,63 @@ export async function saveRawDataToFirestore(data: RawParsedData): Promise<boole
 
     const uploadedAt = new Date().toISOString();
 
+    // Count total work for progress reporting
+    let totalBatches = 0;
     for (const dataType of dataTypes) {
       const rows = data[dataType] || [];
-      // Saving dataType rows to Firestore
+      totalBatches += Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
+    }
+    let completedBatches = 0;
 
-      // Write batches
+    for (const dataType of dataTypes) {
+      const rows = data[dataType] || [];
       const batchCount = Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
+
+      onProgress?.(
+        Math.round((completedBatches / totalBatches) * 100),
+        `Syncing ${dataType}...`
+      );
+
+      // Build all write promises for this data type
+      const writePromises: Promise<void>[] = [];
       for (let i = 0; i < batchCount; i++) {
         const batchRows = rows.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
         const docId = `${dataType}_batch_${i}`;
-        await setDoc(doc(db, COLLECTION, docId), {
-          data: batchRows,
-          dataType,
-          batchIndex: i,
-          totalRows: rows.length,
-          totalBatches: batchCount,
-          uploadedAt,
-        });
+        writePromises.push(
+          setDoc(doc(db, COLLECTION, docId), {
+            data: batchRows,
+            dataType,
+            batchIndex: i,
+            totalRows: rows.length,
+            totalBatches: batchCount,
+            uploadedAt,
+          }).then(() => {
+            completedBatches++;
+            onProgress?.(
+              Math.round((completedBatches / totalBatches) * 100),
+              `Syncing ${dataType}...`
+            );
+          })
+        );
+      }
+
+      // Execute writes in parallel chunks for speed
+      for (let i = 0; i < writePromises.length; i += PARALLEL_WRITES) {
+        await Promise.all(writePromises.slice(i, i + PARALLEL_WRITES));
       }
 
       // Clean up any old batches beyond the current count
-      // (e.g., if data shrank from 5 batches to 3, delete batches 3 and 4)
-      for (let i = batchCount; i < 100; i++) {
-        const docId = `${dataType}_batch_${i}`;
+      // (e.g., if data shrank from 50 batches to 3, delete batches 3+)
+      let cleanupIndex = batchCount;
+      while (cleanupIndex < 200) {
+        const docId = `${dataType}_batch_${cleanupIndex}`;
         try {
           const snap = await getDoc(doc(db, COLLECTION, docId));
           if (snap.exists()) {
             await deleteDoc(doc(db, COLLECTION, docId));
+            cleanupIndex++;
           } else {
-            break; // No more old batches
+            break;
           }
         } catch {
           break;
@@ -85,7 +118,6 @@ export async function saveRawDataToFirestore(data: RawParsedData): Promise<boole
       }
 
       // Also write/overwrite the legacy single-doc format for backwards compat
-      // (only if the dataset is small enough to fit in one doc)
       if (rows.length <= BATCH_SIZE) {
         try {
           await setDoc(doc(db, COLLECTION, dataType), {
@@ -99,7 +131,8 @@ export async function saveRawDataToFirestore(data: RawParsedData): Promise<boole
       }
     }
 
-    // All data saved to Firestore
+    onProgress?.(100, 'Sync complete');
+    console.log('[FirestoreSync] All data saved to Firestore');
     return true;
   } catch (error) {
     console.error('[FirestoreSync] Save failed:', error);
@@ -139,7 +172,6 @@ export async function loadConfigFromFirestore(): Promise<AppConfig | null> {
     const snap = await getDoc(doc(db, CONFIG_COLLECTION, CONFIG_DOC_ID));
     if (snap.exists()) {
       const data = snap.data();
-      // Loaded config from Firestore
       return {
         teams: data.teams || [],
         seniors: data.seniors || [],
@@ -147,7 +179,6 @@ export async function loadConfigFromFirestore(): Promise<AppConfig | null> {
         updatedAt: data.updatedAt || null,
       };
     }
-    // No config doc found in Firestore
     return null;
   } catch (error) {
     console.error('[FirestoreSync] Failed to load config:', error);
@@ -177,7 +208,6 @@ export async function saveConfigToFirestore(config: Partial<AppConfig>): Promise
       { ...config, updatedAt: new Date().toISOString() },
       { merge: true }
     );
-    // Config saved to Firestore
     return true;
   } catch (error) {
     console.error('[FirestoreSync] Failed to save config:', error);
