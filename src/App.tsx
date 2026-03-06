@@ -438,11 +438,9 @@ function App() {
           quotesStarted: tagRows(quotesStartedRows, 'quotesStarted'),
         };
         const enrichedRawData = enrichTripsWithDestination(newRawData);
+        // Don't save to Firestore yet — fill-down hasn't run.
+        // Firestore save happens after fill-down below.
         saveRawDataToDB(enrichedRawData);
-        // Also persist to Firestore so ANY browser session can load this data
-        saveRawDataToFirestore(enrichedRawData).catch(err =>
-          console.warn('[App] Firestore write-back failed (non-critical):', err)
-        );
         setRawParsedData(enrichedRawData);
         setShowDataPanel(false);
       } else {
@@ -505,6 +503,11 @@ function App() {
       // Persist the fill-down processed data to IndexedDB so that
       // on next load the agent columns are already fully populated.
       saveRawDataToDB(processedRawData);
+      // Also persist fill-down processed data to Firestore so ANY browser
+      // session loads data with agent columns fully populated.
+      saveRawDataToFirestore(processedRawData).catch(err =>
+        console.warn('[App] Firestore write-back failed (non-critical):', err)
+      );
 
       const tripsAgentCol = findAgentColumn(tripsRows[0]);
       const quotesAgentCol = quotesRows.length > 0 ? findAgentColumn(quotesRows[0]) : null;
