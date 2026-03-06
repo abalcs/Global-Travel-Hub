@@ -446,6 +446,17 @@ function App() {
         setRawParsedData(enrichedRawData);
         setShowDataPanel(false);
         pendingFirestoreSave.current = true;
+        // Clear file references so date-range changes use rawParsedData
+        // instead of re-entering this upload branch
+        setFiles({
+          passthroughs: null,
+          trips: null,
+          quotes: null,
+          hotPass: null,
+          bookings: null,
+          nonConverted: null,
+          quotesStarted: null,
+        });
       } else {
         // Filter by _source tag to prevent cross-contamination from storage
         tripsRows = filterBySource(rawParsedData!.trips, 'trips');
