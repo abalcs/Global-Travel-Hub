@@ -398,6 +398,7 @@ function App() {
     setError(null);
 
     try {
+      const isManualUpload = hasAllFiles;
       let tripsRows: CSVRow[];
       let quotesRows: CSVRow[];
       let passthroughsRows: CSVRow[];
@@ -504,18 +505,18 @@ function App() {
       // Persist the fill-down processed data to IndexedDB so that
       // on next load the agent columns are already fully populated.
       saveRawDataToDB(processedRawData);
-      // Persist fill-down processed data to Firestore so ANY browser
-      // session loads data with agent columns fully populated.
-      // Awaited so the save completes before the user can clear/reload.
-      setFirestoreSyncStatus({ syncing: true, progress: 0, stage: 'Starting sync...' });
-      try {
-        await saveRawDataToFirestore(processedRawData, (progress, stage) => {
-          setFirestoreSyncStatus({ syncing: true, progress, stage });
-        });
-        setFirestoreSyncStatus({ syncing: false, progress: 100, stage: '' });
-      } catch (err) {
-        console.warn('[App] Firestore write-back failed:', err);
-        setFirestoreSyncStatus({ syncing: false, progress: 0, stage: '' });
+      // Only sync to Firestore on manual file upload, not on date range changes
+      if (isManualUpload) {
+        setFirestoreSyncStatus({ syncing: true, progress: 0, stage: 'Starting sync...' });
+        try {
+          await saveRawDataToFirestore(processedRawData, (progress, stage) => {
+            setFirestoreSyncStatus({ syncing: true, progress, stage });
+          });
+          setFirestoreSyncStatus({ syncing: false, progress: 100, stage: '' });
+        } catch (err) {
+          console.warn('[App] Firestore write-back failed:', err);
+          setFirestoreSyncStatus({ syncing: false, progress: 0, stage: '' });
+        }
       }
 
       const tripsAgentCol = findAgentColumn(tripsRows[0]);
