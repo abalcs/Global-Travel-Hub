@@ -26,13 +26,15 @@ async function ensureInitialized() {
       const { getFirestore } = await import('firebase/firestore');
       const { getStorage } = await import('firebase/storage');
 
+      // Firebase client config — these are public keys embedded in every client
+      // bundle and restricted by Firebase security rules, not secrets.
       const firebaseConfig = {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-        appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyD5xmAlxGyaDddN-Jt-obkc-a-dFt-Myg8',
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'global-travel-hub-9feaf.firebaseapp.com',
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'global-travel-hub-9feaf',
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'global-travel-hub-9feaf.firebasestorage.app',
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '947623280909',
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:947623280909:web:81d7c52947fa8996f83044',
         measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
       };
 
