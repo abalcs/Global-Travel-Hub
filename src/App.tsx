@@ -180,6 +180,7 @@ function App() {
   // 'completing' keeps the globe visible while it fades out and the UI fades in
   const [loadTransition, setLoadTransition] = useState<'idle' | 'loading' | 'completing'>('idle');
   const [autoAnalyzePending, setAutoAnalyzePending] = useState(false);
+  const pendingFirestoreSave = useRef(false);
 
   const { processFiles: processFilesWithWorker, state: workerState } = useFileProcessor();
   const isProcessing = workerState.isProcessing;
@@ -398,7 +399,6 @@ function App() {
     setError(null);
 
     try {
-      const isManualUpload = hasAllFiles;
       let tripsRows: CSVRow[];
       let quotesRows: CSVRow[];
       let passthroughsRows: CSVRow[];
@@ -445,6 +445,7 @@ function App() {
         saveRawDataToDB(enrichedRawData);
         setRawParsedData(enrichedRawData);
         setShowDataPanel(false);
+        pendingFirestoreSave.current = true;
       } else {
         // Filter by _source tag to prevent cross-contamination from storage
         tripsRows = filterBySource(rawParsedData!.trips, 'trips');
@@ -506,7 +507,8 @@ function App() {
       // on next load the agent columns are already fully populated.
       saveRawDataToDB(processedRawData);
       // Only sync to Firestore on manual file upload, not on date range changes
-      if (isManualUpload) {
+      if (pendingFirestoreSave.current) {
+        pendingFirestoreSave.current = false;
         setFirestoreSyncStatus({ syncing: true, progress: 0, stage: 'Starting sync...' });
         try {
           await saveRawDataToFirestore(processedRawData, (progress, stage) => {

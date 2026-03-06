@@ -19,8 +19,8 @@ import type { Team } from '../types';
 import { getDb } from '../firebase.config';
 
 const COLLECTION = 'gtt_raw_data';
-const BATCH_SIZE = 1000; // rows per Firestore document (reduced from 2000 for wider rows)
-const PARALLEL_WRITES = 5; // concurrent Firestore writes
+const BATCH_SIZE = 2000; // rows per Firestore document
+const PARALLEL_WRITES = 10; // concurrent Firestore writes
 
 /**
  * Save all parsed report data to Firestore in batched format.

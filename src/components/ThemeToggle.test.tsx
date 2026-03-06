@@ -7,7 +7,7 @@ import { ThemeToggle } from './ThemeToggle';
 describe('ThemeToggle', () => {
   it('renders without crashing', () => {
     render(<ThemeToggle />);
-    expect(screen.getByText('AUDLEY')).toBeInTheDocument();
+    expect(screen.getByText('Light')).toBeInTheDocument();
     expect(screen.getByText('Dark')).toBeInTheDocument();
   });
 
