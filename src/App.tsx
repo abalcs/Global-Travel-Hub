@@ -274,21 +274,23 @@ function App() {
         const datasets: any = {};
         const allDataTypes = ['trips', 'quotes', 'passthroughs', 'hotPass', 'bookings', 'nonConverted', 'quotesStarted'];
 
-        // Helper: load a dataset, trying batched format first, then single doc
+        // Helper: load a dataset, trying batched format first, then single doc.
+        // Uses totalBatches metadata from batch_0 to avoid loading stale batches
+        // left over from a previous save with a different batch size.
         const loadDataset = async (dataType: string): Promise<any[]> => {
           let batchedData: any[] = [];
-          let batchNum = 0;
           try {
             const firstBatch = await getDoc(doc(db, 'gtt_raw_data', `${dataType}_batch_0`));
             if (firstBatch.exists()) {
-              batchedData = batchedData.concat(firstBatch.data()?.data || []);
-              batchNum = 1;
-              while (batchNum < 100) {
+              const firstData = firstBatch.data();
+              batchedData = batchedData.concat(firstData?.data || []);
+              // Use totalBatches metadata to know exactly how many batches to read
+              const expectedBatches = firstData?.totalBatches || 100;
+              for (let batchNum = 1; batchNum < expectedBatches; batchNum++) {
                 try {
                   const batchSnap = await getDoc(doc(db, 'gtt_raw_data', `${dataType}_batch_${batchNum}`));
                   if (batchSnap.exists()) {
                     batchedData = batchedData.concat(batchSnap.data()?.data || []);
-                    batchNum++;
                   } else { break; }
                 } catch (e) { break; }
               }

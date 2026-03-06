@@ -71,6 +71,31 @@ export async function saveRawDataToFirestore(
         `Syncing ${dataType}...`
       );
 
+      // Delete ALL existing batches first to prevent stale data mixing
+      // with new batches (e.g., when BATCH_SIZE changes or data shrinks)
+      let deleteIndex = 0;
+      while (deleteIndex < 200) {
+        const docId = `${dataType}_batch_${deleteIndex}`;
+        try {
+          const snap = await getDoc(doc(db, COLLECTION, docId));
+          if (snap.exists()) {
+            await deleteDoc(doc(db, COLLECTION, docId));
+            deleteIndex++;
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      }
+      // Also delete legacy single-doc format
+      try {
+        const legacySnap = await getDoc(doc(db, COLLECTION, dataType));
+        if (legacySnap.exists()) {
+          await deleteDoc(doc(db, COLLECTION, dataType));
+        }
+      } catch { /* ignore */ }
+
       // Build all write promises for this data type
       const writePromises: Promise<void>[] = [];
       for (let i = 0; i < batchCount; i++) {
@@ -97,37 +122,6 @@ export async function saveRawDataToFirestore(
       // Execute writes in parallel chunks for speed
       for (let i = 0; i < writePromises.length; i += PARALLEL_WRITES) {
         await Promise.all(writePromises.slice(i, i + PARALLEL_WRITES));
-      }
-
-      // Clean up any old batches beyond the current count
-      // (e.g., if data shrank from 50 batches to 3, delete batches 3+)
-      let cleanupIndex = batchCount;
-      while (cleanupIndex < 200) {
-        const docId = `${dataType}_batch_${cleanupIndex}`;
-        try {
-          const snap = await getDoc(doc(db, COLLECTION, docId));
-          if (snap.exists()) {
-            await deleteDoc(doc(db, COLLECTION, docId));
-            cleanupIndex++;
-          } else {
-            break;
-          }
-        } catch {
-          break;
-        }
-      }
-
-      // Also write/overwrite the legacy single-doc format for backwards compat
-      if (rows.length <= BATCH_SIZE) {
-        try {
-          await setDoc(doc(db, COLLECTION, dataType), {
-            data: rows,
-            uploadedAt,
-            totalRows: rows.length,
-          });
-        } catch {
-          // Single-doc may exceed limits for large datasets — that's fine
-        }
       }
     }
 
