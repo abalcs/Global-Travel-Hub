@@ -783,54 +783,23 @@ function App() {
             </p>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             {metrics.length > 0 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    processFiles();
-                    if (navigator.vibrate) navigator.vibrate(10);
-                  }}
-                  disabled={!canAnalyze || isProcessing}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95 flex items-center gap-2 ${
-                    isAudley
-                      ? 'bg-[#007bc7] hover:bg-[#005a94] text-white'
-                      : 'bg-[#1a7fa8] hover:bg-[#15667f] text-white'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      {workerState.stage || 'Processing'}
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Refresh Data
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    handleClearData();
-                    if (navigator.vibrate) navigator.vibrate(10);
-                  }}
-                  disabled={firestoreSyncStatus.syncing}
-                  className={`px-3 py-2 text-sm rounded-lg transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isAudley
-                      ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
-                      : 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
-                  }`}
-                >
-                  {firestoreSyncStatus.syncing ? 'Syncing...' : 'Clear All'}
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  handleClearData();
+                  if (navigator.vibrate) navigator.vibrate(10);
+                }}
+                disabled={firestoreSyncStatus.syncing}
+                className={`px-3 py-2 text-sm rounded-lg transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isAudley
+                    ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+                    : 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
+                }`}
+              >
+                {firestoreSyncStatus.syncing ? 'Syncing...' : 'Clear All'}
+              </button>
             )}
           </div>
         </header>
