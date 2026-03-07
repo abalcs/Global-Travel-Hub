@@ -24,8 +24,8 @@ import { getDb } from './firebase.config';
 import audleyLogo from './assets/audley-logo.png';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
 import type { CSVRow } from './utils/csvParser';
-import { loadTeams, saveTeams, loadSeniors, saveSeniors, loadNewHires, saveNewHires, loadMetrics, saveMetrics, clearMetrics, loadTimeSeriesData, saveTimeSeriesData, clearTimeSeriesData } from './utils/storage';
-import { loadRawDataFromDB, saveRawDataToDB, clearRawDataFromDB, type RawParsedData } from './utils/indexedDB';
+import { saveTeams, saveSeniors, saveNewHires } from './utils/storage';
+import { type RawParsedData } from './utils/indexedDB';
 import { saveRawDataToFirestore, loadConfigFromFirestore, saveConfigToFirestore } from './utils/firestoreSync';
 // firestoreService save calls removed — metrics/timeseries/summary are recalculated
 // from raw data on every load, so caching them in Firestore is unnecessary.
@@ -186,33 +186,16 @@ function App() {
   const isProcessing = workerState.isProcessing;
 
   useEffect(() => {
-    // Load config: try Firestore first, fall back to localStorage
+    // Load config from Firestore (single source of truth)
     loadConfigFromFirestore().then((config) => {
       if (config && (config.teams.length > 0 || config.seniors.length > 0 || config.newHires.length > 0)) {
-        // Config loaded from Firestore
         setTeams(config.teams);
         setSeniors(config.seniors);
         setNewHires(config.newHires);
-        // Update localStorage cache
-        saveTeams(config.teams);
-        saveSeniors(config.seniors);
-        saveNewHires(config.newHires);
-      } else {
-        // Fall back to localStorage
-        // No Firestore config, using localStorage
-        setTeams(loadTeams());
-        setSeniors(loadSeniors());
-        setNewHires(loadNewHires());
       }
-    }).catch(() => {
-      // Firestore failed, use localStorage
-      setTeams(loadTeams());
-      setSeniors(loadSeniors());
-      setNewHires(loadNewHires());
+    }).catch((err) => {
+      console.warn('[App] Firestore config load failed:', err);
     });
-
-    setMetrics(loadMetrics());
-    setTimeSeriesData(loadTimeSeriesData());
 
     loadData();
   }, []);
@@ -228,31 +211,12 @@ function App() {
     }, 800);
   }, []);
 
-  // Load raw data from IndexedDB or Firestore — extracted so it can be re-called
+  // Load raw data from Firestore — single source of truth
   const loadData = useCallback(async () => {
       setLoadTransition('loading');
       setDataLoadProgress({ loading: true, progress: 5, stage: 'Planning the trip...' });
 
-      // First try IndexedDB
-      let localData: RawParsedData | null = null;
-      try {
-        localData = await loadRawDataFromDB();
-      } catch (e) {
-        console.warn('[App] IndexedDB load failed:', e);
-      }
-
-      // Only use IndexedDB data if it actually has rows
-      const hasLocalData = localData && Object.values(localData).some((arr: any) => Array.isArray(arr) && arr.length > 0);
-      if (hasLocalData) {
-        setDataLoadProgress({ loading: true, progress: 90, stage: 'Making memories...' });
-        setRawParsedData(enrichTripsWithDestination(localData!));
-        setShowDataPanel(false);
-        setAutoAnalyzePending(true);
-        finishLoading();
-        return;
-      }
-
-      // Try loading from Firestore (supports both batched and single-doc formats)
+      // Load from Firestore (supports both batched and single-doc formats)
       let db: any;
       try {
         db = await getDb();
@@ -339,7 +303,6 @@ function App() {
 
           const enrichedData = enrichTripsWithDestination(parsedData);
           setRawParsedData(enrichedData);
-          saveRawDataToDB(enrichedData);
           setShowDataPanel(false);
           setAutoAnalyzePending(true);
           finishLoading();
@@ -444,7 +407,6 @@ function App() {
         const enrichedRawData = enrichTripsWithDestination(newRawData);
         // Don't save to Firestore yet — fill-down hasn't run.
         // Firestore save happens after fill-down below.
-        saveRawDataToDB(enrichedRawData);
         setRawParsedData(enrichedRawData);
         setShowDataPanel(false);
         pendingFirestoreSave.current = true;
@@ -516,9 +478,6 @@ function App() {
         quotesStarted: tagRows(quotesStartedRows, 'quotesStarted'),
       };
       setRawParsedData(processedRawData);
-      // Persist the fill-down processed data to IndexedDB so that
-      // on next load the agent columns are already fully populated.
-      saveRawDataToDB(processedRawData);
       // Only sync to Firestore on manual file upload, not on date range changes
       if (pendingFirestoreSave.current) {
         pendingFirestoreSave.current = false;
@@ -616,7 +575,6 @@ function App() {
       );
 
       setMetrics(calculatedMetrics);
-      saveMetrics(calculatedMetrics);
 
       const tsData = buildTimeSeriesOptimized(
         tripsResult.byDate,
@@ -640,7 +598,6 @@ function App() {
       };
 
       setTimeSeriesData(tsDataWithSegments);
-      saveTimeSeriesData(tsDataWithSegments);
 
       // Analyze and update personal records
       const currentRecords = loadRecords();
@@ -679,13 +636,10 @@ function App() {
   }, [dateRangeTrigger, metrics.length, rawParsedData, isProcessing, processFiles]);
 
   const handleClearData = useCallback(() => {
-    // Clear everything — analyzed results AND stored raw data
+    // Clear in-memory state (Firestore data persists as source of truth)
     setMetrics([]);
-    clearMetrics();
     setTimeSeriesData(null);
-    clearTimeSeriesData();
     setRawParsedData(null);
-    clearRawDataFromDB();
     setFiles({
       passthroughs: null,
       trips: null,
@@ -699,9 +653,7 @@ function App() {
   }, []);
 
   const handleClearStoredData = useCallback(() => {
-    // Clear the stored raw data from IndexedDB
     setRawParsedData(null);
-    clearRawDataFromDB();
   }, []);
 
 
