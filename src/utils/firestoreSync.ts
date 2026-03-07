@@ -20,7 +20,6 @@ import { getDb } from '../firebase.config';
 
 const COLLECTION = 'gtt_raw_data';
 const BATCH_SIZE = 2000; // rows per Firestore document
-const PARALLEL_WRITES = 10; // concurrent Firestore writes
 
 /**
  * Save all parsed report data to Firestore in batched format.
@@ -54,76 +53,78 @@ export async function saveRawDataToFirestore(
 
     const uploadedAt = new Date().toISOString();
 
-    // Count total work for progress reporting
+    onProgress?.(0, 'Reading existing data...');
+
+    // Step 1: Read batch_0 for all data types in parallel to get old batch counts
+    const oldBatchCounts = await Promise.all(
+      dataTypes.map(async (dataType) => {
+        try {
+          const snap = await getDoc(doc(db, COLLECTION, `${dataType}_batch_0`));
+          if (snap.exists()) {
+            const meta = snap.data();
+            return { dataType, oldCount: meta.totalBatches || 1 };
+          }
+        } catch { /* no existing data */ }
+        return { dataType, oldCount: 0 };
+      })
+    );
+
+    const oldCountMap = new Map(oldBatchCounts.map(({ dataType, oldCount }) => [dataType, oldCount]));
+
+    // Step 2: Build all write and delete operations upfront
+    const allOps: Promise<void>[] = [];
     let totalBatches = 0;
-    for (const dataType of dataTypes) {
-      const rows = data[dataType] || [];
-      totalBatches += Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
-    }
     let completedBatches = 0;
 
     for (const dataType of dataTypes) {
       const rows = data[dataType] || [];
-      const batchCount = Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
+      totalBatches += Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
+    }
 
-      onProgress?.(
-        Math.round((completedBatches / totalBatches) * 100),
-        `Syncing ${dataType}...`
-      );
+    onProgress?.(5, 'Syncing all data...');
 
-      // Delete ALL existing batches first to prevent stale data mixing
-      // with new batches (e.g., when BATCH_SIZE changes or data shrinks)
-      let deleteIndex = 0;
-      while (deleteIndex < 200) {
-        const docId = `${dataType}_batch_${deleteIndex}`;
-        try {
-          const snap = await getDoc(doc(db, COLLECTION, docId));
-          if (snap.exists()) {
-            await deleteDoc(doc(db, COLLECTION, docId));
-            deleteIndex++;
-          } else {
-            break;
-          }
-        } catch {
-          break;
-        }
-      }
-      // Also delete legacy single-doc format
-      try {
-        const legacySnap = await getDoc(doc(db, COLLECTION, dataType));
-        if (legacySnap.exists()) {
-          await deleteDoc(doc(db, COLLECTION, dataType));
-        }
-      } catch { /* ignore */ }
+    for (const dataType of dataTypes) {
+      const rows = data[dataType] || [];
+      const newBatchCount = Math.max(1, Math.ceil(rows.length / BATCH_SIZE));
+      const oldCount = oldCountMap.get(dataType) || 0;
 
-      // Build all write promises for this data type
-      const writePromises: Promise<void>[] = [];
-      for (let i = 0; i < batchCount; i++) {
+      // Queue setDoc for each new batch (overwrites existing docs)
+      for (let i = 0; i < newBatchCount; i++) {
         const batchRows = rows.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
         const docId = `${dataType}_batch_${i}`;
-        writePromises.push(
+        allOps.push(
           setDoc(doc(db, COLLECTION, docId), {
             data: batchRows,
             dataType,
             batchIndex: i,
             totalRows: rows.length,
-            totalBatches: batchCount,
+            totalBatches: newBatchCount,
             uploadedAt,
           }).then(() => {
             completedBatches++;
             onProgress?.(
-              Math.round((completedBatches / totalBatches) * 100),
-              `Syncing ${dataType}...`
+              5 + Math.round((completedBatches / totalBatches) * 90),
+              'Syncing all data...'
             );
           })
         );
       }
 
-      // Execute writes in parallel chunks for speed
-      for (let i = 0; i < writePromises.length; i += PARALLEL_WRITES) {
-        await Promise.all(writePromises.slice(i, i + PARALLEL_WRITES));
+      // Queue deleteDoc for excess old batches (where old count > new count)
+      for (let i = newBatchCount; i < oldCount; i++) {
+        allOps.push(
+          deleteDoc(doc(db, COLLECTION, `${dataType}_batch_${i}`)).catch(() => {})
+        );
       }
+
+      // Queue deleteDoc for legacy single-doc format (no existence check needed)
+      allOps.push(
+        deleteDoc(doc(db, COLLECTION, dataType)).catch(() => {})
+      );
     }
+
+    // Step 3: Execute all writes and deletes in parallel
+    await Promise.all(allOps);
 
     onProgress?.(100, 'Sync complete');
     console.log('[FirestoreSync] All data saved to Firestore');
