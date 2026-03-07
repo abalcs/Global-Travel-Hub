@@ -721,12 +721,12 @@ function App() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       isAudley
-        ? 'bg-gradient-to-br from-[#e6f3fb] via-white to-[#f0f7fc]'
-        : 'bg-gradient-to-br from-[#0c1a24] via-[#142028] to-[#0c1a24]'
+        ? 'bg-[#faf8f5]'
+        : 'bg-[#0a1628]'
     }`}>
-      {/* Header Bar - Audley teal/blue gradient */}
-      <div className={`w-full h-1 bg-gradient-to-r from-[#007bc7] via-[#4d726d] to-[#007bc7] ${
-        isAudley ? 'opacity-100' : 'opacity-60'
+      {/* Editorial accent bar */}
+      <div className={`w-full bg-gradient-to-r from-[#007bc7] via-[#c4956a] to-[#4d726d] ${
+        isAudley ? 'opacity-100 h-[3px]' : 'opacity-60 h-[3px]'
       }`} />
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5">
@@ -735,7 +735,7 @@ function App() {
           <div className="flex items-center gap-4">
             {/* Audley Logo - shown in both themes */}
             <div className={`flex items-center justify-center min-w-[3.5rem] pr-4 border-r ${
-              isAudley ? 'border-[#4d726d]/30' : 'border-slate-600/50'
+              isAudley ? 'border-[#c4956a]/40' : 'border-slate-600/50'
             }`}>
               {isAudley ? (
                 <img
@@ -773,13 +773,13 @@ function App() {
               )}
             </div>
             <div>
-              <h1 className={`text-2xl font-bold transition-colors ${
-                isAudley ? 'text-[#4d726d]' : 'text-white'
-              }`}>
+              <h1 className={`text-2xl transition-colors ${
+                isAudley ? 'text-[#0a1628]' : 'text-white'
+              }`} style={{ fontFamily: "'DM Serif Display', serif" }}>
                 Global Travel Hub
               </h1>
-            <p className={`text-sm transition-colors ${isAudley ? 'text-[#4d726d]/80' : 'text-slate-400'}`}>
-              Analyze agent performance metrics
+            <p className={`text-xs tracking-[0.12em] uppercase transition-colors ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`} style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+              Agent Performance Analytics
             </p>
             </div>
           </div>
@@ -794,7 +794,7 @@ function App() {
                 disabled={firestoreSyncStatus.syncing}
                 className={`px-3 py-2 text-sm rounded-lg transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                   isAudley
-                    ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+                    ? 'text-[#7a7a7a] hover:text-red-600 hover:bg-red-50'
                     : 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
                 }`}
               >
@@ -807,14 +807,14 @@ function App() {
         {/* Firestore sync progress bar */}
         {firestoreSyncStatus.syncing && (
           <div className={`mx-4 mb-2 px-4 py-3 rounded-lg flex items-center gap-3 ${
-            isAudley ? 'bg-[#e6f3fb] border border-[#007bc7]/20' : 'bg-slate-800 border border-slate-700'
+            isAudley ? 'bg-[#faf8f5] border border-[#ede8e0]' : 'bg-[#1a2a45] border border-[#2a3c5a]'
           }`}>
             <svg className="animate-spin h-4 w-4 flex-shrink-0" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
             <div className="flex-1">
-              <div className={`text-sm font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+              <div className={`text-sm font-medium ${isAudley ? 'text-[#0a1628]' : 'text-[#e8e4df]'}`}>
                 Saving to database... {firestoreSyncStatus.progress}%
               </div>
               <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
@@ -851,7 +851,7 @@ function App() {
               }}
               className={`px-6 py-3 rounded-xl font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-3 shadow-lg ${
                 isAudley
-                  ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white hover:from-[#3d5c58] hover:to-[#0066a6]'
+                  ? 'bg-gradient-to-r from-[#c4956a] to-[#007bc7] text-white hover:from-[#b08055] hover:to-[#0066a6]'
                   : 'bg-gradient-to-r from-[#1a5c6e] to-[#1a7fa8] text-white hover:from-[#15506a] hover:to-[#15667f]'
               }`}
             >
@@ -860,30 +860,30 @@ function App() {
               </svg>
               Reload from Database
             </button>
-            <span className={`text-sm ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>or upload files manually</span>
+            <span className={`text-sm ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>or upload files manually</span>
           </div>
         )}
 
         {!hasStoredData && !dataLoadProgress.loading && (
           <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
             isAudley
-              ? 'bg-white border-[#007bc7]/20 shadow-sm shadow-[#007bc7]/5'
-              : 'bg-slate-800/50 border-slate-700/50'
+              ? 'bg-white border-[#ede8e0] shadow-sm'
+              : 'bg-[#111d33] border-[#2a3c5a]'
           }`}>
             <button
               onClick={() => setShowDataPanel(!showDataPanel)}
               className={`w-full px-4 py-3 flex items-center justify-between transition-all cursor-pointer active:scale-[0.99] ${
-                isAudley ? 'hover:bg-[#e6f3fb]/50' : 'hover:bg-slate-700/30'
+                isAudley ? 'hover:bg-[#faf8f5]' : 'hover:bg-[#1a2a45]/50'
               }`}
             >
               <div className="flex items-center gap-3">
-                <svg className={`w-5 h-5 ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>Upload Data Files</span>
+                <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Upload Data Files</span>
                 {requiredFilesCount > 0 && (
                   <span className={`px-2 py-0.5 rounded text-xs ${
-                    isAudley ? 'bg-[#007bc7]/10 text-[#007bc7]' : 'bg-blue-500/20 text-blue-400'
+                    isAudley ? 'bg-[#c4956a]/10 text-[#c4956a]' : 'bg-blue-500/20 text-blue-400'
                   }`}>
                     {requiredFilesCount}/7 files
                   </span>
@@ -891,7 +891,7 @@ function App() {
               </div>
               <svg
                 className={`w-5 h-5 transition-transform ${showDataPanel ? 'rotate-180' : ''} ${
-                  isAudley ? 'text-[#007bc7]' : 'text-slate-400'
+                  isAudley ? 'text-[#c4956a]' : 'text-slate-400'
                 }`}
                 fill="none"
                 stroke="currentColor"
@@ -908,7 +908,7 @@ function App() {
             >
               <div className="overflow-hidden">
                 <div className={`px-4 pb-4 border-t pt-4 ${
-                  isAudley ? 'border-[#4d726d]/10' : 'border-slate-700/50'
+                  isAudley ? 'border-[#ede8e0]' : 'border-[#2a3c5a]'
                 }`}>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -971,7 +971,7 @@ function App() {
                       disabled={isProcessing}
                       className={`w-full px-4 py-3 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98] ${
                         isAudley
-                          ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] hover:from-[#3d5c58] hover:to-[#005a94] shadow-md shadow-[#4d726d]/20'
+                          ? 'bg-gradient-to-r from-[#c4956a] to-[#007bc7] hover:from-[#b08055] hover:to-[#005a94] shadow-md shadow-[#c4956a]/20'
                           : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
                       }`}
                     >
@@ -1004,21 +1004,21 @@ function App() {
         {isProcessing && workerState.progress > 0 && (
           <div className={`backdrop-blur rounded-xl border px-4 py-3 mb-4 ${
             isAudley
-              ? 'bg-white border-[#007bc7]/20 shadow-sm'
-              : 'bg-slate-800/50 border-slate-700/50'
+              ? 'bg-white border-[#ede8e0] shadow-sm'
+              : 'bg-[#111d33] border-[#2a3c5a]'
           }`}>
             <div className="flex items-center gap-3">
-              <svg className={`animate-spin h-4 w-4 ${isAudley ? 'text-[#007bc7]' : 'text-[#5ba8c8]'}`} viewBox="0 0 24 24">
+              <svg className={`animate-spin h-4 w-4 ${isAudley ? 'text-[#c4956a]' : 'text-[#5ba8c8]'}`} viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <div className={`flex-1 max-w-xs rounded-full h-1.5 overflow-hidden ${isAudley ? 'bg-[#e6f3fb]' : 'bg-slate-700'}`}>
+              <div className={`flex-1 max-w-xs rounded-full h-1.5 overflow-hidden ${isAudley ? 'bg-[#faf8f5]' : 'bg-slate-700'}`}>
                 <div
-                  className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#007bc7]' : 'bg-[#1a7fa8]'}`}
+                  className={`h-full transition-all duration-300 ${isAudley ? 'bg-[#c4956a]' : 'bg-[#1a7fa8]'}`}
                   style={{ width: `${workerState.progress}%` }}
                 />
               </div>
-              <span className={`text-sm ${isAudley ? 'text-[#007bc7]' : 'text-slate-400'}`}>
+              <span className={`text-sm ${isAudley ? 'text-[#c4956a]' : 'text-slate-400'}`}>
                 {workerState.stage || 'Processing'} {workerState.progress}%
               </span>
             </div>
@@ -1037,19 +1037,41 @@ function App() {
 
         {/* View Toggle & Config - Always show tabs, disable data-dependent ones */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <SlidingPillGroup
-            options={[
+          {/* Editorial underline tabs for main navigation */}
+          <nav className="flex gap-1 overflow-x-auto max-w-full scrollbar-hide" role="tablist">
+            {[
               { value: 'summary', label: 'Summary', disabled: metrics.length === 0 },
               { value: 'regional', label: 'Regional', disabled: metrics.length === 0 },
               { value: 'channels', label: 'Channels', disabled: metrics.length === 0 },
-              { value: 'trends', label: 'Trends' },
+              { value: 'trends', label: 'Trends', disabled: false },
               { value: 'insights', label: 'Insights', disabled: metrics.length === 0 },
-              { value: 'records', label: 'Records' },
-            ]}
-            value={activeView}
-            onChange={(v) => setActiveView(v as typeof activeView)}
-            className="overflow-x-auto max-w-full scrollbar-hide"
-          />
+              { value: 'records', label: 'Records', disabled: false },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                role="tab"
+                aria-selected={activeView === tab.value}
+                disabled={tab.disabled}
+                onClick={() => setActiveView(tab.value as typeof activeView)}
+                className={`px-4 py-2.5 text-xs font-semibold tracking-[0.1em] uppercase whitespace-nowrap transition-all cursor-pointer border-b-2 ${
+                  activeView === tab.value
+                    ? isAudley
+                      ? 'border-[#c4956a] text-[#0a1628]'
+                      : 'border-[#d4a87a] text-white'
+                    : tab.disabled
+                      ? isAudley
+                        ? 'border-transparent text-[#0a1628]/25 cursor-not-allowed'
+                        : 'border-transparent text-white/25 cursor-not-allowed'
+                      : isAudley
+                        ? 'border-transparent text-[#7a7a7a] hover:text-[#0a1628] hover:border-[#ede8e0]'
+                        : 'border-transparent text-slate-400 hover:text-white hover:border-slate-600'
+                }`}
+                style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
           {activeView === 'summary' && metrics.length > 0 && (
             <div className="flex-1 max-w-xl">
@@ -1120,11 +1142,11 @@ function App() {
         {/* Empty State — only when no data and not loading */}
         {metrics.length === 0 && !isProcessing && !dataLoadProgress.loading && !autoAnalyzePending && (
           <div className="text-center py-16">
-            <svg className={`w-16 h-16 mx-auto mb-4 ${isAudley ? 'text-[#4d726d]/40' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-16 h-16 mx-auto mb-4 ${isAudley ? 'text-[#c4956a]/40' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h2 className={`text-xl font-semibold mb-2 ${isAudley ? 'text-[#313131]' : 'text-white'}`}>Ready to Analyze</h2>
-            <p className={`max-w-md mx-auto ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+            <h2 className={`text-xl mb-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`} style={{ fontFamily: "'DM Serif Display', serif" }}>Ready to Analyze</h2>
+            <p className={`max-w-md mx-auto ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
               Upload your Excel files above to generate KPI metrics.
             </p>
           </div>

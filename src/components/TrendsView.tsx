@@ -551,32 +551,32 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
   if (allDates.length === 0) {
     return (
       <div className={`backdrop-blur rounded-2xl p-6 border ${
-        isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+        isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
       }`}>
-        <h2 className={`text-xl font-semibold mb-4 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>Trends</h2>
-        <p className={isAudley ? 'text-slate-600' : 'text-slate-400'}>No time-series data available. Upload files with date information to view trends.</p>
+        <h2 className={`text-xl font-semibold mb-4 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Trends</h2>
+        <p className={isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}>No time-series data available. Upload files with date information to view trends.</p>
       </div>
     );
   }
 
   return (
     <div className={`backdrop-blur rounded-2xl p-6 border space-y-6 ${
-      isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+      isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
     }`}>
-      <h2 className={`text-xl font-semibold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>Trends Over Time</h2>
+      <h2 className={`text-xl font-semibold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Trends Over Time</h2>
 
       {/* Controls Row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Agent Selection - 3 cols */}
         <div className="lg:col-span-3 space-y-2">
           <div className="flex items-center justify-between">
-            <label className={`text-sm font-medium ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>Agents</label>
+            <label className={`text-sm font-medium ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Agents</label>
             <div className="flex items-center gap-2">
-              <span className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>{config.selectedAgents.length} selected</span>
+              <span className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>{config.selectedAgents.length} selected</span>
               <button
                 onClick={selectAllAgents}
                 className={`text-xs cursor-pointer active:scale-95 transition-transform ${
-                  isAudley ? 'text-[#007bc7] hover:text-[#005a94]' : 'text-[#5ba8c8] hover:text-[#7ec4de]'
+                  isAudley ? 'text-[#c4956a] hover:text-[#a87d58]' : 'text-[#5ba8c8] hover:text-[#7ec4de]'
                 }`}
               >
                 All
@@ -584,7 +584,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               <button
                 onClick={deselectAllAgents}
                 className={`text-xs cursor-pointer active:scale-95 transition-transform ${
-                  isAudley ? 'text-slate-500 hover:text-slate-700' : 'text-slate-400 hover:text-slate-300'
+                  isAudley ? 'text-[#7a7a7a] hover:text-[#4a4a4a]' : 'text-slate-400 hover:text-slate-300'
                 }`}
               >
                 None
@@ -592,13 +592,13 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
             </div>
           </div>
           <div className={`max-h-64 overflow-y-auto rounded-lg p-2 space-y-0.5 ${
-            isAudley ? 'bg-[#f8fafc] border border-[#4d726d]/10' : 'bg-slate-900/50'
+            isAudley ? 'bg-[#faf8f5] border border-[#ede8e0]' : 'bg-slate-900/50'
           }`}>
             {allAgents.map((agent, index) => (
               <label
                 key={agent}
                 className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer ${
-                  isAudley ? 'hover:bg-[#4d726d]/10' : 'hover:bg-slate-700/50'
+                  isAudley ? 'hover:bg-[#f5f0eb]' : 'hover:bg-slate-700/50'
                 }`}
               >
                 <input
@@ -607,7 +607,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   onChange={() => toggleAgent(agent)}
                   className={`rounded ${
                     isAudley
-                      ? 'border-[#4d726d]/30 bg-white text-[#4d726d] focus:ring-[#4d726d]'
+                      ? 'border-[#ede8e0] bg-white text-[#c4956a] focus:ring-[#c4956a]'
                       : 'border-slate-600 bg-slate-700 text-[#5ba8c8] focus:ring-[#5ba8c8]'
                   }`}
                 />
@@ -615,7 +615,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: getAgentColor(index) }}
                 />
-                <span className={`text-sm truncate ${isAudley ? 'text-[#313131]' : 'text-slate-300'}`}>
+                <span className={`text-sm truncate ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>
                   {agent}
                   {isSenior(agent) && (
                     <span className={`ml-1 text-xs ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>(Sr)</span>
@@ -631,7 +631,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
           {/* Metrics Row */}
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
-              <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Rate Metrics</label>
+              <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Rate Metrics</label>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
                 {ALL_PERCENT_METRICS.map((metric) => (
                   <button
@@ -640,10 +640,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                       config.selectedMetrics.includes(metric)
                         ? isAudley
-                          ? 'bg-[#007bc7] text-white'
+                          ? 'bg-[#c4956a] text-white'
                           : 'bg-[#1a7fa8] text-white'
                         : isAudley
-                          ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                          ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                           : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                     }`}
                   >
@@ -653,7 +653,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               </div>
             </div>
             <div className="flex-1 min-w-[200px]">
-              <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Volume Metrics</label>
+              <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Volume Metrics</label>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
                 {ALL_COUNT_METRICS.map((metric) => (
                   <button
@@ -662,10 +662,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                       config.selectedMetrics.includes(metric)
                         ? isAudley
-                          ? 'bg-[#4d726d] text-white'
+                          ? 'bg-[#c4956a] text-white'
                           : 'bg-[#2a6e5a] text-white'
                         : isAudley
-                          ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                          ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                           : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                     }`}
                   >
@@ -678,7 +678,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
           {/* Comparison Lines Row */}
           <div>
-            <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Compare Against</label>
+            <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Compare Against</label>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               <button
                 onClick={() => toggleAvg('dept')}
@@ -686,7 +686,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   config.showDeptAvg
                     ? 'bg-gray-600 text-white'
                     : isAudley
-                      ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                      ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                       : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
@@ -698,7 +698,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   config.showSeniorAvg
                     ? 'bg-amber-600 text-white'
                     : isAudley
-                      ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                      ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                       : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
@@ -710,7 +710,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   config.showNonSeniorAvg
                     ? 'bg-slate-500 text-white'
                     : isAudley
-                      ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                      ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                       : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
@@ -722,7 +722,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   showTrendLines
                     ? isAudley ? 'bg-emerald-600 text-white' : 'bg-[#2a6e5a] text-white'
                     : isAudley
-                      ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                      ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                       : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
               >
@@ -733,7 +733,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
           {/* Lead Channel Section */}
           <div>
-            <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Lead Channel</label>
+            <label className={`text-xs font-medium uppercase tracking-wide ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Lead Channel</label>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               <button
                 onClick={() => toggleAvg('repeat')}
@@ -741,7 +741,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   config.showRepeatClient
                     ? 'bg-purple-600 text-white'
                     : isAudley
-                      ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                      ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                       : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
                 title={timeSeriesData.repeatClientDaily ? undefined : 'Re-upload data to enable this feature'}
@@ -754,7 +754,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   config.showB2b
                     ? 'bg-teal-600 text-white'
                     : isAudley
-                      ? 'bg-[#f8fafc] text-[#4d726d] border border-[#4d726d]/20 hover:bg-[#e8f0ef]'
+                      ? 'bg-[#faf8f5] text-[#0a1628] border border-[#ede8e0] hover:bg-[#f5f0eb]'
                       : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:bg-slate-600/70 hover:text-white'
                 }`}
                 title={timeSeriesData.b2bDaily ? undefined : 'Re-upload data to enable this feature'}
@@ -769,7 +769,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
             <button
               onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
               className={`flex items-center gap-1.5 text-xs transition-all cursor-pointer active:scale-95 ${
-                isAudley ? 'text-[#4d726d] hover:text-[#007bc7]' : 'text-slate-400 hover:text-slate-300'
+                isAudley ? 'text-[#0a1628] hover:text-[#c4956a]' : 'text-slate-400 hover:text-slate-300'
               }`}
             >
               <svg
@@ -790,13 +790,13 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               >
                 <div className="overflow-hidden">
                   <div className={`p-3 rounded-lg space-y-3 ${
-                    isAudley ? 'bg-[#f8fafc] border border-[#4d726d]/10' : 'bg-slate-900/50'
+                    isAudley ? 'bg-[#faf8f5] border border-[#ede8e0]' : 'bg-slate-900/50'
                   }`}>
                     {/* Trend Line Options */}
                     {showTrendLines && (
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>R² threshold:</span>
+                          <span className={`text-xs ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>R² threshold:</span>
                           <input
                             type="range"
                             min={0}
@@ -805,10 +805,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                             value={rSquaredThreshold}
                             onChange={(e) => setRSquaredThreshold(parseFloat(e.target.value))}
                             className={`w-20 h-1.5 rounded-lg appearance-none cursor-pointer ${
-                              isAudley ? 'bg-[#4d726d]/20 accent-[#4d726d]' : 'bg-slate-700 accent-emerald-500'
+                              isAudley ? 'bg-[#ede8e0] accent-[#c4956a]' : 'bg-slate-700 accent-emerald-500'
                             }`}
                           />
-                          <span className={`text-xs font-mono ${isAudley ? 'text-[#4d726d]' : 'text-emerald-400'}`}>
+                          <span className={`text-xs font-mono ${isAudley ? 'text-[#c4956a]' : 'text-emerald-400'}`}>
                             {(rSquaredThreshold * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -818,7 +818,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                             hideRawData
                               ? 'bg-amber-600 text-white'
                               : isAudley
-                                ? 'bg-white border border-[#4d726d]/20 text-[#4d726d] hover:bg-[#e8f0ef]'
+                                ? 'bg-white border border-[#ede8e0] text-[#0a1628] hover:bg-[#f5f0eb]'
                                 : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                           }`}
                         >
@@ -829,15 +829,15 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
                     {/* Y-Axis Scaling */}
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className={`text-xs ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Y-Axis:</span>
+                      <span className={`text-xs ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Y-Axis:</span>
                       <div className="flex gap-1">
                         <button
                           onClick={() => setOutlierHandling('percentile')}
                           className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                             outlierHandling === 'percentile'
-                              ? isAudley ? 'bg-[#007bc7] text-white' : 'bg-cyan-600 text-white'
+                              ? isAudley ? 'bg-[#c4956a] text-white' : 'bg-cyan-600 text-white'
                               : isAudley
-                                ? 'bg-white border border-[#4d726d]/20 text-[#4d726d] hover:bg-[#e8f0ef]'
+                                ? 'bg-white border border-[#ede8e0] text-[#0a1628] hover:bg-[#f5f0eb]'
                                 : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                           }`}
                         >
@@ -847,9 +847,9 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                           onClick={() => setOutlierHandling('none')}
                           className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                             outlierHandling === 'none'
-                              ? isAudley ? 'bg-[#007bc7] text-white' : 'bg-cyan-600 text-white'
+                              ? isAudley ? 'bg-[#c4956a] text-white' : 'bg-cyan-600 text-white'
                               : isAudley
-                                ? 'bg-white border border-[#4d726d]/20 text-[#4d726d] hover:bg-[#e8f0ef]'
+                                ? 'bg-white border border-[#ede8e0] text-[#0a1628] hover:bg-[#f5f0eb]'
                                 : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                           }`}
                         >
@@ -863,14 +863,14 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
                     {/* Display Options */}
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className={`text-xs ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Display:</span>
+                      <span className={`text-xs ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Display:</span>
                       <button
                         onClick={() => setShowLegend(!showLegend)}
                         className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                           showLegend
-                            ? isAudley ? 'bg-[#4d726d] text-white' : 'bg-slate-600 text-white'
+                            ? isAudley ? 'bg-[#c4956a] text-white' : 'bg-slate-600 text-white'
                             : isAudley
-                              ? 'bg-white border border-[#4d726d]/20 text-[#4d726d] hover:bg-[#e8f0ef]'
+                              ? 'bg-white border border-[#ede8e0] text-[#0a1628] hover:bg-[#f5f0eb]'
                               : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                         }`}
                       >
@@ -892,7 +892,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                         }}
                         className={`px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer active:scale-95 ${
                           isAudley
-                            ? 'bg-white border border-[#4d726d]/20 text-[#4d726d] hover:bg-red-50 hover:text-red-600 hover:border-red-200'
+                            ? 'bg-white border border-[#ede8e0] text-[#0a1628] hover:bg-red-50 hover:text-red-600 hover:border-red-200'
                             : 'bg-slate-700 text-slate-400 hover:bg-red-600 hover:text-white'
                         }`}
                       >
@@ -908,12 +908,12 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
         {/* Date Range - 3 cols */}
         <div className="lg:col-span-3 space-y-2">
           <div className="flex items-center justify-between">
-            <label className={`text-sm font-medium ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>Date Range</label>
+            <label className={`text-sm font-medium ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Date Range</label>
             {config.selectedAgents.length > 0 && (
               <button
                 onClick={fitDateRangeToSelection}
                 className={`text-xs cursor-pointer active:scale-95 transition-transform ${
-                  isAudley ? 'text-[#007bc7] hover:text-[#005a94]' : 'text-[#5ba8c8] hover:text-[#7ec4de]'
+                  isAudley ? 'text-[#c4956a] hover:text-[#a87d58]' : 'text-[#5ba8c8] hover:text-[#7ec4de]'
                 }`}
                 title="Fit date range to selected agents"
               >
@@ -922,16 +922,16 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
             )}
           </div>
           <div className={`rounded-lg p-3 space-y-3 ${
-            isAudley ? 'bg-[#f8fafc] border border-[#4d726d]/10' : 'bg-slate-900/50'
+            isAudley ? 'bg-[#faf8f5] border border-[#ede8e0]' : 'bg-slate-900/50'
           }`}>
             <div className="flex items-center justify-between text-sm">
-              <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{allDates[config.dateRangeStart] || ''}</span>
-              <span className={isAudley ? 'text-slate-400' : 'text-slate-500'}>→</span>
-              <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{allDates[config.dateRangeEnd] || ''}</span>
+              <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{allDates[config.dateRangeStart] || ''}</span>
+              <span className={isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}>→</span>
+              <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{allDates[config.dateRangeEnd] || ''}</span>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className={`text-xs w-8 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>From</span>
+                <span className={`text-xs w-8 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>From</span>
                 <input
                   type="range"
                   min={0}
@@ -944,12 +944,12 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     )
                   }
                   className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer ${
-                    isAudley ? 'bg-[#4d726d]/20 accent-[#007bc7]' : 'bg-slate-700 accent-indigo-500'
+                    isAudley ? 'bg-[#ede8e0] accent-[#c4956a]' : 'bg-slate-700 accent-indigo-500'
                   }`}
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs w-8 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>To</span>
+                <span className={`text-xs w-8 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>To</span>
                 <input
                   type="range"
                   min={0}
@@ -962,12 +962,12 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                     )
                   }
                   className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer ${
-                    isAudley ? 'bg-[#4d726d]/20 accent-[#007bc7]' : 'bg-slate-700 accent-indigo-500'
+                    isAudley ? 'bg-[#ede8e0] accent-[#c4956a]' : 'bg-slate-700 accent-indigo-500'
                   }`}
                 />
               </div>
             </div>
-            <div className={`text-xs text-center ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+            <div className={`text-xs text-center ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
               {config.dateRangeEnd - config.dateRangeStart + 1} days selected
             </div>
           </div>
@@ -996,10 +996,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
 
       {/* Chart */}
       <div className={`rounded-xl p-4 ${
-        isAudley ? 'bg-[#f8fafc] border border-[#4d726d]/10' : 'bg-slate-900/50'
+        isAudley ? 'bg-[#faf8f5] border border-[#ede8e0]' : 'bg-slate-900/50'
       }`}>
         {chartDataWithTrends.length === 0 || (config.selectedAgents.length === 0 && !config.showDeptAvg && !config.showSeniorAvg && !config.showNonSeniorAvg && !config.showRepeatClient && !config.showB2b) ? (
-          <div className={`h-96 flex items-center justify-center ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+          <div className={`h-96 flex items-center justify-center ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
             Select at least one agent or comparison line to view trends
           </div>
         ) : (
@@ -1373,12 +1373,12 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       {/* R² Statistics Panel */}
       {showTrendLines && (
         <div className={`rounded-xl p-4 ${
-          isAudley ? 'bg-[#f8fafc] border border-[#4d726d]/10' : 'bg-slate-900/50'
+          isAudley ? 'bg-[#faf8f5] border border-[#ede8e0]' : 'bg-slate-900/50'
         }`}>
-          <h3 className={`text-sm font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>
+          <h3 className={`text-sm font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>
             Regression Analysis (R² ≥ {(rSquaredThreshold * 100).toFixed(0)}%)
             {regressions.size > 0 && (
-              <span className={`ml-2 ${isAudley ? 'text-[#4d726d]' : 'text-emerald-400'}`}>— {regressions.size} trend line{regressions.size !== 1 ? 's' : ''} shown</span>
+              <span className={`ml-2 ${isAudley ? 'text-[#c4956a]' : 'text-emerald-400'}`}>-- {regressions.size} trend line{regressions.size !== 1 ? 's' : ''} shown</span>
             )}
           </h3>
           {regressions.size > 0 ? (
@@ -1405,17 +1405,17 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                   <div
                     key={key}
                     className={`rounded-lg px-3 py-2 border ${
-                      isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                      isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                     }`}
                   >
-                    <div className={`text-xs truncate ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <div className={`text-xs truncate ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
                       {displayName} ({METRIC_LABELS[metric as MetricKey]})
                     </div>
                     <div className="flex items-baseline gap-2">
-                      <span className={`text-lg font-semibold ${isAudley ? 'text-[#4d726d]' : 'text-emerald-400'}`}>
+                      <span className={`text-lg font-semibold ${isAudley ? 'text-[#0a1628]' : 'text-emerald-400'}`}>
                         R²: {(regression.rSquared * 100).toFixed(1)}%
                       </span>
-                      <span className={`text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <span className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                         {regression.type === 'log-linear' ? 'exp' : 'linear'}
                       </span>
                     </div>
@@ -1424,7 +1424,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
                         {percentChange >= 0 ? '↗' : '↘'} {percentChange >= 0 ? '+' : ''}{percentChange.toFixed(1)}% over period
                       </span>
                     </div>
-                    <div className={`text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                       {regression.validPointCount} data points
                     </div>
                   </div>
@@ -1432,7 +1432,7 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
               })}
             </div>
           ) : (
-            <p className={`text-sm ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+            <p className={`text-sm ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
               No series meet the R² threshold of {(rSquaredThreshold * 100).toFixed(0)}%.
               Try lowering the threshold slider to see more trend lines.
             </p>
@@ -1441,10 +1441,10 @@ export const TrendsView: React.FC<TrendsViewProps> = ({ timeSeriesData, seniors 
       )}
 
       {/* Legend explanation */}
-      <div className={`text-xs flex flex-wrap gap-x-4 gap-y-1 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
-        <span><span className={isAudley ? 'text-[#007bc7]' : 'text-[#5ba8c8]'}>Rate (L):</span> T&gt;Q, T&gt;P, P&gt;Q, Hot Pass %, % Non-Conv</span>
-        <span><span className={isAudley ? 'text-[#4d726d]' : 'text-emerald-400'}>Volume (R):</span> Trips, Quotes, Passthroughs, Bookings</span>
-        <span><span className={isAudley ? 'text-slate-500' : 'text-slate-400'}>Lines:</span> solid=tq/trips, dashed=other metrics</span>
+      <div className={`text-xs flex flex-wrap gap-x-4 gap-y-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
+        <span><span className={isAudley ? 'text-[#c4956a]' : 'text-[#5ba8c8]'}>Rate (L):</span> T&gt;Q, T&gt;P, P&gt;Q, Hot Pass %, % Non-Conv</span>
+        <span><span className={isAudley ? 'text-[#0a1628]' : 'text-emerald-400'}>Volume (R):</span> Trips, Quotes, Passthroughs, Bookings</span>
+        <span><span className={isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}>Lines:</span> solid=tq/trips, dashed=other metrics</span>
       </div>
 
       {/* Quartile Analysis Section */}

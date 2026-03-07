@@ -24,13 +24,13 @@ describe('ThemeToggle', () => {
     const button = screen.getByRole('button');
 
     // Initial state - Dark theme is active by default
-    expect(button).toHaveClass('bg-slate-600');
+    expect(button).toHaveClass('bg-[#0a1628]');
 
     // Click to toggle
     await user.click(button);
 
-    // After toggle - should be Audley theme
-    expect(button).toHaveClass('bg-[#4d726d]');
+    // After toggle - should be Audley theme (copper toggle)
+    expect(button).toHaveClass('bg-[#c4956a]');
   });
 
   it('has correct accessibility attributes', () => {

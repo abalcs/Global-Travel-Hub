@@ -173,11 +173,11 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
   if (Object.keys(records.agents).length === 0) {
     return (
       <div className="text-center py-16">
-        <svg className={`w-16 h-16 mx-auto mb-4 ${isAudley ? 'text-[#4d726d]/40' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`w-16 h-16 mx-auto mb-4 ${isAudley ? 'text-[#0a1628]/40' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
         </svg>
-        <h2 className={`text-xl font-semibold mb-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>No Records Yet</h2>
-        <p className={`max-w-md mx-auto ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+        <h2 className={`text-xl font-semibold mb-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>No Records Yet</h2>
+        <p className={`max-w-md mx-auto ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
           Personal records will be tracked once you analyze data. Records are saved automatically and persist across sessions.
         </p>
       </div>
@@ -189,19 +189,19 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>
+          <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
             <svg className={`w-6 h-6 ${isAudley ? 'text-amber-500' : 'text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
             </svg>
             Personal Records
           </h2>
-          <p className={`text-sm mt-1 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+          <p className={`text-sm mt-1 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
             Track best performances by agent across different time periods
           </p>
         </div>
         <button
           onClick={handleClear}
-          className={`text-xs transition-colors ${isAudley ? 'text-slate-500 hover:text-red-600' : 'text-slate-500 hover:text-red-400'}`}
+          className={`text-xs transition-colors ${isAudley ? 'text-[#7a7a7a] hover:text-red-600' : 'text-slate-500 hover:text-red-400'}`}
         >
           Clear All Records
         </button>
@@ -298,8 +298,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={`font-medium truncate ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{item.agentName}</div>
-                      <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                      <div className={`font-medium truncate ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{item.agentName}</div>
+                      <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
                         {formatPeriodName(item.period)} {formatMetricName(item.metric)}
                       </div>
                     </div>
@@ -307,7 +307,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                       <div className={`font-bold ${getMetricColor(item.metric)}`}>
                         {formatRecordValue(item.metric, item.record.value)}
                       </div>
-                      <div className={`text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                         {formatDateRange(item.record.periodStart, item.record.periodEnd)}
                       </div>
                     </div>
@@ -346,15 +346,15 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                       key={`${item.agentName}-${item.metric}-${item.period}-${idx}`}
                       className={idx % 2 === 0 ? (isAudley ? 'bg-white/50' : 'bg-slate-800/20') : (isAudley ? 'bg-amber-50/50' : 'bg-slate-800/40')}
                     >
-                      <td className={`px-4 py-2 text-sm font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{item.agentName}</td>
+                      <td className={`px-4 py-2 text-sm font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{item.agentName}</td>
                       <td className={`px-4 py-2 text-sm ${getMetricColor(item.metric)}`}>
                         {formatMetricName(item.metric)}
                       </td>
-                      <td className={`px-4 py-2 text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>{formatPeriodName(item.period)}</td>
+                      <td className={`px-4 py-2 text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>{formatPeriodName(item.period)}</td>
                       <td className={`px-4 py-2 text-sm text-right font-bold ${getMetricColor(item.metric)}`}>
                         {formatRecordValue(item.metric, item.record.value)}
                       </td>
-                      <td className={`px-4 py-2 text-sm text-right ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                      <td className={`px-4 py-2 text-sm text-right ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
                         {formatDateRange(item.record.periodStart, item.record.periodEnd)}
                       </td>
                     </tr>
@@ -386,7 +386,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
         />
 
         <div className="flex items-center gap-2">
-          <span className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Period:</span>
+          <span className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Period:</span>
           <SlidingPillGroup
             options={(viewMode === 'volume' ? VOLUME_PERIODS : RATE_PERIODS).map(p => ({
               value: p,
@@ -402,16 +402,16 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
 
       {/* Records Table */}
       <div className={`rounded-xl border overflow-hidden ${
-        isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+        isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
       }`}>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className={isAudley ? 'bg-[#f8fafc]' : 'bg-slate-900/50'}>
+            <thead className={isAudley ? 'bg-[#faf8f5]' : 'bg-slate-900/50'}>
               <tr>
                 <th
                   onClick={() => handleSort('name')}
                   className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer ${
-                    isAudley ? 'text-[#4d726d] hover:bg-[#e8f0ef]/50' : 'text-slate-400 hover:bg-slate-700/30'
+                    isAudley ? 'text-[#0a1628] hover:bg-[#f5f0eb]' : 'text-slate-400 hover:bg-slate-700/30'
                   }`}
                 >
                   <div className="flex items-center gap-1">
@@ -426,7 +426,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                     key={metric}
                     onClick={() => handleSort(metric as SortBy)}
                     className={`px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider cursor-pointer ${
-                      isAudley ? 'hover:bg-[#e8f0ef]/50' : 'hover:bg-slate-700/30'
+                      isAudley ? 'hover:bg-[#f5f0eb]' : 'hover:bg-slate-700/30'
                     }`}
                   >
                     <div className={`flex items-center justify-center gap-1 ${getMetricColor(metric)}`}>
@@ -438,21 +438,21 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                   </th>
                 ))}
                 <th className={`px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider ${
-                  isAudley ? 'text-[#4d726d]' : 'text-slate-400'
+                  isAudley ? 'text-[#0a1628]' : 'text-slate-400'
                 }`}>
                   Details
                 </th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isAudley ? 'divide-[#4d726d]/10' : 'divide-slate-700/50'}`}>
+            <tbody className={`divide-y ${isAudley ? 'divide-[#ede8e0]' : 'divide-slate-700/50'}`}>
               {agents.map((agent, idx) => {
                 const metrics = viewMode === 'volume' ? VOLUME_METRICS : RATE_METRICS;
                 const period = viewMode === 'volume' ? selectedPeriod :
                                (selectedPeriod === 'week' ? 'month' : selectedPeriod);
 
                 return (
-                  <tr key={agent.agentName} className={idx % 2 === 0 ? (isAudley ? 'bg-[#f8fafc]/50' : 'bg-slate-800/30') : ''}>
-                    <td className={`px-4 py-3 text-sm font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                  <tr key={agent.agentName} className={idx % 2 === 0 ? (isAudley ? 'bg-[#faf8f5]/50' : 'bg-slate-800/30') : ''}>
+                    <td className={`px-4 py-3 text-sm font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
                       {agent.agentName}
                     </td>
                     {metrics.map(metric => {
@@ -464,12 +464,12 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                               <div className={`text-sm font-bold ${getMetricColor(metric)}`}>
                                 {formatRecordValue(metric, record.value)}
                               </div>
-                              <div className={`text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                              <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                                 {formatDateRange(record.periodStart, record.periodEnd)}
                               </div>
                             </div>
                           ) : (
-                            <span className={isAudley ? 'text-slate-300' : 'text-slate-600'}>—</span>
+                            <span className={isAudley ? 'text-[#ede8e0]' : 'text-slate-600'}>—</span>
                           )}
                         </td>
                       );
@@ -480,7 +480,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                         className={`text-xs px-2 py-1 rounded transition-colors ${
                           selectedAgent === agent.agentName
                             ? isAudley ? 'bg-amber-500 text-white' : 'bg-yellow-500 text-slate-900'
-                            : isAudley ? 'text-[#4d726d] hover:bg-[#e8f0ef] hover:text-[#313131]' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                            : isAudley ? 'text-[#c4956a] hover:bg-[#f5f0eb] hover:text-[#0a1628]' : 'text-slate-400 hover:text-white hover:bg-slate-700'
                         }`}
                       >
                         {selectedAgent === agent.agentName ? 'Hide' : 'View All'}
@@ -497,9 +497,9 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
       {/* Agent Detail Panel */}
       {selectedAgentRecords && (
         <div className={`rounded-xl border p-6 ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>
+          <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
             <svg className={`w-5 h-5 ${isAudley ? 'text-amber-500' : 'text-yellow-400'}`} fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
             </svg>
@@ -509,7 +509,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Volume Records */}
             <div>
-              <h4 className={`text-sm font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>Volume Records</h4>
+              <h4 className={`text-sm font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Volume Records</h4>
               <div className="space-y-3">
                 {VOLUME_METRICS.map(metric => (
                   <div key={metric} className={`rounded-lg border p-3 ${getMetricBgColor(metric)}`}>
@@ -521,18 +521,18 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                         const record = selectedAgentRecords[metric][period];
                         return (
                           <div key={period} className="text-center">
-                            <div className={`mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{formatPeriodName(period)}</div>
+                            <div className={`mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{formatPeriodName(period)}</div>
                             {record ? (
                               <>
-                                <div className={`font-bold ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                                <div className={`font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
                                   {formatRecordValue(metric, record.value)}
                                 </div>
-                                <div className={`text-[10px] ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                                <div className={`text-[10px] ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                                   {formatDateRange(record.periodStart, record.periodEnd)}
                                 </div>
                               </>
                             ) : (
-                              <div className={isAudley ? 'text-slate-300' : 'text-slate-600'}>—</div>
+                              <div className={isAudley ? 'text-[#ede8e0]' : 'text-slate-600'}>—</div>
                             )}
                           </div>
                         );
@@ -545,7 +545,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
 
             {/* Rate Records */}
             <div>
-              <h4 className={`text-sm font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>Rate Records</h4>
+              <h4 className={`text-sm font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Rate Records</h4>
               <div className="space-y-3">
                 {RATE_METRICS.map(metric => (
                   <div key={metric} className={`rounded-lg border p-3 ${getMetricBgColor(metric)}`}>
@@ -557,18 +557,18 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                         const record = selectedAgentRecords[metric][period as 'month' | 'quarter'];
                         return (
                           <div key={period} className="text-center">
-                            <div className={`mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{formatPeriodName(period)}</div>
+                            <div className={`mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{formatPeriodName(period)}</div>
                             {record ? (
                               <>
-                                <div className={`font-bold ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                                <div className={`font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
                                   {formatRecordValue(metric, record.value)}
                                 </div>
-                                <div className={`text-[10px] ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                                <div className={`text-[10px] ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                                   {formatDateRange(record.periodStart, record.periodEnd)}
                                 </div>
                               </>
                             ) : (
-                              <div className={isAudley ? 'text-slate-300' : 'text-slate-600'}>—</div>
+                              <div className={isAudley ? 'text-[#ede8e0]' : 'text-slate-600'}>—</div>
                             )}
                           </div>
                         );
@@ -639,16 +639,16 @@ export const RecordsView: React.FC<RecordsViewProps> = ({ records, teams, onClea
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-xs font-semibold truncate ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                        <div className={`text-xs font-semibold truncate ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
                           {item.agentName}
                         </div>
-                        <div className={`text-[10px] ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <div className={`text-[10px] ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
                           {formatPeriodName(item.period)} {formatMetricName(item.metric)}
                         </div>
                         <div className={`text-sm font-bold ${getMetricColor(item.metric)}`}>
                           {formatRecordValue(item.metric, item.record.value)}
                         </div>
-                        <div className={`text-[9px] ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <div className={`text-[9px] ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                           {formatDateRange(item.record.periodStart, item.record.periodEnd)}
                         </div>
                       </div>

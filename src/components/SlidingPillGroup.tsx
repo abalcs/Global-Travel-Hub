@@ -56,7 +56,7 @@ export function SlidingPillGroup<T extends string = string>({
   }, [value, options]);
 
   const defaultGradient = {
-    light: 'linear-gradient(to right, #4d726d, #007bc7)',
+    light: 'linear-gradient(to right, #c4956a, #4d726d)',
     dark: 'linear-gradient(to right, #1a5c6e, #1a7fa8)',
   };
   const gradient = activeGradient || defaultGradient;
@@ -69,7 +69,7 @@ export function SlidingPillGroup<T extends string = string>({
     <div
       ref={containerRef}
       className={`relative flex flex-wrap gap-1 p-1 rounded-lg w-fit ${
-        isAudley ? 'bg-[#eef5f4] border border-[#4d726d]/30 shadow-sm' : 'bg-slate-800/50'
+        isAudley ? 'bg-[#faf8f5] border border-[#ede8e0] shadow-sm' : 'bg-slate-800/50'
       } ${className}`}
     >
       {/* Sliding highlight pill */}
@@ -99,7 +99,7 @@ export function SlidingPillGroup<T extends string = string>({
             value === optVal
               ? 'text-white'
               : isAudley
-                ? 'text-[#2a4a46] hover:text-[#007bc7] hover:bg-[#dcecea] disabled:opacity-50 disabled:cursor-not-allowed'
+                ? 'text-[#0a1628] hover:text-[#c4956a] hover:bg-[#f5f0eb] disabled:opacity-50 disabled:cursor-not-allowed'
                 : 'text-slate-300 hover:text-white hover:bg-slate-600/60 disabled:opacity-50 disabled:cursor-not-allowed'
           }`}
         >

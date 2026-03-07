@@ -307,13 +307,13 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>
-            <svg className={`w-6 h-6 ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
+            <svg className={`w-6 h-6 ${isAudley ? 'text-[#0a1628]' : 'text-teal-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Regional Performance
           </h2>
-          <p className={`text-sm mt-1 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+          <p className={`text-sm mt-1 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
             T&gt;P conversion rates by destination with training opportunities
           </p>
         </div>
@@ -337,7 +337,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
 
       {/* Timeframe Toggle */}
       <div className={`flex flex-wrap gap-1 p-1 rounded-lg w-fit ${
-        isAudley ? 'bg-white border border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50'
+        isAudley ? 'bg-white border border-[#ede8e0] shadow-sm' : 'bg-slate-800/50'
       }`}>
         {[
           { value: 'lastWeek', label: 'Last Week' },
@@ -354,10 +354,10 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               regionalTimeframe === value
                 ? isAudley
-                  ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white'
+                  ? 'bg-gradient-to-r from-[#0a1628] to-[#c4956a] text-white'
                   : 'bg-teal-600 text-white'
                 : isAudley
-                  ? 'text-[#4d726d] hover:text-[#007bc7] hover:bg-[#e8f0ef]'
+                  ? 'text-[#0a1628] hover:text-[#c4956a] hover:bg-[#f5f0eb]'
                   : 'text-slate-400 hover:text-white hover:bg-slate-700'
             }`}
           >
@@ -369,40 +369,40 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
       {/* Department Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className={`rounded-xl p-4 border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <div className={`text-2xl font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{filteredRegionalPerformance.totalTrips.toLocaleString()}</div>
-          <div className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Total Trips</div>
+          <div className={`text-2xl font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{filteredRegionalPerformance.totalTrips.toLocaleString()}</div>
+          <div className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Total Trips</div>
         </div>
         <div className={`rounded-xl p-4 border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <div className={`text-2xl font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{filteredRegionalPerformance.totalPassthroughs.toLocaleString()}</div>
-          <div className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Passthroughs</div>
+          <div className={`text-2xl font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{filteredRegionalPerformance.totalPassthroughs.toLocaleString()}</div>
+          <div className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Passthroughs</div>
         </div>
         <div className={`rounded-xl p-4 border ${
-          isAudley ? 'bg-[#4d726d]/5 border-[#4d726d]/30 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <div className={`text-2xl font-bold ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`}>{filteredRegionalPerformance.overallTpRate.toFixed(1)}%</div>
-          <div className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Overall T&gt;P Rate</div>
+          <div className={`text-2xl font-bold ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`}>{filteredRegionalPerformance.overallTpRate.toFixed(1)}%</div>
+          <div className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Overall T&gt;P Rate</div>
         </div>
         <div className={`rounded-xl p-4 border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
           <div className={`text-2xl font-bold ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>{filteredRegionalPerformance.overallHotPassRate.toFixed(1)}%</div>
-          <div className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Hot Pass Rate</div>
+          <div className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Hot Pass Rate</div>
         </div>
         <div className={`rounded-xl p-4 border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <div className={`text-2xl font-bold ${isAudley ? 'text-[#007bc7]' : 'text-purple-400'}`}>{filteredRegionalPerformance.overallPqRate.toFixed(1)}%</div>
-          <div className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>P&gt;Q Rate</div>
+          <div className={`text-2xl font-bold ${isAudley ? 'text-[#c4956a]' : 'text-purple-400'}`}>{filteredRegionalPerformance.overallPqRate.toFixed(1)}%</div>
+          <div className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>P&gt;Q Rate</div>
         </div>
         <div className={`rounded-xl p-4 border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <div className={`text-2xl font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{filteredRegionalPerformance.allRegions.length}</div>
-          <div className={`text-sm ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Destinations</div>
+          <div className={`text-2xl font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{filteredRegionalPerformance.allRegions.length}</div>
+          <div className={`text-sm ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Destinations</div>
         </div>
       </div>
 
@@ -411,14 +411,14 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
         {/* Top Performing Regions */}
         <div className={`rounded-xl p-5 border ${
           isAudley
-            ? 'bg-gradient-to-br from-[#4d726d]/10 to-[#4d726d]/5 border-[#4d726d]/30'
+            ? 'bg-gradient-to-br from-[#faf8f5] to-[#faf8f5] border-[#ede8e0]'
             : 'bg-gradient-to-br from-teal-600/20 to-emerald-600/20 border-teal-500/30'
         }`}>
           <div className="flex items-center gap-2 mb-4">
-            <svg className={`w-5 h-5 ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
-            <h3 className={`text-base font-medium ${isAudley ? 'text-[#4d726d]' : 'text-teal-300'}`}>Top Performing Destinations <span className={`text-xs ${isAudley ? 'text-[#4d726d]/60' : 'text-teal-500'}`}>(T&gt;P %)</span></h3>
+            <h3 className={`text-base font-medium ${isAudley ? 'text-[#0a1628]' : 'text-teal-300'}`}>Top Performing Destinations <span className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-teal-500'}`}>(T&gt;P %)</span></h3>
           </div>
           <div className="space-y-3">
             {filteredRegionalPerformance.topRegions.slice(0, 5).map((region, i) => (
@@ -426,12 +426,12 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                 isAudley ? 'bg-white/80' : 'bg-slate-800/40'
               }`}>
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm font-bold w-6 ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`}>{i + 1}.</span>
-                  <span className={`text-sm ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{region.region}</span>
+                  <span className={`text-sm font-bold w-6 ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`}>{i + 1}.</span>
+                  <span className={`text-sm ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{region.region}</span>
                 </div>
                 <div className="text-right">
-                  <span className={`text-sm font-bold ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`}>{region.tpRate.toFixed(1)}%</span>
-                  <span className={`text-xs ml-2 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>({region.passthroughs}/{region.trips})</span>
+                  <span className={`text-sm font-bold ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`}>{region.tpRate.toFixed(1)}%</span>
+                  <span className={`text-xs ml-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>({region.passthroughs}/{region.trips})</span>
                 </div>
               </div>
             ))}
@@ -457,7 +457,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
               }`}>
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-bold w-6 ${isAudley ? 'text-rose-600' : 'text-rose-400'}`}>{i + 1}.</span>
-                  <span className={`text-sm ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{region.region}</span>
+                  <span className={`text-sm ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{region.region}</span>
                 </div>
                 <div className="text-right">
                   <span className="text-sm font-bold text-rose-400">{region.tpRate.toFixed(1)}%</span>
@@ -492,23 +492,23 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                   }`}>
                     <div className="flex items-center gap-3">
                       <span className={`text-sm font-bold w-6 ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>{i + 1}.</span>
-                      <span className={`text-sm ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{region.region}</span>
+                      <span className={`text-sm ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{region.region}</span>
                     </div>
                     <div className="text-right">
                       <span className={`text-sm font-bold ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>{region.hotPassRate.toFixed(1)}%</span>
-                      <span className={`text-xs ml-2 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>({region.hotPasses}/{region.passthroughs})</span>
+                      <span className={`text-xs ml-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>({region.hotPasses}/{region.passthroughs})</span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className={`text-sm ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>No hot pass data available for destinations</div>
+                <div className={`text-sm ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>No hot pass data available for destinations</div>
               )}
             </div>
-            <div className={`mt-3 pt-3 border-t text-xs ${isAudley ? 'border-amber-200 text-slate-600' : 'border-amber-500/20 text-slate-400'}`}>
+            <div className={`mt-3 pt-3 border-t text-xs ${isAudley ? 'border-amber-200 text-[#4a4a4a]' : 'border-amber-500/20 text-slate-400'}`}>
               <span className={`font-medium ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>T&gt;P</span> and <span className={`font-medium ${isAudley ? 'text-purple-600' : 'text-purple-400'}`}>P&gt;Q</span> rates for top hot pass destinations:
               {filteredRegionalPerformance.topHotPassRegions.slice(0, 3).map((r, i) => (
                 <span key={i} className="ml-2">
-                  {r.region.split(' ')[0]}: <span className={isAudley ? 'text-[#4d726d]' : 'text-teal-400'}>{r.tpRate.toFixed(0)}%</span>/<span className={isAudley ? 'text-purple-600' : 'text-purple-400'}>{r.pqRate.toFixed(0)}%</span>
+                  {r.region.split(' ')[0]}: <span className={isAudley ? 'text-[#c4956a]' : 'text-teal-400'}>{r.tpRate.toFixed(0)}%</span>/<span className={isAudley ? 'text-purple-600' : 'text-purple-400'}>{r.pqRate.toFixed(0)}%</span>
                 </span>
               ))}
             </div>
@@ -517,14 +517,14 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
           {/* Lowest Hot Pass Destinations */}
           <div className={`rounded-xl p-5 border ${
             isAudley
-              ? 'bg-gradient-to-br from-slate-100 to-slate-50 border-slate-300'
+              ? 'bg-gradient-to-br from-[#faf8f5] to-[#faf8f5] border-[#ede8e0]'
               : 'bg-gradient-to-br from-slate-600/20 to-slate-700/20 border-slate-500/30'
           }`}>
             <div className="flex items-center gap-2 mb-4">
-              <svg className={`w-5 h-5 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
               </svg>
-              <h3 className={`text-base font-medium ${isAudley ? 'text-slate-700' : 'text-slate-300'}`}>Hot Pass Improvement Opportunities <span className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>(HP %)</span></h3>
+              <h3 className={`text-base font-medium ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Hot Pass Improvement Opportunities <span className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>(HP %)</span></h3>
             </div>
             <div className="space-y-3">
               {filteredRegionalPerformance.bottomHotPassRegions.length > 0 ? (
@@ -533,24 +533,24 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                     isAudley ? 'bg-white/80' : 'bg-slate-800/40'
                   }`}>
                     <div className="flex items-center gap-3">
-                      <span className={`text-sm font-bold w-6 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{i + 1}.</span>
-                      <span className={`text-sm ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{region.region}</span>
+                      <span className={`text-sm font-bold w-6 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{i + 1}.</span>
+                      <span className={`text-sm ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{region.region}</span>
                     </div>
                     <div className="text-right">
-                      <span className={`text-sm font-bold ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>{region.hotPassRate.toFixed(1)}%</span>
-                      <span className={`text-xs ml-2 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>({region.hotPasses}/{region.passthroughs})</span>
+                      <span className={`text-sm font-bold ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>{region.hotPassRate.toFixed(1)}%</span>
+                      <span className={`text-xs ml-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>({region.hotPasses}/{region.passthroughs})</span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className={`text-sm ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>No hot pass improvement data available</div>
+                <div className={`text-sm ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>No hot pass improvement data available</div>
               )}
             </div>
-            <div className={`mt-3 pt-3 border-t text-xs ${isAudley ? 'border-slate-200 text-slate-600' : 'border-slate-500/20 text-slate-400'}`}>
+            <div className={`mt-3 pt-3 border-t text-xs ${isAudley ? 'border-[#ede8e0] text-[#4a4a4a]' : 'border-slate-500/20 text-slate-400'}`}>
               <span className={`font-medium ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>T&gt;P</span> and <span className={`font-medium ${isAudley ? 'text-purple-600' : 'text-purple-400'}`}>P&gt;Q</span> rates for these destinations:
               {filteredRegionalPerformance.bottomHotPassRegions.slice(0, 3).map((r, i) => (
                 <span key={i} className="ml-2">
-                  {r.region.split(' ')[0]}: <span className={isAudley ? 'text-[#4d726d]' : 'text-teal-400'}>{r.tpRate.toFixed(0)}%</span>/<span className={isAudley ? 'text-purple-600' : 'text-purple-400'}>{r.pqRate.toFixed(0)}%</span>
+                  {r.region.split(' ')[0]}: <span className={isAudley ? 'text-[#c4956a]' : 'text-teal-400'}>{r.tpRate.toFixed(0)}%</span>/<span className={isAudley ? 'text-purple-600' : 'text-purple-400'}>{r.pqRate.toFixed(0)}%</span>
                 </span>
               ))}
             </div>
@@ -581,8 +581,8 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                 onClick={() => setRecommendationType('tp')}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   recommendationType === 'tp'
-                    ? isAudley ? 'bg-[#4d726d] text-white' : 'bg-teal-600 text-white'
-                    : isAudley ? 'text-[#4d726d] hover:bg-[#e8f0ef]' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                    ? isAudley ? 'bg-[#c4956a] text-white' : 'bg-teal-600 text-white'
+                    : isAudley ? 'text-[#0a1628] hover:bg-[#f5f0eb]' : 'text-slate-400 hover:text-white hover:bg-slate-700'
                 }`}
               >
                 T&gt;P
@@ -643,25 +643,25 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                     }`}>
                       {rec.priority.toUpperCase()}
                     </span>
-                    <span className={`font-medium text-sm truncate ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{rec.region}</span>
+                    <span className={`font-medium text-sm truncate ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{rec.region}</span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm">
                       <span className={`font-medium ${recommendationType === 'tp' ? (isAudley ? 'text-rose-600' : 'text-rose-400') : (isAudley ? 'text-purple-600' : 'text-purple-400')}`}>
                         {rec.tpRate.toFixed(1)}%
                       </span>
-                      <span className={`mx-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>vs</span>
-                      <span className={isAudley ? 'text-slate-600' : 'text-slate-300'}>{rec.departmentAvgRate.toFixed(1)}% prev qtr</span>
+                      <span className={`mx-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>vs</span>
+                      <span className={isAudley ? 'text-[#4a4a4a]' : 'text-slate-300'}>{rec.departmentAvgRate.toFixed(1)}% prev qtr</span>
                     </div>
                     <span className={`text-xs ${recommendationType === 'tp' ? (isAudley ? 'text-rose-600' : 'text-rose-400') : (isAudley ? 'text-purple-600' : 'text-purple-400')}`}>
                       {rec.deviation.toFixed(1)}pp
                     </span>
                   </div>
-                  <p className={`text-xs mb-2 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{rec.reason}</p>
-                  <div className={`flex items-center justify-between text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+                  <p className={`text-xs mb-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{rec.reason}</p>
+                  <div className={`flex items-center justify-between text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                     <span>{rec.trips} {recommendationType === 'tp' ? 'trips' : 'passthroughs'}</span>
                     {rec.potentialGain > 0 && (
-                      <span className={recommendationType === 'tp' ? (isAudley ? 'text-[#4d726d]' : 'text-teal-400') : (isAudley ? 'text-purple-600' : 'text-purple-400')}>
+                      <span className={recommendationType === 'tp' ? (isAudley ? 'text-[#c4956a]' : 'text-teal-400') : (isAudley ? 'text-purple-600' : 'text-purple-400')}>
                         +{Math.round(rec.potentialGain)} potential {recommendationType === 'tp' ? 'PT' : 'quotes'}
                       </span>
                     )}
@@ -670,7 +670,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
               ))}
             </div>
           ) : (
-            <div className={`text-sm text-center py-4 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+            <div className={`text-sm text-center py-4 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
               No {recommendationType === 'tp' ? 'T>P' : 'P>Q'} improvement recommendations available for this timeframe.
             </div>
           )}
@@ -679,12 +679,12 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
 
       {/* All Regions Table */}
       <div className={`rounded-xl p-5 border ${
-        isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+        isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
       }`}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h3 className={`text-base font-medium ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>
+          <h3 className={`text-base font-medium ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>
             All Destinations ({sortedRegions.length} destinations)
-            <span className={`text-xs ml-2 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>Click column headers to sort</span>
+            <span className={`text-xs ml-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>Click column headers to sort</span>
           </h3>
           <SlidingPillGroup
             options={REGION_GROUP_OPTIONS}
@@ -696,40 +696,40 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
         <div className="max-h-[400px] overflow-y-auto">
           <table className="w-full">
             <thead className={`sticky top-0 ${isAudley ? 'bg-white' : 'bg-slate-800'}`}>
-              <tr className={`text-left text-xs border-b ${isAudley ? 'text-slate-500 border-[#4d726d]/20' : 'text-slate-400 border-slate-700'}`}>
+              <tr className={`text-left text-xs border-b ${isAudley ? 'text-[#7a7a7a] border-[#ede8e0]' : 'text-slate-400 border-slate-700'}`}>
                 <th className="pb-2 pl-2">#</th>
                 <th
-                  className={`pb-2 cursor-pointer select-none ${isAudley ? 'hover:text-[#4d726d]' : 'hover:text-white'}`}
+                  className={`pb-2 cursor-pointer select-none ${isAudley ? 'hover:text-[#c4956a]' : 'hover:text-white'}`}
                   onClick={() => handleSort('region')}
                 >
                   Destination<SortIndicator column="region" />
                 </th>
                 <th
-                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#4d726d]' : 'hover:text-white'}`}
+                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#c4956a]' : 'hover:text-white'}`}
                   onClick={() => handleSort('tpRate')}
                 >
                   T&gt;P<SortIndicator column="tpRate" />
                 </th>
                 <th
-                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#4d726d]' : 'hover:text-white'}`}
+                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#c4956a]' : 'hover:text-white'}`}
                   onClick={() => handleSort('hotPassRate')}
                 >
                   HP Rate<SortIndicator column="hotPassRate" />
                 </th>
                 <th
-                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#4d726d]' : 'hover:text-white'}`}
+                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#c4956a]' : 'hover:text-white'}`}
                   onClick={() => handleSort('pqRate')}
                 >
                   P&gt;Q<SortIndicator column="pqRate" />
                 </th>
                 <th
-                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#4d726d]' : 'hover:text-white'}`}
+                  className={`pb-2 text-right cursor-pointer select-none ${isAudley ? 'hover:text-[#c4956a]' : 'hover:text-white'}`}
                   onClick={() => handleSort('trips')}
                 >
                   Trips<SortIndicator column="trips" />
                 </th>
                 <th
-                  className={`pb-2 text-right pr-2 cursor-pointer select-none ${isAudley ? 'hover:text-[#4d726d]' : 'hover:text-white'}`}
+                  className={`pb-2 text-right pr-2 cursor-pointer select-none ${isAudley ? 'hover:text-[#c4956a]' : 'hover:text-white'}`}
                   onClick={() => handleSort('passthroughs')}
                 >
                   PT<SortIndicator column="passthroughs" />
@@ -739,7 +739,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
             <tbody>
               {sortedRegions.map((region, index) => {
                 const tpColor = region.tpRate >= filteredRegionalPerformance.overallTpRate
-                  ? (isAudley ? 'text-[#4d726d]' : 'text-teal-400')
+                  ? (isAudley ? 'text-[#c4956a]' : 'text-teal-400')
                   : (isAudley ? 'text-rose-600' : 'text-rose-400');
                 const hpColor = region.hotPassRate >= filteredRegionalPerformance.overallHotPassRate
                   ? (isAudley ? 'text-amber-600' : 'text-amber-400')
@@ -751,11 +751,11 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                   <tr
                     key={region.region}
                     className={`border-b transition-colors ${
-                      isAudley ? 'border-[#4d726d]/10 hover:bg-[#e8f0ef]/50' : 'border-slate-700/50 hover:bg-slate-700/30'
+                      isAudley ? 'border-[#ede8e0] hover:bg-[#f5f0eb]' : 'border-slate-700/50 hover:bg-slate-700/30'
                     }`}
                   >
-                    <td className={`py-2 pl-2 text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>{index + 1}</td>
-                    <td className={`py-2 text-sm ${isAudley ? 'text-[#313131]' : 'text-slate-200'}`}>{region.region}</td>
+                    <td className={`py-2 pl-2 text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>{index + 1}</td>
+                    <td className={`py-2 text-sm ${isAudley ? 'text-[#0a1628]' : 'text-slate-200'}`}>{region.region}</td>
                     <td className={`py-2 text-right text-sm font-medium ${tpColor}`}>
                       {region.tpRate.toFixed(1)}%
                     </td>
@@ -765,8 +765,8 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                     <td className={`py-2 text-right text-sm ${pqColor}`}>
                       {region.passthroughs > 0 ? `${region.pqRate.toFixed(1)}%` : '-'}
                     </td>
-                    <td className={`py-2 text-right text-sm ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{region.trips}</td>
-                    <td className={`py-2 text-right text-sm pr-2 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{region.passthroughs}</td>
+                    <td className={`py-2 text-right text-sm ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{region.trips}</td>
+                    <td className={`py-2 text-right text-sm pr-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{region.passthroughs}</td>
                   </tr>
                 );
               })}
@@ -778,16 +778,16 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
       {/* Agent Regional Performance */}
       {filteredAgentRegionalAnalysis.length > 0 && (
         <div className={`rounded-xl p-5 border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+          isAudley ? 'bg-white border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
         }`}>
-          <h3 className={`text-base font-medium mb-4 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>Agent Regional Performance vs Department</h3>
+          <h3 className={`text-base font-medium mb-4 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Agent Regional Performance vs Department</h3>
           <div className="space-y-4">
             <select
               value={selectedAgentForRegions}
               onChange={(e) => setSelectedAgentForRegions(e.target.value)}
               className={`rounded-lg px-3 py-2 text-sm min-w-[280px] ${
                 isAudley
-                  ? 'bg-white border border-[#4d726d]/30 text-[#313131]'
+                  ? 'bg-white border border-[#ede8e0] text-[#0a1628]'
                   : 'bg-slate-700/50 border border-slate-600 text-white'
               }`}
             >
@@ -803,13 +803,13 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
               <div className="space-y-6">
                 {/* Agent Overview */}
                 <div className={`flex items-center gap-4 flex-wrap rounded-lg p-4 ${
-                  isAudley ? 'bg-[#e8f0ef]/50' : 'bg-slate-700/30'
+                  isAudley ? 'bg-[#faf8f5]' : 'bg-slate-700/30'
                 }`}>
-                  <div className={`text-lg font-medium ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{selectedAgentAnalysis.agentName}</div>
+                  <div className={`text-lg font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{selectedAgentAnalysis.agentName}</div>
                   <div className="flex gap-4 text-sm">
-                    <span className={isAudley ? 'text-slate-500' : 'text-slate-400'}>{selectedAgentAnalysis.totalTrips} trips</span>
-                    <span className={`font-medium ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`}>{selectedAgentAnalysis.overallTpRate.toFixed(1)}% T&gt;P</span>
-                    <span className={isAudley ? 'text-slate-400' : 'text-slate-500'}>
+                    <span className={isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}>{selectedAgentAnalysis.totalTrips} trips</span>
+                    <span className={`font-medium ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`}>{selectedAgentAnalysis.overallTpRate.toFixed(1)}% T&gt;P</span>
+                    <span className={isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}>
                       (Dept avg: {filteredRegionalPerformance?.overallTpRate.toFixed(1)}%)
                     </span>
                   </div>
@@ -819,29 +819,29 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Above Average Regions */}
                   <div className={`rounded-lg p-4 border ${
-                    isAudley ? 'bg-[#e8f0ef]/50 border-[#4d726d]/30' : 'bg-teal-900/20 border-teal-700/30'
+                    isAudley ? 'bg-[#faf8f5] border-[#ede8e0]' : 'bg-teal-900/20 border-teal-700/30'
                   }`}>
                     <div className="flex items-center gap-2 mb-3">
-                      <svg className={`w-4 h-4 ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                       </svg>
-                      <span className={`text-sm font-medium ${isAudley ? 'text-[#4d726d]' : 'text-teal-300'}`}>Above Department Average</span>
-                      <span className={`text-xs ${isAudley ? 'text-[#4d726d]/70' : 'text-teal-500'}`}>({selectedAgentAnalysis.aboveAverage.length} destinations)</span>
+                      <span className={`text-sm font-medium ${isAudley ? 'text-[#0a1628]' : 'text-teal-300'}`}>Above Department Average</span>
+                      <span className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-teal-500'}`}>({selectedAgentAnalysis.aboveAverage.length} destinations)</span>
                     </div>
                     <div className="max-h-[200px] overflow-y-auto space-y-2">
                       {selectedAgentAnalysis.aboveAverage.slice(0, 10).map((d, i) => (
                         <div key={i} className={`flex items-center justify-between text-sm rounded px-2 py-1.5 ${
                           isAudley ? 'bg-white' : 'bg-slate-800/50'
                         }`}>
-                          <span className={`truncate max-w-[140px] ${isAudley ? 'text-[#313131]' : 'text-slate-200'}`}>{d.region}</span>
+                          <span className={`truncate max-w-[140px] ${isAudley ? 'text-[#0a1628]' : 'text-slate-200'}`}>{d.region}</span>
                           <div className="flex items-center gap-2">
-                            <span className={isAudley ? 'text-[#313131]' : 'text-white'}>{d.agentTpRate.toFixed(1)}%</span>
-                            <span className={`text-xs font-medium ${isAudley ? 'text-[#4d726d]' : 'text-teal-400'}`}>+{d.deviation.toFixed(1)}pp</span>
+                            <span className={isAudley ? 'text-[#0a1628]' : 'text-white'}>{d.agentTpRate.toFixed(1)}%</span>
+                            <span className={`text-xs font-medium ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`}>+{d.deviation.toFixed(1)}pp</span>
                           </div>
                         </div>
                       ))}
                       {selectedAgentAnalysis.aboveAverage.length === 0 && (
-                        <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>No destinations above department average</div>
+                        <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>No destinations above department average</div>
                       )}
                     </div>
                   </div>
@@ -862,15 +862,15 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                         <div key={i} className={`flex items-center justify-between text-sm rounded px-2 py-1.5 ${
                           isAudley ? 'bg-white' : 'bg-slate-800/50'
                         }`}>
-                          <span className={`truncate max-w-[140px] ${isAudley ? 'text-[#313131]' : 'text-slate-200'}`}>{d.region}</span>
+                          <span className={`truncate max-w-[140px] ${isAudley ? 'text-[#0a1628]' : 'text-slate-200'}`}>{d.region}</span>
                           <div className="flex items-center gap-2">
-                            <span className={isAudley ? 'text-[#313131]' : 'text-white'}>{d.agentTpRate.toFixed(1)}%</span>
+                            <span className={isAudley ? 'text-[#0a1628]' : 'text-white'}>{d.agentTpRate.toFixed(1)}%</span>
                             <span className={`text-xs font-medium ${isAudley ? 'text-rose-600' : 'text-rose-400'}`}>{d.deviation.toFixed(1)}pp</span>
                           </div>
                         </div>
                       ))}
                       {selectedAgentAnalysis.belowAverage.length === 0 && (
-                        <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>No destinations below department average</div>
+                        <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>No destinations below department average</div>
                       )}
                     </div>
                   </div>
@@ -899,7 +899,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                               ? isAudley ? 'bg-rose-50 border-rose-300' : 'bg-rose-900/30 border-rose-600/40'
                               : rec.priority === 'medium'
                               ? isAudley ? 'bg-amber-50 border-amber-300' : 'bg-amber-900/30 border-amber-600/40'
-                              : isAudley ? 'bg-white border-slate-300' : 'bg-slate-800/50 border-slate-600/40'
+                              : isAudley ? 'bg-white border-[#ede8e0]' : 'bg-slate-800/50 border-slate-600/40'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-4">
@@ -914,18 +914,18 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                                 }`}>
                                   {rec.priority.toUpperCase()}
                                 </span>
-                                <span className={`font-medium ${isAudley ? 'text-[#313131]' : 'text-white'}`}>{rec.region}</span>
+                                <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{rec.region}</span>
                               </div>
-                              <p className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{rec.reason}</p>
+                              <p className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{rec.reason}</p>
                             </div>
                             <div className="text-right shrink-0">
                               <div className="text-sm">
-                                <span className={isAudley ? 'text-[#313131]' : 'text-white'}>{rec.agentTpRate.toFixed(1)}%</span>
-                                <span className={`mx-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>vs</span>
-                                <span className={isAudley ? 'text-slate-600' : 'text-slate-300'}>{rec.departmentTpRate.toFixed(1)}%</span>
+                                <span className={isAudley ? 'text-[#0a1628]' : 'text-white'}>{rec.agentTpRate.toFixed(1)}%</span>
+                                <span className={`mx-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>vs</span>
+                                <span className={isAudley ? 'text-[#4a4a4a]' : 'text-slate-300'}>{rec.departmentTpRate.toFixed(1)}%</span>
                               </div>
                               <div className={`text-xs font-medium ${isAudley ? 'text-rose-600' : 'text-rose-400'}`}>{rec.deviation.toFixed(1)}pp gap</div>
-                              <div className={`text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>{rec.agentTrips} agent / {rec.departmentTrips} dept trips</div>
+                              <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>{rec.agentTrips} agent / {rec.departmentTrips} dept trips</div>
                             </div>
                           </div>
                         </div>

@@ -1,10 +1,7 @@
 @import "tailwindcss";
 
-/* Import Merriweather for Audley theme headings */
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap');
-
 html, body {
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -28,12 +25,20 @@ html, body {
   --theme-accent: #5ba8c8;
   --theme-accent-bg: #1a7fa8;
   --theme-accent-hover: #15667f;
-  --theme-header-font: 'Merriweather', serif;
+  --theme-header-font: 'DM Serif Display', serif;
+  --theme-mono-font: 'IBM Plex Mono', monospace;
 }
 
-/* Audley Travel theme - prominent blue and teal branding */
+/* Audley Travel theme — Editorial Precision */
 .theme-audley {
-  /* Audley brand colors */
+  /* Editorial palette */
+  --audley-copper: #c4956a;
+  --audley-copper-light: #d4a87a;
+  --audley-navy: #0a1628;
+  --audley-ivory: #faf8f5;
+  --audley-cream: #ede8e0;
+
+  /* Legacy brand aliases (kept for any remaining references) */
   --audley-blue: #007bc7;
   --audley-blue-dark: #005a94;
   --audley-blue-light: #e6f3fb;
@@ -42,46 +47,47 @@ html, body {
   --audley-teal-light: #e8f0ef;
   --audley-charcoal: #313131;
 
-  /* Background with subtle teal/blue tint */
-  --theme-bg-gradient-from: #f0f7fc;
+  /* Backgrounds — ivory/cream */
+  --theme-bg-gradient-from: #faf8f5;
   --theme-bg-gradient-via: #ffffff;
-  --theme-bg-gradient-to: #e8f0ef;
+  --theme-bg-gradient-to: #f5f0eb;
   --theme-bg-card: rgba(255, 255, 255, 0.95);
   --theme-bg-card-solid: #ffffff;
-  --theme-bg-input: #f8fafc;
+  --theme-bg-input: #faf8f5;
 
-  /* Text colors for good contrast */
-  --theme-text-primary: #4d726d;
-  --theme-text-secondary: #334155;
-  --theme-text-muted: #475569;
+  /* Text — navy */
+  --theme-text-primary: #0a1628;
+  --theme-text-secondary: #4a4a4a;
+  --theme-text-muted: #7a7a7a;
 
-  /* Borders with teal accent */
-  --theme-border: rgba(77, 114, 109, 0.15);
-  --theme-border-solid: #c7e2f5;
+  /* Borders — cream */
+  --theme-border: rgba(237, 232, 224, 0.6);
+  --theme-border-solid: #ede8e0;
 
-  /* Teal and blue as accents */
-  --theme-accent: #4d726d;
-  --theme-accent-bg: #4d726d;
-  --theme-accent-hover: #3d5c58;
-  --theme-header-font: 'Merriweather', serif;
+  /* Accent — copper */
+  --theme-accent: #c4956a;
+  --theme-accent-bg: #c4956a;
+  --theme-accent-hover: #b08055;
+  --theme-header-font: 'DM Serif Display', serif;
+  --theme-mono-font: 'IBM Plex Mono', monospace;
 }
 
-/* Merriweather headings for both themes */
+/* DM Serif Display headings for both themes */
 h1, h2, h3 {
   font-family: var(--theme-header-font);
 }
 
-/* Audley theme specific heading colors */
+/* Audley theme heading colors — navy */
 .theme-audley h1,
 .theme-audley h2,
 .theme-audley h3 {
-  color: var(--audley-teal);
+  color: #0a1628;
 }
 
-/* Audley teal/blue accent bar at top */
+/* Editorial accent bar at top */
 .theme-audley .audley-header-bar {
-  background: linear-gradient(90deg, #007bc7, #4d726d, #007bc7);
-  height: 4px;
+  background: linear-gradient(90deg, #007bc7, #c4956a, #4d726d);
+  height: 3px;
   width: 100%;
   position: fixed;
   top: 0;
@@ -89,37 +95,37 @@ h1, h2, h3 {
   z-index: 50;
 }
 
-/* Card styling for Audley theme - teal border accent */
+/* Card styling for Audley theme — cream border */
 .theme-audley .audley-card {
   background: white;
-  border: 1px solid #c7e2f5;
-  border-left: 4px solid #007bc7;
-  box-shadow: 0 1px 3px rgba(0, 123, 199, 0.1);
+  border: 1px solid #ede8e0;
+  box-shadow: 0 1px 3px rgba(10, 22, 40, 0.06);
 }
 
-/* Audley button styles */
+/* Audley button styles — copper accent */
 .theme-audley .audley-btn-primary {
-  background: linear-gradient(135deg, #007bc7, #0099e6);
+  background: linear-gradient(135deg, #c4956a, #d4a87a);
   color: white;
   border: none;
-  box-shadow: 0 2px 4px rgba(0, 123, 199, 0.3);
+  box-shadow: 0 2px 4px rgba(196, 149, 106, 0.3);
 }
 
 .theme-audley .audley-btn-primary:hover {
-  background: linear-gradient(135deg, #005a94, #007bc7);
+  background: linear-gradient(135deg, #b08055, #c4956a);
 }
 
 /* Audley stats cards */
 .theme-audley .audley-stat-card {
-  background: linear-gradient(135deg, #e6f3fb, #f0f7fc);
-  border: 1px solid #c7e2f5;
+  background: #faf8f5;
+  border: 1px solid #ede8e0;
 }
 
-/* Fix for dark chart tooltips in Audley theme */
+/* Dark tooltips in Audley theme */
 .theme-audley .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background-color: #1e293b !important;
-  border: 1px solid #334155 !important;
+  background-color: #0a1628 !important;
+  border: 1px solid #1a2a45 !important;
   border-radius: 8px !important;
+  color: #e8e4df !important;
 }
 
 /* Smooth transition between themes */
@@ -177,7 +183,81 @@ html {
   background-color: var(--theme-accent-hover);
 }
 
-/* Audley specific accent classes */
+/* ============ Editorial Utility Classes ============ */
+
+/* Monospace for data/numbers */
+.font-mono-data {
+  font-family: var(--theme-mono-font);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editorial label — uppercase, letterspaced */
+.label-editorial {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Editorial card with subtle hover lift */
+.card-editorial {
+  border-radius: 0.5rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-editorial:hover {
+  box-shadow: 0 4px 16px rgba(10, 22, 40, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Thin copper accent bar for cards */
+.editorial-accent-bar {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #c4956a, #d4a87a);
+  border-radius: 1px;
+}
+.theme-default .editorial-accent-bar {
+  background: linear-gradient(90deg, #d4a87a, #5ba8c8);
+}
+
+/* Editorial divider */
+.divider-editorial {
+  height: 1px;
+  width: 100%;
+  background: #ede8e0;
+}
+.theme-default .divider-editorial {
+  background: #334155;
+}
+
+/* Rank badges */
+.rank-gold {
+  color: #c4956a;
+}
+.rank-silver {
+  color: #8a9ab5;
+}
+.rank-bronze {
+  color: #a0785a;
+}
+
+/* Fade-up animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fadeUp {
+  animation: fadeUp 0.5s ease-out both;
+}
+
+/* Legacy color classes (kept for compatibility) */
 .audley-blue {
   color: #007bc7;
 }
@@ -191,10 +271,9 @@ html {
 }
 
 .bg-audley-blue-light {
-  background-color: #e6f3fb;
+  background-color: #faf8f5;
 }
 
-/* Audley teal color classes */
 .audley-teal {
   color: #4d726d;
 }
@@ -208,7 +287,7 @@ html {
 }
 
 .bg-audley-teal-light {
-  background-color: #e8f0ef;
+  background-color: #f5f0eb;
 }
 
 /* ============ Loading Animations ============ */

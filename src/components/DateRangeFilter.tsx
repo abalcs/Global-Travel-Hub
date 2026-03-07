@@ -22,10 +22,10 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
-        <svg className={`w-4 h-4 ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`w-4 h-4 ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <span className={`text-sm ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Date Range:</span>
+        <span className={`text-sm ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Date Range:</span>
       </div>
 
       <div className="flex items-center gap-2">
@@ -35,19 +35,19 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           onChange={(e) => onStartDateChange(e.target.value)}
           className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
             isAudley
-              ? 'bg-white border-[#4d726d]/30 text-[#4d726d] focus:ring-2 focus:ring-[#4d726d]/50 focus:border-[#4d726d]'
+              ? 'bg-white border-[#ede8e0] text-[#0a1628] focus:ring-2 focus:ring-[#c4956a]/50 focus:border-[#c4956a]'
               : 'bg-slate-800 border-slate-600 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 [color-scheme:dark]'
           }`}
           title="Start date (inclusive)"
         />
-        <span className={isAudley ? 'text-[#4d726d]/70' : 'text-slate-500'}>to</span>
+        <span className={isAudley ? 'text-[#0a1628]/70' : 'text-slate-500'}>to</span>
         <input
           type="date"
           value={endDate}
           onChange={(e) => onEndDateChange(e.target.value)}
           className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
             isAudley
-              ? 'bg-white border-[#4d726d]/30 text-[#4d726d] focus:ring-2 focus:ring-[#4d726d]/50 focus:border-[#4d726d]'
+              ? 'bg-white border-[#ede8e0] text-[#0a1628] focus:ring-2 focus:ring-[#c4956a]/50 focus:border-[#c4956a]'
               : 'bg-slate-800 border-slate-600 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 [color-scheme:dark]'
           }`}
           title="End date (inclusive)"

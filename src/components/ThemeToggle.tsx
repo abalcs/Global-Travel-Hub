@@ -19,8 +19,8 @@ export const ThemeToggle: React.FC = () => {
         }}
         className={`relative w-12 h-6 rounded-full transition-colors duration-300 cursor-pointer flex-shrink-0 ${
           isAudley
-            ? 'bg-[#4d726d]'
-            : 'bg-slate-600'
+            ? 'bg-[#c4956a]'
+            : 'bg-[#0a1628]'
         }`}
         title={`Switch to ${isAudley ? 'dark' : 'light'} theme`}
         aria-label={`Current theme: ${isAudley ? 'Light' : 'Dark'}. Click to switch.`}
@@ -34,7 +34,7 @@ export const ThemeToggle: React.FC = () => {
 
       {/* Right label — "Dark" visible in light mode, invisible placeholder in dark mode */}
       <span className={`text-xs font-medium transition-opacity duration-300 w-7 ${
-        isAudley ? 'opacity-100 text-[#4d726d]' : 'opacity-0'
+        isAudley ? 'opacity-100 text-[#0a1628]' : 'opacity-0'
       }`}>
         Dark
       </span>

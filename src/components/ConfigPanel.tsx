@@ -93,21 +93,21 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   return (
     <div className={`backdrop-blur rounded-xl border overflow-hidden ${
       isAudley
-        ? 'bg-white border-[#4d726d]/20'
+        ? 'bg-white border-[#ede8e0]'
         : 'bg-slate-800/50 border-slate-700/50'
     }`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full px-4 py-3 flex items-center justify-between transition-colors ${
-          isAudley ? 'hover:bg-[#4d726d]/5' : 'hover:bg-slate-700/30'
+          isAudley ? 'hover:bg-[#f5f0eb]' : 'hover:bg-slate-700/30'
         }`}
       >
         <div className="flex items-center gap-3">
-          <svg className={`w-5 h-5 ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span className={`font-medium ${isAudley ? 'text-slate-800' : 'text-white'}`}>Configuration</span>
+          <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Configuration</span>
           <div className="flex gap-2">
             <span className={`px-2 py-0.5 rounded text-xs ${
               isAudley
@@ -133,7 +133,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         </div>
         <svg
-          className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''} ${isAudley ? 'text-slate-400' : 'text-slate-400'}`}
+          className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''} ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -148,9 +148,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
         }`}
       >
         <div className="overflow-hidden">
-          <div className={`border-t ${isAudley ? 'border-slate-200' : 'border-slate-700/50'}`}>
+          <div className={`border-t ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'}`}>
           {/* Tabs */}
-          <div className={`flex border-b ${isAudley ? 'border-slate-200' : 'border-slate-700/50'}`}>
+          <div className={`flex border-b ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'}`}>
             <button
               onClick={() => setActiveTab('teams')}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-all cursor-pointer active:scale-95 ${
@@ -159,7 +159,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50'
                     : 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/10'
                   : isAudley
-                    ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    ? 'text-[#7a7a7a] hover:text-[#0a1628] hover:bg-[#f5f0eb]'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
               }`}
             >
@@ -173,7 +173,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     ? 'text-amber-600 border-b-2 border-amber-600 bg-amber-50'
                     : 'text-amber-400 border-b-2 border-amber-400 bg-amber-500/10'
                   : isAudley
-                    ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    ? 'text-[#7a7a7a] hover:text-[#0a1628] hover:bg-[#f5f0eb]'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
               }`}
             >
@@ -187,7 +187,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     ? 'text-sky-600 border-b-2 border-sky-600 bg-sky-50'
                     : 'text-sky-400 border-b-2 border-sky-400 bg-sky-500/10'
                   : isAudley
-                    ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    ? 'text-[#7a7a7a] hover:text-[#0a1628] hover:bg-[#f5f0eb]'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
               }`}
             >
@@ -208,7 +208,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     placeholder="New team name..."
                     className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none ${
                       isAudley
-                        ? 'bg-white border-slate-300 text-slate-800 placeholder-slate-400'
+                        ? 'bg-white border-[#ede8e0] text-[#0a1628] placeholder-[#7a7a7a]'
                         : 'bg-slate-900/50 border-slate-600 text-white placeholder-slate-500'
                     }`}
                   />
@@ -222,14 +222,14 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 </div>
 
                 {teams.length === 0 ? (
-                  <p className={`text-sm text-center py-4 ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+                  <p className={`text-sm text-center py-4 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                     No teams created. Create a team to group agents.
                   </p>
                 ) : (
                   <div className="space-y-3">
                     {teams.map((team) => (
                       <div key={team.id} className={`rounded-lg p-3 ${
-                        isAudley ? 'bg-slate-50' : 'bg-slate-900/30'
+                        isAudley ? 'bg-[#faf8f5]' : 'bg-slate-900/30'
                       }`}>
                         <div className="flex items-center justify-between mb-2">
                           {editingTeamId === team.id ? (
@@ -244,18 +244,18 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                               }}
                               className={`px-2 py-1 border rounded text-sm ${
                                 isAudley
-                                  ? 'bg-white border-slate-300 text-slate-800'
+                                  ? 'bg-white border-[#ede8e0] text-[#0a1628]'
                                   : 'bg-slate-800 border-slate-600 text-white'
                               }`}
                             />
                           ) : (
-                            <span className={`font-medium text-sm ${isAudley ? 'text-slate-800' : 'text-white'}`}>{team.name}</span>
+                            <span className={`font-medium text-sm ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{team.name}</span>
                           )}
                           <div className="flex gap-1">
                             <button
                               onClick={() => setEditingTeamId(team.id)}
                               className={`p-1 transition-colors ${
-                                isAudley ? 'text-slate-400 hover:text-slate-700' : 'text-slate-400 hover:text-white'
+                                isAudley ? 'text-[#7a7a7a] hover:text-[#4a4a4a]' : 'text-slate-400 hover:text-white'
                               }`}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,7 +265,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                             <button
                               onClick={() => handleDeleteTeam(team.id)}
                               className={`p-1 transition-colors ${
-                                isAudley ? 'text-slate-400 hover:text-red-600' : 'text-slate-400 hover:text-red-400'
+                                isAudley ? 'text-[#7a7a7a] hover:text-red-600' : 'text-slate-400 hover:text-red-400'
                               }`}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,7 +311,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                             }}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
                               isAudley
-                                ? 'bg-white border-slate-300 text-slate-700'
+                                ? 'bg-white border-[#ede8e0] text-[#4a4a4a]'
                                 : 'bg-slate-800 border-slate-600 text-slate-300'
                             }`}
                             defaultValue=""
@@ -328,7 +328,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 )}
 
                 {unassignedAgents.length > 0 && teams.length > 0 && (
-                  <div className={`pt-3 border-t ${isAudley ? 'border-slate-200' : 'border-slate-700/50'}`}>
+                  <div className={`pt-3 border-t ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'}`}>
                     <p className="text-xs text-slate-500 mb-2">
                       Unassigned: {unassignedAgents.slice(0, 5).join(', ')}
                       {unassignedAgents.length > 5 && ` +${unassignedAgents.length - 5} more`}
@@ -341,7 +341,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             {/* Seniors Tab */}
             {activeTab === 'seniors' && (
               <div className="space-y-4">
-                <p className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                <p className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
                   Click agents to toggle senior designation. Seniors are tracked separately in comparisons.
                 </p>
 
@@ -372,7 +372,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 )}
 
                 <div>
-                  <h4 className={`text-xs font-medium mb-2 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <h4 className={`text-xs font-medium mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
                     Non-Seniors ({nonSeniorAgents.length})
                   </h4>
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
@@ -382,7 +382,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                         onClick={() => toggleSenior(agent)}
                         className={`px-2 py-1 rounded text-xs transition-colors ${
                           isAudley
-                            ? 'bg-slate-100 text-slate-700 hover:bg-amber-100 hover:text-amber-700'
+                            ? 'bg-[#faf8f5] text-[#4a4a4a] hover:bg-amber-100 hover:text-amber-700'
                             : 'bg-slate-700/50 text-slate-300 hover:bg-amber-500/20 hover:text-amber-400'
                         }`}
                       >
@@ -397,7 +397,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
             {/* New Hires Tab */}
             {activeTab === 'newHires' && (
               <div className="space-y-4">
-                <p className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+                <p className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
                   Click agents to toggle new hire designation. New hires can be filtered separately in results.
                 </p>
 
@@ -428,7 +428,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 )}
 
                 <div>
-                  <h4 className={`text-xs font-medium mb-2 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <h4 className={`text-xs font-medium mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
                     Other Agents ({nonNewHireAgents.length})
                   </h4>
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
@@ -438,7 +438,7 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                         onClick={() => toggleNewHire(agent)}
                         className={`px-2 py-1 rounded text-xs transition-colors ${
                           isAudley
-                            ? 'bg-slate-100 text-slate-700 hover:bg-sky-100 hover:text-sky-700'
+                            ? 'bg-[#faf8f5] text-[#4a4a4a] hover:bg-sky-100 hover:text-sky-700'
                             : 'bg-slate-700/50 text-slate-300 hover:bg-sky-500/20 hover:text-sky-400'
                         }`}
                       >

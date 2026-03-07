@@ -242,7 +242,7 @@ export const GlobeLoader: React.FC<GlobeLoaderProps> = ({ stage, progress }) => 
         <div className="w-64 mx-auto">
           <div className="w-full rounded-full h-1.5 overflow-hidden bg-slate-700/50">
             <div
-              className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-cyan-500 to-blue-500"
+              className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-[#c4956a] to-[#007bc7]"
               style={{ width: `${progress}%` }}
             />
           </div>

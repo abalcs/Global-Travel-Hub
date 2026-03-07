@@ -99,21 +99,21 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
     return lines.map((line, index) => {
       if (line.startsWith('**') && line.endsWith('**')) {
         return (
-          <h4 key={index} className={`font-bold mt-4 mb-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>
+          <h4 key={index} className={`font-bold mt-4 mb-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
             {line.replace(/\*\*/g, '')}
           </h4>
         );
       }
       if (line.startsWith('- ')) {
         return (
-          <li key={index} className={`ml-4 mb-1 ${isAudley ? 'text-slate-700' : 'text-slate-300'}`}>
+          <li key={index} className={`ml-4 mb-1 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-300'}`}>
             {line.substring(2)}
           </li>
         );
       }
       if (line.trim()) {
         return (
-          <p key={index} className={`mb-2 ${isAudley ? 'text-slate-700' : 'text-slate-300'}`}>
+          <p key={index} className={`mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-300'}`}>
             {line}
           </p>
         );
@@ -151,7 +151,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
     <button
       onClick={() => toggleSection(section)}
       className={`w-full flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer active:scale-[0.99] group ${
-        isAudley ? 'bg-white/80 hover:bg-white shadow-sm' : 'bg-slate-800/30 hover:bg-slate-800/50'
+        isAudley ? 'bg-[#faf8f5]/80 hover:bg-[#faf8f5] shadow-sm' : 'bg-slate-800/30 hover:bg-slate-800/50'
       }`}
     >
       <div className="flex items-center gap-3">
@@ -159,12 +159,12 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
           {icon}
         </div>
         <div className="text-left">
-          <h3 className={`text-lg font-semibold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{title}</h3>
-          {subtitle && <p className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>{subtitle}</p>}
+          <h3 className={`text-lg font-semibold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{title}</h3>
+          {subtitle && <p className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>{subtitle}</p>}
         </div>
       </div>
       <svg
-        className={`w-5 h-5 transition-transform ${expandedSections[section] ? 'rotate-180' : ''} ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}
+        className={`w-5 h-5 transition-transform ${expandedSections[section] ? 'rotate-180' : ''} ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -179,19 +179,19 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>
-            <svg className={`w-6 h-6 ${isAudley ? 'text-[#007bc7]' : 'text-indigo-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
+            <svg className={`w-6 h-6 ${isAudley ? 'text-[#c4956a]' : 'text-indigo-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             Department Insights
           </h2>
-          <p className={`text-sm mt-1 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+          <p className={`text-sm mt-1 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
             Statistical analysis and AI-powered recommendations
           </p>
         </div>
         <button
           onClick={() => setShowColumns(!showColumns)}
-          className={`text-xs ${isAudley ? 'text-slate-500 hover:text-[#4d726d]' : 'text-slate-500 hover:text-slate-300'}`}
+          className={`text-xs ${isAudley ? 'text-[#7a7a7a] hover:text-[#0a1628]' : 'text-slate-500 hover:text-slate-300'}`}
         >
           {showColumns ? 'Hide' : 'Show'} columns
         </button>
@@ -241,28 +241,28 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
       {/* Quick Stats Bar */}
       <div className="grid grid-cols-4 gap-3">
         <div className={`rounded-lg p-3 text-center border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
+          isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
         }`}>
-          <div className={`text-lg font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{insights.totalPassthroughs.toLocaleString()}</div>
-          <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>Passthroughs</div>
+          <div className={`text-lg font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{insights.totalPassthroughs.toLocaleString()}</div>
+          <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>Passthroughs</div>
         </div>
         <div className={`rounded-lg p-3 text-center border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
+          isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
         }`}>
           <div className={`text-lg font-bold ${isAudley ? 'text-amber-600' : 'text-white'}`}>{insights.totalHotPass.toLocaleString()}</div>
-          <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>Hot Passes</div>
+          <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>Hot Passes</div>
         </div>
         <div className={`rounded-lg p-3 text-center border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
+          isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
         }`}>
-          <div className={`text-lg font-bold ${isAudley ? 'text-[#007bc7]' : 'text-white'}`}>{insights.totalBookings.toLocaleString()}</div>
-          <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>Bookings</div>
+          <div className={`text-lg font-bold ${isAudley ? 'text-[#c4956a]' : 'text-white'}`}>{insights.totalBookings.toLocaleString()}</div>
+          <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>Bookings</div>
         </div>
         <div className={`rounded-lg p-3 text-center border ${
-          isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
+          isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/40 border-slate-700/30'
         }`}>
           <div className={`text-lg font-bold ${isAudley ? 'text-rose-600' : 'text-white'}`}>{insights.totalNonValidated.toLocaleString()}</div>
-          <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>Non-Validated</div>
+          <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>Non-Validated</div>
         </div>
       </div>
 
@@ -294,8 +294,8 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
                     : 'bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border-indigo-500/30'
                 }`}>
                   <div className={`text-xs mb-1 ${isAudley ? 'text-indigo-600' : 'text-indigo-300'}`}>Best Day - Passthroughs</div>
-                  <div className={`text-lg font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{insights.bestPassthroughDay}</div>
-                  <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{insights.passthroughsByDay[0]?.percentage.toFixed(0)}% of total</div>
+                  <div className={`text-lg font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{insights.bestPassthroughDay}</div>
+                  <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{insights.passthroughsByDay[0]?.percentage.toFixed(0)}% of total</div>
                 </div>
               )}
               {insights.bestPassthroughTime && (
@@ -305,8 +305,8 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
                     : 'bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-purple-500/30'
                 }`}>
                   <div className={`text-xs mb-1 ${isAudley ? 'text-purple-600' : 'text-purple-300'}`}>Best Time - Passthroughs</div>
-                  <div className={`text-lg font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{insights.bestPassthroughTime.split(' ')[0]}</div>
-                  <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{insights.passthroughsByTime[0]?.percentage.toFixed(0)}% of total</div>
+                  <div className={`text-lg font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{insights.bestPassthroughTime.split(' ')[0]}</div>
+                  <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{insights.passthroughsByTime[0]?.percentage.toFixed(0)}% of total</div>
                 </div>
               )}
               {insights.bestHotPassDay && (
@@ -316,8 +316,8 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
                     : 'bg-gradient-to-br from-orange-600/20 to-amber-600/20 border-orange-500/30'
                 }`}>
                   <div className={`text-xs mb-1 ${isAudley ? 'text-orange-600' : 'text-orange-300'}`}>Best Day - Hot Passes</div>
-                  <div className={`text-lg font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{insights.bestHotPassDay}</div>
-                  <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{insights.hotPassByDay[0]?.percentage.toFixed(0)}% of total</div>
+                  <div className={`text-lg font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{insights.bestHotPassDay}</div>
+                  <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{insights.hotPassByDay[0]?.percentage.toFixed(0)}% of total</div>
                 </div>
               )}
               {insights.bestHotPassTime && (
@@ -327,8 +327,8 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
                     : 'bg-gradient-to-br from-amber-600/20 to-yellow-600/20 border-amber-500/30'
                 }`}>
                   <div className={`text-xs mb-1 ${isAudley ? 'text-amber-600' : 'text-amber-300'}`}>Best Time - Hot Passes</div>
-                  <div className={`text-lg font-bold ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{insights.bestHotPassTime.split(' ')[0]}</div>
-                  <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{insights.hotPassByTime[0]?.percentage.toFixed(0)}% of total</div>
+                  <div className={`text-lg font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{insights.bestHotPassTime.split(' ')[0]}</div>
+                  <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{insights.hotPassByTime[0]?.percentage.toFixed(0)}% of total</div>
                 </div>
               )}
             </div>
@@ -338,14 +338,14 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               {/* Passthroughs by Day */}
               {insights.passthroughsByDay.length > 0 && (
                 <div className={`rounded-lg p-4 border ${
-                  isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                  isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Passthroughs by Day</h4>
+                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Passthroughs by Day</h4>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={insights.passthroughsByDay.map(d => ({ ...d, label: `${d.percentage.toFixed(0)}%` }))}>
-                      <XAxis dataKey="day" tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#ffffff' : '#0f172a', border: isAudley ? '1px solid #4d726d' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#4d726d' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#313131' : '#e2e8f0' }} />
+                      <XAxis dataKey="day" tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#faf8f5' : '#0f172a', border: isAudley ? '1px solid #ede8e0' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]} activeBar={false}>
                         {insights.passthroughsByDay.map((_, index) => (
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -359,14 +359,14 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               {/* Hot Passes by Day */}
               {insights.hotPassByDay.length > 0 && (
                 <div className={`rounded-lg p-4 border ${
-                  isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                  isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Hot Passes by Day</h4>
+                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Hot Passes by Day</h4>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={insights.hotPassByDay.map(d => ({ ...d, label: `${d.percentage.toFixed(0)}%` }))}>
-                      <XAxis dataKey="day" tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#ffffff' : '#0f172a', border: isAudley ? '1px solid #4d726d' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#4d726d' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#313131' : '#e2e8f0' }} />
+                      <XAxis dataKey="day" tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#faf8f5' : '#0f172a', border: isAudley ? '1px solid #ede8e0' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#f97316" activeBar={false} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -376,14 +376,14 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               {/* Passthroughs by Time */}
               {insights.hasTimeData && insights.passthroughsByTime.length > 0 && (
                 <div className={`rounded-lg p-4 border ${
-                  isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                  isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Passthroughs by Time</h4>
+                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Passthroughs by Time</h4>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={insights.passthroughsByTime} layout="vertical">
-                      <XAxis type="number" tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis type="category" dataKey="timeSlot" tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} width={100} />
-                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#ffffff' : '#0f172a', border: isAudley ? '1px solid #4d726d' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#4d726d' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#313131' : '#e2e8f0' }} />
+                      <XAxis type="number" tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="timeSlot" tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} width={100} />
+                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#faf8f5' : '#0f172a', border: isAudley ? '1px solid #ede8e0' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} />
                       <Bar dataKey="count" radius={[0, 4, 4, 0]} activeBar={false}>
                         {insights.passthroughsByTime.map((_, index) => (
                           <Cell key={index} fill={COLORS[index % COLORS.length]} />
@@ -397,14 +397,14 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               {/* Hot Passes by Time */}
               {insights.hasHotPassTimeData && insights.hotPassByTime.length > 0 && (
                 <div className={`rounded-lg p-4 border ${
-                  isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                  isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#4d726d]' : 'text-slate-400'}`}>Hot Passes by Time</h4>
+                  <h4 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#0a1628]' : 'text-slate-400'}`}>Hot Passes by Time</h4>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={insights.hotPassByTime} layout="vertical">
-                      <XAxis type="number" tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis type="category" dataKey="timeSlot" tick={{ fill: isAudley ? '#4d726d' : '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} width={100} />
-                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#ffffff' : '#0f172a', border: isAudley ? '1px solid #4d726d' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#4d726d' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#313131' : '#e2e8f0' }} />
+                      <XAxis type="number" tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="timeSlot" tick={{ fill: isAudley ? '#0a1628' : '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} width={100} />
+                      <Tooltip contentStyle={{ backgroundColor: isAudley ? '#faf8f5' : '#0f172a', border: isAudley ? '1px solid #ede8e0' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} />
                       <Bar dataKey="count" radius={[0, 4, 4, 0]} fill="#f59e0b" activeBar={false} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -439,9 +439,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               {/* Non-Validated Reasons */}
               {insights.hasNonValidatedReasons && (
                 <div className={`rounded-lg p-4 border ${
-                  isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                  isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <h4 className={`text-sm font-medium mb-4 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>Top Non-Validated Reasons</h4>
+                  <h4 className={`text-sm font-medium mb-4 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>Top Non-Validated Reasons</h4>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                       <ResponsiveContainer width="100%" height={200}>
@@ -464,20 +464,20 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
                               <Cell key={index} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: isAudley ? '#ffffff' : '#0f172a', border: isAudley ? '1px solid #4d726d' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#4d726d' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#313131' : '#e2e8f0' }} />
+                          <Tooltip contentStyle={{ backgroundColor: isAudley ? '#faf8f5' : '#0f172a', border: isAudley ? '1px solid #ede8e0' : '1px solid #475569', borderRadius: '8px' }} labelStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} itemStyle={{ color: isAudley ? '#0a1628' : '#e2e8f0' }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="space-y-2">
                       {insights.topNonValidatedReasons.slice(0, 6).map((r, i) => (
                         <div key={i} className={`flex items-center justify-between py-1.5 border-b last:border-0 ${
-                          isAudley ? 'border-[#4d726d]/10' : 'border-slate-700/50'
+                          isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'
                         }`}>
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                            <span className={`text-xs truncate max-w-[150px] ${isAudley ? 'text-[#313131]' : 'text-slate-300'}`}>{r.reason}</span>
+                            <span className={`text-xs truncate max-w-[150px] ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>{r.reason}</span>
                           </div>
-                          <span className={`text-xs font-medium ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>{r.percentage.toFixed(0)}%</span>
+                          <span className={`text-xs font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{r.percentage.toFixed(0)}%</span>
                         </div>
                       ))}
                     </div>
@@ -488,16 +488,16 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               {/* Agent-Level Non-Validated */}
               {insights.agentNonValidated.length > 0 && (
                 <div className={`rounded-lg p-4 border ${
-                  isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+                  isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <h4 className={`text-sm font-medium mb-4 ${isAudley ? 'text-[#4d726d]' : 'text-slate-300'}`}>By Agent</h4>
+                  <h4 className={`text-sm font-medium mb-4 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>By Agent</h4>
                   <div className="flex flex-wrap gap-4">
                     <select
                       value={selectedAgentForReasons}
                       onChange={(e) => setSelectedAgentForReasons(e.target.value)}
                       className={`rounded-lg px-3 py-2 text-sm ${
                         isAudley
-                          ? 'bg-white border border-[#4d726d]/30 text-[#313131]'
+                          ? 'bg-[#faf8f5] border border-[#ede8e0] text-[#0a1628]'
                           : 'bg-slate-700/50 border border-slate-600 text-white'
                       }`}
                     >
@@ -511,14 +511,14 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
 
                     {selectedAgentReasons && (
                       <div className="flex-1 min-w-[300px]">
-                        <div className={`text-sm mb-2 ${isAudley ? 'text-[#313131]' : 'text-white'}`}>
+                        <div className={`text-sm mb-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
                           <strong>{selectedAgentReasons.agentName}</strong> - {selectedAgentReasons.total} non-validated
                         </div>
                         <div className="space-y-1">
                           {selectedAgentReasons.topReasons.map((r, i) => (
                             <div key={i} className="flex items-center justify-between text-sm">
-                              <span className={isAudley ? 'text-slate-500' : 'text-slate-400'}>{r.reason}</span>
-                              <span className={isAudley ? 'text-[#313131]' : 'text-white'}>{r.count} ({r.percentage.toFixed(1)}%)</span>
+                              <span className={isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}>{r.reason}</span>
+                              <span className={isAudley ? 'text-[#0a1628]' : 'text-white'}>{r.count} ({r.percentage.toFixed(1)}%)</span>
                             </div>
                           ))}
                         </div>
@@ -535,9 +535,9 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
 
       {/* ==================== AI ANALYSIS SECTION ==================== */}
       <div className={`rounded-xl p-6 border ${
-        isAudley ? 'bg-white border-[#4d726d]/20 shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
+        isAudley ? 'bg-[#faf8f5] border-[#ede8e0] shadow-sm' : 'bg-slate-800/50 border-slate-700/50'
       }`}>
-        <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isAudley ? 'text-[#4d726d]' : 'text-white'}`}>
+        <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
           <svg className={`w-5 h-5 ${isAudley ? 'text-purple-500' : 'text-purple-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
@@ -546,7 +546,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
 
         {!apiKeySaved && (
           <div className="mb-4">
-            <label className={`block text-sm font-medium mb-2 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+            <label className={`block text-sm font-medium mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
               Anthropic API Key
             </label>
             <div className="flex gap-2">
@@ -558,14 +558,14 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
                   placeholder="sk-ant-..."
                   className={`w-full rounded-lg px-4 py-2 text-sm ${
                     isAudley
-                      ? 'bg-white border border-[#4d726d]/30 text-[#313131]'
+                      ? 'bg-[#faf8f5] border border-[#ede8e0] text-[#0a1628]'
                       : 'bg-slate-700/50 border border-slate-600 text-white'
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className={`absolute right-2 top-1/2 -translate-y-1/2 ${isAudley ? 'text-slate-400 hover:text-[#4d726d]' : 'text-slate-400 hover:text-white'}`}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 ${isAudley ? 'text-[#7a7a7a] hover:text-[#0a1628]' : 'text-slate-400 hover:text-white'}`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -576,7 +576,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
               <button
                 onClick={handleSaveApiKey}
                 className={`px-4 py-2 rounded-lg text-sm ${
-                  isAudley ? 'bg-[#4d726d] text-white hover:bg-[#3d5c58]' : 'bg-slate-600 text-white hover:bg-slate-500'
+                  isAudley ? 'bg-[#c4956a] text-white hover:bg-[#b3845c]' : 'bg-slate-600 text-white hover:bg-slate-500'
                 }`}
               >
                 Save
@@ -590,7 +590,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
           disabled={isLoading || !apiKey}
           className={`px-6 py-3 font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 ${
             isAudley
-              ? 'bg-gradient-to-r from-[#4d726d] to-[#007bc7] text-white hover:from-[#3d5c58] hover:to-[#005a94]'
+              ? 'bg-gradient-to-r from-[#0a1628] to-[#c4956a] text-white hover:from-[#0a1628]/90 hover:to-[#b3845c]'
               : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
           }`}
         >
@@ -622,7 +622,7 @@ export const InsightsView: React.FC<InsightsViewProps> = ({ rawData }) => {
 
         {aiAnalysis && (
           <div className={`mt-6 p-6 rounded-xl border ${
-            isAudley ? 'bg-[#f8fafc] border-[#4d726d]/20' : 'bg-slate-700/30 border-slate-600/50'
+            isAudley ? 'bg-[#faf8f5] border-[#ede8e0]' : 'bg-slate-700/30 border-slate-600/50'
           }`}>
             <div className={isAudley ? 'prose prose-sm max-w-none' : 'prose prose-invert prose-sm max-w-none'}>
               <ul className="list-none p-0 m-0">{renderAnalysis(aiAnalysis)}</ul>

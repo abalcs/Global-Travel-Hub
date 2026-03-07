@@ -81,26 +81,26 @@ export const themeColors = {
     },
   },
   audley: {
-    // Audley Travel theme - light professional look
+    // Audley Travel theme — Editorial Precision
     bg: {
-      primary: 'bg-gradient-to-br from-slate-50 via-white to-slate-100',
-      card: 'bg-white/80',
+      primary: 'bg-[#faf8f5]',
+      card: 'bg-white',
       cardSolid: 'bg-white',
-      input: 'bg-slate-100',
+      input: 'bg-[#faf8f5]',
     },
     text: {
-      primary: 'text-slate-800',
-      secondary: 'text-slate-600',
-      muted: 'text-slate-500',
+      primary: 'text-[#0a1628]',
+      secondary: 'text-[#4a4a4a]',
+      muted: 'text-[#7a7a7a]',
     },
     border: {
-      default: 'border-slate-200',
-      solid: 'border-slate-300',
+      default: 'border-[#ede8e0]',
+      solid: 'border-[#ede8e0]',
     },
     accent: {
-      primary: 'text-[#007bc7]',
-      bg: 'bg-[#007bc7]',
-      hover: 'hover:bg-[#006bb3]',
+      primary: 'text-[#c4956a]',
+      bg: 'bg-[#c4956a]',
+      hover: 'hover:bg-[#b08055]',
     },
   },
 };

@@ -123,7 +123,7 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
 
   if (!hasData) {
     return (
-      <div className={`text-center py-16 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+      <div className={`text-center py-16 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
         <svg className={`w-12 h-12 mx-auto mb-4 ${isAudley ? 'text-slate-400' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
@@ -137,13 +137,13 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-slate-800' : 'text-white'}`}>
-          <svg className={`w-6 h-6 ${isAudley ? 'text-[#4d726d]' : 'text-cyan-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <h2 className={`text-xl font-semibold flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
+          <svg className={`w-6 h-6 ${isAudley ? 'text-[#0a1628]' : 'text-cyan-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
           Channel Performance
         </h2>
-        <p className={`text-sm mt-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>
+        <p className={`text-sm mt-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
           Repeat client and B2B conversion performance analysis
         </p>
       </div>
@@ -152,11 +152,11 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
       {repeatClientPerformance && repeatClientPerformance.segments.length > 0 && (
         <div className={`backdrop-blur rounded-2xl p-6 border space-y-4 ${
           isAudley
-            ? 'bg-white border-[#4d726d]/20'
+            ? 'bg-white border-[#ede8e0]'
             : 'bg-slate-800/50 border-slate-700/50'
         }`}>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <h3 className={`text-lg font-semibold flex items-center gap-2 ${isAudley ? 'text-slate-800' : 'text-white'}`}>
+            <h3 className={`text-lg font-semibold flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
               <svg className={`w-5 h-5 ${isAudley ? 'text-emerald-600' : 'text-emerald-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -191,12 +191,12 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                       ? 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
                       : 'bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border-emerald-500/30'
                     : isAudley
-                      ? 'bg-slate-50 border-slate-200'
+                      ? 'bg-[#faf8f5] border-[#ede8e0]'
                       : 'bg-gradient-to-br from-slate-700/30 to-slate-800/30 border-slate-600/30'
                 }`}
               >
-                <div className={`text-xs mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{seg.segment} Clients</div>
-                <div className={`text-2xl font-bold ${seg.segment === 'Repeat' ? (isAudley ? 'text-emerald-600' : 'text-emerald-400') : (isAudley ? 'text-slate-800' : 'text-white')}`}>
+                <div className={`text-xs mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{seg.segment} Clients</div>
+                <div className={`text-2xl font-bold ${seg.segment === 'Repeat' ? (isAudley ? 'text-emerald-600' : 'text-emerald-400') : (isAudley ? 'text-[#0a1628]' : 'text-white')}`}>
                   {seg.tpRate.toFixed(1)}%
                 </div>
                 <div className={`text-xs mt-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -206,20 +206,20 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
             ))}
             <div className={`rounded-lg p-4 border ${
               isAudley
-                ? 'bg-slate-50 border-slate-200'
+                ? 'bg-[#faf8f5] border-[#ede8e0]'
                 : 'bg-slate-800/40 border-slate-700/30'
             }`}>
-              <div className={`text-xs mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Total</div>
-              <div className={`text-2xl font-bold ${isAudley ? 'text-slate-800' : 'text-white'}`}>{repeatClientPerformance.totalTrips.toLocaleString()}</div>
+              <div className={`text-xs mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>Total</div>
+              <div className={`text-2xl font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{repeatClientPerformance.totalTrips.toLocaleString()}</div>
               <div className={`text-xs mt-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>trips analyzed</div>
             </div>
             {repeatClientPerformance.segments.length === 2 && (
               <div className={`rounded-lg p-4 border ${
                 isAudley
-                  ? 'bg-slate-50 border-slate-200'
+                  ? 'bg-[#faf8f5] border-[#ede8e0]'
                   : 'bg-slate-800/40 border-slate-700/30'
               }`}>
-                <div className={`text-xs mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Difference</div>
+                <div className={`text-xs mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>Difference</div>
                 <div className={`text-2xl font-bold ${
                   (repeatClientPerformance.segments[0]?.tpRate || 0) > (repeatClientPerformance.segments[1]?.tpRate || 0)
                     ? (isAudley ? 'text-emerald-600' : 'text-emerald-400') : (isAudley ? 'text-rose-600' : 'text-rose-400')
@@ -239,16 +239,16 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
           {repeatClientByAgent.length > 0 && (
             <div className={`rounded-lg p-4 border ${
               isAudley
-                ? 'bg-slate-50 border-slate-200'
+                ? 'bg-[#faf8f5] border-[#ede8e0]'
                 : 'bg-slate-900/50 border-slate-700/50'
             }`}>
-              <h5 className={`text-xs font-medium mb-3 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Agent Performance by Client Type</h5>
+              <h5 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Agent Performance by Client Type</h5>
               <select
                 value={selectedAgentForRepeat}
                 onChange={(e) => setSelectedAgentForRepeat(e.target.value)}
                 className={`border rounded-lg px-3 py-2 text-sm mb-3 ${
                   isAudley
-                    ? 'bg-white border-slate-300 text-slate-800'
+                    ? 'bg-white border-[#ede8e0] text-[#0a1628]'
                     : 'bg-slate-700/50 border-slate-600 text-white'
                 }`}
               >
@@ -268,16 +268,16 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                       className={`rounded-lg p-3 ${
                         seg.segment === 'Repeat'
                           ? isAudley ? 'bg-emerald-50' : 'bg-emerald-900/30'
-                          : isAudley ? 'bg-slate-100' : 'bg-slate-700/30'
+                          : isAudley ? 'bg-[#faf8f5]' : 'bg-slate-700/30'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-sm ${isAudley ? 'text-slate-700' : 'text-slate-300'}`}>{seg.segment}</span>
-                        <span className={`text-lg font-bold ${seg.segment === 'Repeat' ? (isAudley ? 'text-emerald-600' : 'text-emerald-400') : (isAudley ? 'text-slate-800' : 'text-white')}`}>
+                        <span className={`text-lg font-bold ${seg.segment === 'Repeat' ? (isAudley ? 'text-emerald-600' : 'text-emerald-400') : (isAudley ? 'text-[#0a1628]' : 'text-white')}`}>
                           {seg.tpRate.toFixed(1)}%
                         </span>
                       </div>
-                      <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+                      <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                         {seg.passthroughs} passthroughs / {seg.trips} trips
                       </div>
                     </div>
@@ -291,10 +291,10 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
           {(repeatAgentRankings.seniorTop3.length > 0 || repeatAgentRankings.nonSeniorTop3.length > 0) && (
             <div className={`rounded-lg p-4 border ${
               isAudley
-                ? 'bg-slate-50 border-slate-200'
+                ? 'bg-[#faf8f5] border-[#ede8e0]'
                 : 'bg-slate-900/50 border-slate-700/50'
             }`}>
-              <h5 className={`text-xs font-medium mb-4 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Agent Rankings - Repeat Client T&gt;P</h5>
+              <h5 className={`text-xs font-medium mb-4 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Agent Rankings - Repeat Client T&gt;P</h5>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Senior Agents */}
                 {repeatAgentRankings.seniorTop3.length > 0 && (
@@ -349,7 +349,7 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                 {/* Non-Senior Agents */}
                 {repeatAgentRankings.nonSeniorTop3.length > 0 && (
                   <div className="space-y-3">
-                    <div className={`text-xs font-medium ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Non-Senior Agents</div>
+                    <div className={`text-xs font-medium ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Non-Senior Agents</div>
                     {/* Top 3 */}
                     <div className={`rounded-lg p-3 border ${
                       isAudley
@@ -405,11 +405,11 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
       {b2bPerformance && b2bPerformance.segments.length > 0 && (
         <div className={`backdrop-blur rounded-2xl p-6 border space-y-4 ${
           isAudley
-            ? 'bg-white border-[#4d726d]/20'
+            ? 'bg-white border-[#ede8e0]'
             : 'bg-slate-800/50 border-slate-700/50'
         }`}>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <h3 className={`text-lg font-semibold flex items-center gap-2 ${isAudley ? 'text-slate-800' : 'text-white'}`}>
+            <h3 className={`text-lg font-semibold flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
               <svg className={`w-5 h-5 ${isAudley ? 'text-blue-600' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
@@ -444,12 +444,12 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                       ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
                       : 'bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border-blue-500/30'
                     : isAudley
-                      ? 'bg-slate-50 border-slate-200'
+                      ? 'bg-[#faf8f5] border-[#ede8e0]'
                       : 'bg-gradient-to-br from-slate-700/30 to-slate-800/30 border-slate-600/30'
                 }`}
               >
-                <div className={`text-xs mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>{seg.segment}</div>
-                <div className={`text-2xl font-bold ${seg.segment === 'B2B' ? (isAudley ? 'text-blue-600' : 'text-blue-400') : (isAudley ? 'text-slate-800' : 'text-white')}`}>
+                <div className={`text-xs mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>{seg.segment}</div>
+                <div className={`text-2xl font-bold ${seg.segment === 'B2B' ? (isAudley ? 'text-blue-600' : 'text-blue-400') : (isAudley ? 'text-[#0a1628]' : 'text-white')}`}>
                   {seg.tpRate.toFixed(1)}%
                 </div>
                 <div className={`text-xs mt-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -459,20 +459,20 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
             ))}
             <div className={`rounded-lg p-4 border ${
               isAudley
-                ? 'bg-slate-50 border-slate-200'
+                ? 'bg-[#faf8f5] border-[#ede8e0]'
                 : 'bg-slate-800/40 border-slate-700/30'
             }`}>
-              <div className={`text-xs mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Total</div>
-              <div className={`text-2xl font-bold ${isAudley ? 'text-slate-800' : 'text-white'}`}>{b2bPerformance.totalTrips.toLocaleString()}</div>
+              <div className={`text-xs mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>Total</div>
+              <div className={`text-2xl font-bold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>{b2bPerformance.totalTrips.toLocaleString()}</div>
               <div className={`text-xs mt-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>trips analyzed</div>
             </div>
             {b2bPerformance.segments.length === 2 && (
               <div className={`rounded-lg p-4 border ${
                 isAudley
-                  ? 'bg-slate-50 border-slate-200'
+                  ? 'bg-[#faf8f5] border-[#ede8e0]'
                   : 'bg-slate-800/40 border-slate-700/30'
               }`}>
-                <div className={`text-xs mb-1 ${isAudley ? 'text-slate-500' : 'text-slate-400'}`}>Difference</div>
+                <div className={`text-xs mb-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>Difference</div>
                 <div className={`text-2xl font-bold ${
                   (b2bPerformance.segments[0]?.tpRate || 0) > (b2bPerformance.segments[1]?.tpRate || 0)
                     ? (isAudley ? 'text-blue-600' : 'text-blue-400') : (isAudley ? 'text-rose-600' : 'text-rose-400')
@@ -492,16 +492,16 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
           {b2bByAgent.length > 0 && (
             <div className={`rounded-lg p-4 border ${
               isAudley
-                ? 'bg-slate-50 border-slate-200'
+                ? 'bg-[#faf8f5] border-[#ede8e0]'
                 : 'bg-slate-900/50 border-slate-700/50'
             }`}>
-              <h5 className={`text-xs font-medium mb-3 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Agent Performance by Business Type</h5>
+              <h5 className={`text-xs font-medium mb-3 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Agent Performance by Business Type</h5>
               <select
                 value={selectedAgentForB2B}
                 onChange={(e) => setSelectedAgentForB2B(e.target.value)}
                 className={`border rounded-lg px-3 py-2 text-sm mb-3 ${
                   isAudley
-                    ? 'bg-white border-slate-300 text-slate-800'
+                    ? 'bg-white border-[#ede8e0] text-[#0a1628]'
                     : 'bg-slate-700/50 border-slate-600 text-white'
                 }`}
               >
@@ -521,16 +521,16 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                       className={`rounded-lg p-3 ${
                         seg.segment === 'B2B'
                           ? isAudley ? 'bg-blue-50' : 'bg-blue-900/30'
-                          : isAudley ? 'bg-slate-100' : 'bg-slate-700/30'
+                          : isAudley ? 'bg-[#faf8f5]' : 'bg-slate-700/30'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-sm ${isAudley ? 'text-slate-700' : 'text-slate-300'}`}>{seg.segment}</span>
-                        <span className={`text-lg font-bold ${seg.segment === 'B2B' ? (isAudley ? 'text-blue-600' : 'text-blue-400') : (isAudley ? 'text-slate-800' : 'text-white')}`}>
+                        <span className={`text-lg font-bold ${seg.segment === 'B2B' ? (isAudley ? 'text-blue-600' : 'text-blue-400') : (isAudley ? 'text-[#0a1628]' : 'text-white')}`}>
                           {seg.tpRate.toFixed(1)}%
                         </span>
                       </div>
-                      <div className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>
+                      <div className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                         {seg.passthroughs} passthroughs / {seg.trips} trips
                       </div>
                     </div>
@@ -544,10 +544,10 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
           {(b2bAgentRankings.seniorTop3.length > 0 || b2bAgentRankings.nonSeniorTop3.length > 0) && (
             <div className={`rounded-lg p-4 border ${
               isAudley
-                ? 'bg-slate-50 border-slate-200'
+                ? 'bg-[#faf8f5] border-[#ede8e0]'
                 : 'bg-slate-900/50 border-slate-700/50'
             }`}>
-              <h5 className={`text-xs font-medium mb-4 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Agent Rankings - B2B T&gt;P</h5>
+              <h5 className={`text-xs font-medium mb-4 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Agent Rankings - B2B T&gt;P</h5>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Senior Agents */}
                 {b2bAgentRankings.seniorTop3.length > 0 && (
@@ -602,7 +602,7 @@ export const ChannelPerformanceView: React.FC<ChannelPerformanceViewProps> = ({ 
                 {/* Non-Senior Agents */}
                 {b2bAgentRankings.nonSeniorTop3.length > 0 && (
                   <div className="space-y-3">
-                    <div className={`text-xs font-medium ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>Non-Senior Agents</div>
+                    <div className={`text-xs font-medium ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>Non-Senior Agents</div>
                     {/* Top 3 */}
                     <div className={`rounded-lg p-3 border ${
                       isAudley

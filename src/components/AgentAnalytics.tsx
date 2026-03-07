@@ -97,21 +97,21 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
     return lines.map((line, index) => {
       if (line.startsWith('**') && line.endsWith('**')) {
         return (
-          <h4 key={index} className={`font-bold mt-4 mb-2 ${isAudley ? 'text-slate-800' : 'text-white'}`}>
+          <h4 key={index} className={`font-bold mt-4 mb-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
             {line.replace(/\*\*/g, '')}
           </h4>
         );
       }
       if (line.startsWith('- ')) {
         return (
-          <li key={index} className={`ml-4 mb-1 ${isAudley ? 'text-slate-600' : 'text-slate-300'}`}>
+          <li key={index} className={`ml-4 mb-1 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-300'}`}>
             {line.substring(2)}
           </li>
         );
       }
       if (line.trim()) {
         return (
-          <p key={index} className={`mb-2 ${isAudley ? 'text-slate-600' : 'text-slate-300'}`}>
+          <p key={index} className={`mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-300'}`}>
             {line}
           </p>
         );
@@ -123,10 +123,10 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
   return (
     <div className={`rounded-xl p-6 border ${
       isAudley
-        ? 'bg-white border-[#4d726d]/20'
+        ? 'bg-white border-[#ede8e0]'
         : 'bg-slate-800/50 border-slate-700/50'
     }`}>
-      <h2 className={`text-xl font-semibold mb-6 flex items-center gap-2 ${isAudley ? 'text-slate-800' : 'text-white'}`}>
+      <h2 className={`text-xl font-semibold mb-6 flex items-center gap-2 ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
         <svg
           className={`w-6 h-6 ${isAudley ? 'text-purple-600' : 'text-purple-400'}`}
           fill="none"
@@ -146,7 +146,7 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
       <div className="space-y-4">
         {/* Agent Selector */}
         <div>
-          <label className={`block text-sm font-medium mb-2 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+          <label className={`block text-sm font-medium mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
             Select Agent
           </label>
           <select
@@ -154,7 +154,7 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
             onChange={(e) => setSelectedAgent(e.target.value)}
             className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
               isAudley
-                ? 'bg-white border-slate-300 text-slate-800'
+                ? 'bg-white border-[#ede8e0] text-[#0a1628]'
                 : 'bg-slate-700/50 border-slate-600 text-white'
             }`}
           >
@@ -170,7 +170,7 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
         {/* API Key Input - only show if not saved */}
         {!apiKeySaved && (
           <div>
-            <label className={`block text-sm font-medium mb-2 ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>
+            <label className={`block text-sm font-medium mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
               Anthropic API Key
             </label>
             <div className="flex gap-2">
@@ -182,7 +182,7 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
                   placeholder="sk-ant-..."
                   className={`w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10 ${
                     isAudley
-                      ? 'bg-white border-slate-300 text-slate-800'
+                      ? 'bg-white border-[#ede8e0] text-[#0a1628]'
                       : 'bg-slate-700/50 border-slate-600 text-white'
                   }`}
                 />
@@ -190,7 +190,7 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
                   className={`absolute right-2 top-1/2 -translate-y-1/2 ${
-                    isAudley ? 'text-slate-400 hover:text-slate-700' : 'text-slate-400 hover:text-white'
+                    isAudley ? 'text-[#7a7a7a] hover:text-[#0a1628]' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   {showApiKey ? (
@@ -234,14 +234,14 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
                 onClick={handleSaveApiKey}
                 className={`px-4 py-2 text-white rounded-lg transition-colors ${
                   isAudley
-                    ? 'bg-slate-500 hover:bg-slate-600'
+                    ? 'bg-[#c4956a] hover:bg-[#b3845d]'
                     : 'bg-slate-600 hover:bg-slate-500'
                 }`}
               >
                 Save
               </button>
             </div>
-            <p className={`text-xs mt-1 ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
               Your API key is stored locally and never sent to our servers
             </p>
           </div>
@@ -308,15 +308,15 @@ export const AgentAnalytics: React.FC<AgentAnalyticsProps> = ({
         {analysis && selectedAgent && (
           <div className={`mt-6 p-6 rounded-xl border ${
             isAudley
-              ? 'bg-slate-50 border-slate-200'
+              ? 'bg-[#faf8f5] border-[#ede8e0]'
               : 'bg-slate-700/30 border-slate-600/50'
           }`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-lg font-semibold ${isAudley ? 'text-slate-800' : 'text-white'}`}>
+              <h3 className={`text-lg font-semibold ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>
                 Analysis for: {selectedAgent}
               </h3>
               {generatedAt && (
-                <span className={`text-xs ${isAudley ? 'text-slate-400' : 'text-slate-500'}`}>
+                <span className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>
                   Generated: {generatedAt.toLocaleString()}
                 </span>
               )}

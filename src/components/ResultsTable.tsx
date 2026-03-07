@@ -287,7 +287,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className={`px-6 py-4 flex items-center justify-between text-white ${
         isAudley
-          ? 'bg-gradient-to-r from-[#4d726d] to-[#5d8a84]'
+          ? 'bg-gradient-to-r from-[#0a1628] to-[#1e3a5c]'
           : 'bg-gradient-to-r from-[#1a5c6e] to-[#2a7a8c]'
       }`}>
         <span className="font-bold text-lg">KPI Results</span>
@@ -301,7 +301,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                 onChange={(e) => setSeniorFilter(e.target.value as SeniorFilter)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 cursor-pointer ${
                   isAudley
-                    ? 'bg-white text-[#4d726d] border border-white focus:ring-white/50'
+                    ? 'bg-white text-[#0a1628] border border-white focus:ring-white/50'
                     : 'bg-white/20 text-white border border-white/30 focus:ring-white/50'
                 }`}
               >
@@ -327,7 +327,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                 onChange={(e) => setSelectedTeam(e.target.value)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 cursor-pointer ${
                   isAudley
-                    ? 'bg-white text-[#4d726d] border border-white focus:ring-white/50'
+                    ? 'bg-white text-[#0a1628] border border-white focus:ring-white/50'
                     : 'bg-white/20 text-white border border-white/30 focus:ring-white/50'
                 }`}
               >
@@ -345,9 +345,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
             onClick={() => setShowColumnSettings(!showColumnSettings)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer active:scale-95 ${
               showColumnSettings
-                ? isAudley ? 'bg-white text-[#4d726d]' : 'bg-white text-indigo-600'
+                ? isAudley ? 'bg-white text-[#0a1628]' : 'bg-white text-indigo-600'
                 : isAudley
-                  ? 'bg-white/90 text-[#4d726d] border border-white hover:bg-white'
+                  ? 'bg-white/90 text-[#0a1628] border border-white hover:bg-white'
                   : 'bg-white/20 text-white border border-white/30 hover:bg-white/30'
             }`}
           >

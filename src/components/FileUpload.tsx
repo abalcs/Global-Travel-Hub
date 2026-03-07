@@ -120,7 +120,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       <div className="flex-1 min-w-0">
         <h3 className={`text-sm font-medium ${colors.text}`}>{label}</h3>
         {file ? (
-          <p className={`text-xs truncate ${isAudley ? 'text-slate-600' : 'text-slate-400'}`}>{file.name}</p>
+          <p className={`text-xs truncate ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>{file.name}</p>
         ) : (
           <p className={`text-xs ${isAudley ? 'text-slate-500' : 'text-slate-500'}`}>Click or drop file</p>
         )}
