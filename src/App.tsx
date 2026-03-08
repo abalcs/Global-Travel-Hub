@@ -14,7 +14,7 @@ import { SlidingPillGroup } from './components/SlidingPillGroup';
 import type { PillOption } from './components/SlidingPillGroup';
 // RecordNotification import removed - notifications disabled
 
-import { AgentAnalytics } from './components/AgentAnalytics';
+// AgentAnalytics removed
 import { GlobeLoader } from './components/GlobeLoader';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
@@ -172,6 +172,7 @@ function App() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [showDataPanel, setShowDataPanel] = useState(true);
+  const [configOpen, setConfigOpen] = useState(false);
   const [firestoreSyncStatus, setFirestoreSyncStatus] = useState<{ syncing: boolean; progress: number; stage: string }>({ syncing: false, progress: 0, stage: '' });
   const [dataLoadProgress, setDataLoadProgress] = useState<{ loading: boolean; progress: number; stage: string }>({
     loading: false, progress: 0, stage: ''
@@ -742,6 +743,7 @@ function App() {
                   src={audleyLogo}
                   alt="Audley Travel"
                   className="h-14 w-auto mix-blend-multiply"
+                  style={{ filter: 'brightness(1.15) contrast(0.9)' }}
                 />
               ) : (
                 <svg className="h-14 w-auto" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Audley Travel">
@@ -785,6 +787,22 @@ function App() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            {metrics.length > 0 && (
+              <button
+                onClick={() => setConfigOpen(!configOpen)}
+                className={`p-2 rounded-lg transition-all cursor-pointer active:scale-95 ${
+                  isAudley
+                    ? 'text-[#7a7a7a] hover:text-[#4d726d] hover:bg-[#f5f0eb]'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Configuration"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            )}
             {metrics.length > 0 && (
               <button
                 onClick={() => {
@@ -1073,19 +1091,7 @@ function App() {
             ))}
           </nav>
 
-          {activeView === 'summary' && metrics.length > 0 && (
-            <div className="flex-1 max-w-xl">
-              <ConfigPanel
-                teams={teams}
-                onTeamsChange={handleTeamsChange}
-                seniors={seniors}
-                onSeniorsChange={handleSeniorsChange}
-                newHires={newHires}
-                onNewHiresChange={handleNewHiresChange}
-                availableAgents={allAgentNames}
-              />
-            </div>
-          )}
+          {/* ConfigPanel moved to sliding drawer */}
         </div>
 
         {/* View Content — keyed for smooth transition on tab switch */}
@@ -1107,7 +1113,6 @@ function App() {
                 onClearDateRange={handleClearDateRange}
               />
               <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} />
-              <AgentAnalytics metrics={metrics} seniors={seniors} />
             </div>
           )}
 
@@ -1153,6 +1158,61 @@ function App() {
         )}
 
         </div>)}
+
+        {/* Config Sidebar Drawer */}
+        {configOpen && metrics.length > 0 && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/30 z-40 transition-opacity"
+              onClick={() => setConfigOpen(false)}
+            />
+            {/* Drawer panel */}
+            <div className={`fixed top-0 right-0 h-full w-80 z-50 shadow-2xl flex flex-col transition-transform ${
+              isAudley ? 'bg-[#faf8f5]' : 'bg-slate-900'
+            }`}>
+              {/* Drawer header */}
+              <div className={`flex items-center justify-between px-4 py-3 border-b ${
+                isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Configuration</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${
+                    isAudley ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400'
+                  }`}>{teams.length}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${
+                    isAudley ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/20 text-amber-400'
+                  }`}>{seniors.length}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${
+                    isAudley ? 'bg-sky-100 text-sky-700' : 'bg-sky-500/20 text-sky-400'
+                  }`}>{newHires.length}</span>
+                </div>
+                <button
+                  onClick={() => setConfigOpen(false)}
+                  className={`p-1 rounded transition-colors cursor-pointer ${
+                    isAudley ? 'text-[#7a7a7a] hover:text-[#0a1628] hover:bg-[#ede8e0]' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Drawer body */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <ConfigPanel
+                  teams={teams}
+                  onTeamsChange={handleTeamsChange}
+                  seniors={seniors}
+                  onSeniorsChange={handleSeniorsChange}
+                  newHires={newHires}
+                  onNewHiresChange={handleNewHiresChange}
+                  availableAgents={allAgentNames}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

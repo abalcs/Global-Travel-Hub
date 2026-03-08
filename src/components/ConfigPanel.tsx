@@ -22,7 +22,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   availableAgents,
 }) => {
   const { isAudley } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'teams' | 'seniors' | 'newHires'>('teams');
   const [newTeamName, setNewTeamName] = useState('');
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
@@ -91,66 +90,9 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   }
 
   return (
-    <div className={`backdrop-blur rounded-xl border overflow-hidden ${
-      isAudley
-        ? 'bg-white border-[#ede8e0]'
-        : 'bg-slate-800/50 border-slate-700/50'
-    }`}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 flex items-center justify-between transition-colors ${
-          isAudley ? 'hover:bg-[#f5f0eb]' : 'hover:bg-slate-700/30'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Configuration</span>
-          <div className="flex gap-2">
-            <span className={`px-2 py-0.5 rounded text-xs ${
-              isAudley
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-emerald-500/20 text-emerald-400'
-            }`}>
-              {teams.length} teams
-            </span>
-            <span className={`px-2 py-0.5 rounded text-xs ${
-              isAudley
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-amber-500/20 text-amber-400'
-            }`}>
-              {seniors.length} seniors
-            </span>
-            <span className={`px-2 py-0.5 rounded text-xs ${
-              isAudley
-                ? 'bg-sky-100 text-sky-700'
-                : 'bg-sky-500/20 text-sky-400'
-            }`}>
-              {newHires.length} new hires
-            </span>
-          </div>
-        </div>
-        <svg
-          className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''} ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className={`border-t ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'}`}>
-          {/* Tabs */}
-          <div className={`flex border-b ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'}`}>
+    <div>
+      {/* Tabs */}
+      <div className={`flex border-b ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700/50'}`}>
             <button
               onClick={() => setActiveTab('teams')}
               className={`flex-1 px-4 py-2 text-sm font-medium transition-all cursor-pointer active:scale-95 ${
@@ -450,9 +392,6 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               </div>
             )}
           </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
