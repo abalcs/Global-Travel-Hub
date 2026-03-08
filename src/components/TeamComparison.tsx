@@ -21,80 +21,17 @@ interface TeamComparisonProps {
 }
 
 type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'hotPass' | 'bookings' | 'nonConverted' | 'potentialTQ';
-type ViewMode = 'cards' | 'table';
-
 const formatPercent = (value: number): string => {
   if (isNaN(value) || !isFinite(value)) return '0.0%';
   return `${value.toFixed(1)}%`;
 };
 
-const COLOR_CLASSES: Record<string, { active: string; inactive: string }> = {
-  gray: {
-    active: 'bg-gray-600 text-white',
-    inactive: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-  },
-  blue: {
-    active: 'bg-blue-600 text-white',
-    inactive: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
-  },
-  green: {
-    active: 'bg-green-600 text-white',
-    inactive: 'bg-green-100 text-green-700 hover:bg-green-200',
-  },
-  purple: {
-    active: 'bg-purple-600 text-white',
-    inactive: 'bg-purple-100 text-purple-700 hover:bg-purple-200',
-  },
-  orange: {
-    active: 'bg-orange-600 text-white',
-    inactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-  },
-  cyan: {
-    active: 'bg-cyan-600 text-white',
-    inactive: 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200',
-  },
-  rose: {
-    active: 'bg-rose-600 text-white',
-    inactive: 'bg-rose-100 text-rose-700 hover:bg-rose-200',
-  },
-  amber: {
-    active: 'bg-amber-600 text-white',
-    inactive: 'bg-amber-100 text-amber-700 hover:bg-amber-200',
-  },
-};
-
-interface SortButtonProps {
-  label: string;
-  sortKeyVal: SortKey;
-  color?: string;
-  sortKey: SortKey;
-  sortDir: 'asc' | 'desc';
-  onSort: (key: SortKey) => void;
-}
-
-const SortButton: React.FC<SortButtonProps> = ({ label, sortKeyVal, color = 'gray', sortKey, sortDir, onSort }) => {
-  const classes = COLOR_CLASSES[color] || COLOR_CLASSES.gray;
-  return (
-    <button
-      onClick={() => onSort(sortKeyVal)}
-      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-        sortKey === sortKeyVal ? classes.active : classes.inactive
-      }`}
-    >
-      {label}
-      {sortKey === sortKeyVal && (
-        <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>
-      )}
-    </button>
-  );
-};
 
 export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors, rawData, records, startDate = '', endDate = '', onStartDateChange, onEndDateChange, onApplyDateRange, onClearDateRange }) => {
   const { isAudley } = useTheme();
   const [isOpen, setIsOpen] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('trips');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   // PERF: Memoize senior filtering - O(n) per filter, avoid recalc on sort/view changes
   const seniorMetrics = useMemo(() => metrics.filter(m => seniors.includes(m.agentName)), [metrics, seniors]);
@@ -180,17 +117,6 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
     return (a[sortKey] - b[sortKey]) * modifier;
   }), [teamData, sortKey, sortDir]);
 
-  // PERF: Memoize max values for progress bars
-  const { maxTrips, maxQuotes, maxPassthroughs } = useMemo(() => {
-    if (teamData.length === 0) {
-      return { maxTrips: 0, maxQuotes: 0, maxPassthroughs: 0 };
-    }
-    return {
-      maxTrips: Math.max(...teamData.map(t => t.trips)),
-      maxQuotes: Math.max(...teamData.map(t => t.quotes)),
-      maxPassthroughs: Math.max(...teamData.map(t => t.passthroughs)),
-    };
-  }, [teamData]);
 
   // PERF: Memoize getAllValues with useCallback - must be before early return to follow hook rules
   const getAllValues = useCallback((key: keyof typeof sortedTeams[0]) => sortedTeams.map(t => t[key] as number), [sortedTeams]);
@@ -301,52 +227,9 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
             </div>
           </div>
 
-          {/* View Toggle and Sort Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">View:</span>
-              <div className="inline-flex rounded-lg border border-gray-200 p-1">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
-                    viewMode === 'table'
-                      ? isAudley ? 'bg-[#c4956a] text-white' : 'bg-amber-500 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Table
-                </button>
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
-                    viewMode === 'cards'
-                      ? isAudley ? 'bg-[#c4956a] text-white' : 'bg-amber-500 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Cards
-                </button>
-              </div>
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm text-gray-500 self-center">Sort by:</span>
-              <SortButton label="Name" sortKeyVal="name" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="Trips" sortKeyVal="trips" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="Quotes" sortKeyVal="quotes" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="Passthroughs" sortKeyVal="passthroughs" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="T>Q" sortKeyVal="tq" color="blue" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="Potential T>Q" sortKeyVal="potentialTQ" color="amber" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="T>P" sortKeyVal="tp" color="green" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="P>Q" sortKeyVal="pq" color="purple" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="Hot Pass" sortKeyVal="hotPass" color="orange" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="Bookings" sortKeyVal="bookings" color="cyan" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              <SortButton label="% Non-Conv" sortKeyVal="nonConverted" color="rose" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-            </div>
-          </div>
-
-          {/* Team Comparison - Table View */}
-          {teams.length >= 2 && viewMode === 'table' && (
+          {/* Team Comparison */}
+          {teams.length >= 2 && (
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">Team Comparison</h3>
               <div className="overflow-x-auto">
@@ -388,7 +271,9 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                             : 'bg-indigo-50/70'
                           : rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                         }>
-                          <td className={`px-4 py-3 text-sm font-medium border-b sticky left-0 ${
+                          <td
+                            onClick={() => handleSort(row.key as SortKey)}
+                            className={`px-4 py-3 text-sm font-medium border-b sticky left-0 cursor-pointer select-none hover:opacity-80 ${
                             isHighlightedRow
                               ? isAudley
                                 ? 'bg-[#faf8f5] text-[#c4956a] font-bold border-[#ede8e0]'
@@ -396,7 +281,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                               : `text-gray-700 border-gray-100 ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`
                           }`}>
                             {row.label}
-                            {isHighlightedRow && <span className="ml-1 text-xs opacity-60">●</span>}
+                            {isHighlightedRow && <span className="ml-1 text-xs">{sortDir === 'desc' ? '↓' : '↑'}</span>}
                           </td>
                           {sortedTeams.map((team, colIdx) => {
                             const value = team[row.key] as number;
@@ -434,112 +319,9 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
             </div>
           )}
 
-          {/* Team Comparison - Card View */}
-          {teams.length >= 2 && viewMode === 'cards' && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">Team Comparison</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sortedTeams.map((team, idx) => (
-                  <div
-                    key={team.id}
-                    className={`relative p-5 rounded-xl border-2 ${
-                      idx === 0 && sortKey !== 'name'
-                        ? isAudley
-                          ? 'border-[#c4956a] bg-[#faf8f5]'
-                          : 'border-amber-400 bg-amber-50'
-                        : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
-                    {idx === 0 && sortKey !== 'name' && (
-                      <div className={`absolute -top-2 -right-2 text-white text-xs font-bold px-2 py-1 rounded-full ${
-                        isAudley ? 'bg-[#c4956a]' : 'bg-amber-500'
-                      }`}>
-                        #1
-                      </div>
-                    )}
 
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">{team.name}</h3>
-                    <p className="text-sm text-gray-500 mb-4">{team.agentCount} agents</p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Trips</span>
-                          <span className="font-semibold">{team.trips}</span>
-                        </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gray-500 rounded-full transition-all"
-                            style={{ width: `${maxTrips > 0 ? (team.trips / maxTrips) * 100 : 0}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Quotes</span>
-                          <span className="font-semibold">{team.quotes}</span>
-                        </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-blue-500 rounded-full transition-all"
-                            style={{ width: `${maxQuotes > 0 ? (team.quotes / maxQuotes) * 100 : 0}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Passthroughs</span>
-                          <span className="font-semibold">{team.passthroughs}</span>
-                        </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 rounded-full transition-all"
-                            style={{ width: `${maxPassthroughs > 0 ? (team.passthroughs / maxPassthroughs) * 100 : 0}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-7 gap-2 text-center">
-                      <div>
-                        <div className="text-lg font-bold text-blue-600">{formatPercent(team.tq)}</div>
-                        <div className="text-xs text-gray-500">T&gt;Q</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-amber-600">{formatPercent(team.potentialTQ)}</div>
-                        <div className="text-xs text-gray-500">Potential</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-green-600">{formatPercent(team.tp)}</div>
-                        <div className="text-xs text-gray-500">T&gt;P</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-purple-600">{formatPercent(team.pq)}</div>
-                        <div className="text-xs text-gray-500">P&gt;Q</div>
-                      </div>
-                      <div>
-                        <div className={`text-lg font-bold ${isAudley ? 'text-[#c4956a]' : 'text-orange-600'}`}>{formatPercent(team.hotPass)}</div>
-                        <div className="text-xs text-gray-500">Hot Pass</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-cyan-600">{team.bookings}</div>
-                        <div className="text-xs text-gray-500">Bookings</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-rose-600">{formatPercent(team.nonConverted)}</div>
-                        <div className="text-xs text-gray-500">% Non-Conv</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Senior vs Non-Senior Comparison - Table View */}
-          {hasSeniors && viewMode === 'table' && (
+          {/* Senior vs Non-Senior Comparison */}
+          {hasSeniors && (
             <div>
               <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
                 <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-amber-500'}`} fill="currentColor" viewBox="0 0 24 24">
@@ -577,10 +359,6 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                   <tbody>
                     {[
                       { label: 'Agents', senior: seniorData.agentCount, nonSenior: nonSeniorData.agentCount, format: (v: number) => v.toString(), isPercent: false },
-                      { label: 'Trips', senior: seniorData.trips, nonSenior: nonSeniorData.trips, format: (v: number) => v.toLocaleString(), isPercent: false },
-                      { label: 'Quotes', senior: seniorData.quotes, nonSenior: nonSeniorData.quotes, format: (v: number) => v.toLocaleString(), isPercent: false },
-                      { label: 'Passthroughs', senior: seniorData.passthroughs, nonSenior: nonSeniorData.passthroughs, format: (v: number) => v.toLocaleString(), isPercent: false },
-                      { label: 'Bookings', senior: seniorData.bookings, nonSenior: nonSeniorData.bookings, format: (v: number) => v.toLocaleString(), isPercent: false },
                       { label: 'T>Q Rate', senior: seniorData.tq, nonSenior: nonSeniorData.tq, format: formatPercent, isPercent: true },
                       { label: 'Potential T>Q', senior: seniorData.potentialTQ, nonSenior: nonSeniorData.potentialTQ, format: formatPercent, isPercent: true },
                       { label: 'T>P Rate', senior: seniorData.tp, nonSenior: nonSeniorData.tp, format: formatPercent, isPercent: true },
@@ -624,185 +402,6 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
             </div>
           )}
 
-          {/* Senior vs Non-Senior Comparison - Card View */}
-          {hasSeniors && viewMode === 'cards' && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-amber-500'}`} fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-                Senior vs Non-Senior Comparison
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Seniors Card */}
-                <div className={`relative p-5 rounded-xl border-2 ${
-                  isAudley
-                    ? 'border-[#c4956a] bg-[#faf8f5]'
-                    : 'border-amber-400 bg-amber-50'
-                }`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-amber-600'}`} fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                    </svg>
-                    <h3 className={`text-lg font-bold ${isAudley ? 'text-[#0a1628]' : 'text-amber-800'}`}>Seniors</h3>
-                  </div>
-                  <p className={`text-sm mb-4 ${isAudley ? 'text-[#7a7a7a]' : 'text-amber-600'}`}>{seniorData.agentCount} agents</p>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Trips</span>
-                        <span className="font-semibold">{seniorData.trips}</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gray-500 rounded-full transition-all"
-                          style={{ width: `${Math.max(seniorData.trips, nonSeniorData.trips) > 0 ? (seniorData.trips / Math.max(seniorData.trips, nonSeniorData.trips)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Quotes</span>
-                        <span className="font-semibold">{seniorData.quotes}</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${Math.max(seniorData.quotes, nonSeniorData.quotes) > 0 ? (seniorData.quotes / Math.max(seniorData.quotes, nonSeniorData.quotes)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Passthroughs</span>
-                        <span className="font-semibold">{seniorData.passthroughs}</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-green-500 rounded-full transition-all"
-                          style={{ width: `${Math.max(seniorData.passthroughs, nonSeniorData.passthroughs) > 0 ? (seniorData.passthroughs / Math.max(seniorData.passthroughs, nonSeniorData.passthroughs)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`mt-4 pt-4 border-t grid grid-cols-7 gap-2 text-center ${
-                    isAudley ? 'border-[#ede8e0]' : 'border-amber-200'
-                  }`}>
-                    <div>
-                      <div className="text-lg font-bold text-blue-600">{formatPercent(seniorData.tq)}</div>
-                      <div className="text-xs text-gray-500">T&gt;Q</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-amber-600">{formatPercent(seniorData.potentialTQ)}</div>
-                      <div className="text-xs text-gray-500">Potential</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-green-600">{formatPercent(seniorData.tp)}</div>
-                      <div className="text-xs text-gray-500">T&gt;P</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-purple-600">{formatPercent(seniorData.pq)}</div>
-                      <div className="text-xs text-gray-500">P&gt;Q</div>
-                    </div>
-                    <div>
-                      <div className={`text-lg font-bold ${isAudley ? 'text-[#c4956a]' : 'text-orange-600'}`}>{formatPercent(seniorData.hotPass)}</div>
-                      <div className="text-xs text-gray-500">Hot Pass</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-cyan-600">{seniorData.bookings}</div>
-                      <div className="text-xs text-gray-500">Bookings</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-rose-600">{formatPercent(seniorData.nonConverted)}</div>
-                      <div className="text-xs text-gray-500">% Non-Conv</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Non-Seniors Card */}
-                <div className="relative p-5 rounded-xl border-2 border-gray-300 bg-gray-50">
-                  <h3 className="text-lg font-bold text-gray-800 mb-1">Non-Seniors</h3>
-                  <p className="text-sm text-gray-500 mb-4">{nonSeniorData.agentCount} agents</p>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Trips</span>
-                        <span className="font-semibold">{nonSeniorData.trips}</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gray-500 rounded-full transition-all"
-                          style={{ width: `${Math.max(seniorData.trips, nonSeniorData.trips) > 0 ? (nonSeniorData.trips / Math.max(seniorData.trips, nonSeniorData.trips)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Quotes</span>
-                        <span className="font-semibold">{nonSeniorData.quotes}</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${Math.max(seniorData.quotes, nonSeniorData.quotes) > 0 ? (nonSeniorData.quotes / Math.max(seniorData.quotes, nonSeniorData.quotes)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600">Passthroughs</span>
-                        <span className="font-semibold">{nonSeniorData.passthroughs}</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-green-500 rounded-full transition-all"
-                          style={{ width: `${Math.max(seniorData.passthroughs, nonSeniorData.passthroughs) > 0 ? (nonSeniorData.passthroughs / Math.max(seniorData.passthroughs, nonSeniorData.passthroughs)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-7 gap-2 text-center">
-                    <div>
-                      <div className="text-lg font-bold text-blue-600">{formatPercent(nonSeniorData.tq)}</div>
-                      <div className="text-xs text-gray-500">T&gt;Q</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-amber-600">{formatPercent(nonSeniorData.potentialTQ)}</div>
-                      <div className="text-xs text-gray-500">Potential</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-green-600">{formatPercent(nonSeniorData.tp)}</div>
-                      <div className="text-xs text-gray-500">T&gt;P</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-purple-600">{formatPercent(nonSeniorData.pq)}</div>
-                      <div className="text-xs text-gray-500">P&gt;Q</div>
-                    </div>
-                    <div>
-                      <div className={`text-lg font-bold ${isAudley ? 'text-[#c4956a]' : 'text-orange-600'}`}>{formatPercent(nonSeniorData.hotPass)}</div>
-                      <div className="text-xs text-gray-500">Hot Pass</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-cyan-600">{nonSeniorData.bookings}</div>
-                      <div className="text-xs text-gray-500">Bookings</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-rose-600">{formatPercent(nonSeniorData.nonConverted)}</div>
-                      <div className="text-xs text-gray-500">% Non-Conv</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
           </div>
         </div>
       </div>
