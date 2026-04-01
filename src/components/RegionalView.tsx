@@ -23,8 +23,6 @@ import { loadAnthropicApiKey } from '../utils/storage';
 import {
   filterByChannel,
   filterByClientType,
-  hasColumn,
-  COLUMN_PATTERNS,
   type ChannelFilter,
   type ClientTypeFilter,
 } from '../utils/columnDetection';
@@ -77,17 +75,6 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   // Segment filter state
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
-
-  // Detect whether trips data has B2B / Repeat columns
-  const hasChannelColumn = useMemo(() => {
-    if (!rawData.trips || rawData.trips.length === 0) return false;
-    return hasColumn(rawData.trips[0], [...COLUMN_PATTERNS.b2b]);
-  }, [rawData.trips]);
-
-  const hasClientTypeColumn = useMemo(() => {
-    if (!rawData.trips || rawData.trips.length === 0) return false;
-    return hasColumn(rawData.trips[0], [...COLUMN_PATTERNS.repeatNew]);
-  }, [rawData.trips]);
 
   // Pre-filter all data sources by channel and client type
   const segmentFilteredData = useMemo(() => {
@@ -416,26 +403,20 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
       </div>
 
       {/* Segment Filters */}
-      {(hasChannelColumn || hasClientTypeColumn) && (
-        <div className="flex flex-wrap items-center gap-3">
-          {hasChannelColumn && (
-            <SlidingPillGroup
-              options={CHANNEL_OPTIONS}
-              value={channelFilter}
-              onChange={setChannelFilter}
-              size="sm"
-            />
-          )}
-          {hasClientTypeColumn && (
-            <SlidingPillGroup
-              options={CLIENT_TYPE_OPTIONS}
-              value={clientTypeFilter}
-              onChange={setClientTypeFilter}
-              size="sm"
-            />
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <SlidingPillGroup
+          options={CHANNEL_OPTIONS}
+          value={channelFilter}
+          onChange={setChannelFilter}
+          size="sm"
+        />
+        <SlidingPillGroup
+          options={CLIENT_TYPE_OPTIONS}
+          value={clientTypeFilter}
+          onChange={setClientTypeFilter}
+          size="sm"
+        />
+      </div>
 
       {/* Department Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
