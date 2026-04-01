@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import type { RawParsedData } from '../utils/indexedDB';
+import type { CSVRow } from '../utils/csvParser';
 import {
   analyzeRegionalPerformance,
   analyzeAgentRegionalDeviations,
@@ -19,6 +20,14 @@ import {
 import { SlidingPillGroup, type PillOption } from './SlidingPillGroup';
 import { generatePDFDocument, generatePowerPoint, generateDestinationTraining } from '../utils/documentGenerator';
 import { loadAnthropicApiKey } from '../utils/storage';
+import {
+  filterByChannel,
+  filterByClientType,
+  hasColumn,
+  COLUMN_PATTERNS,
+  type ChannelFilter,
+  type ClientTypeFilter,
+} from '../utils/columnDetection';
 
 interface RegionalViewProps {
   rawData: RawParsedData;
@@ -38,6 +47,18 @@ const REGION_GROUP_OPTIONS: PillOption<RegionGroup>[] = [
   { value: 'ASIA', label: 'Asia' },
 ];
 
+const CHANNEL_OPTIONS: PillOption<ChannelFilter>[] = [
+  { value: 'all', label: 'All' },
+  { value: 'b2b', label: 'B2B' },
+  { value: 'b2c', label: 'B2C' },
+];
+
+const CLIENT_TYPE_OPTIONS: PillOption<ClientTypeFilter>[] = [
+  { value: 'all', label: 'All' },
+  { value: 'repeat', label: 'Repeat' },
+  { value: 'prospect', label: 'Prospect' },
+];
+
 export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const { isAudley } = useTheme();
   const [regionalTimeframe, setRegionalTimeframe] = useState<RegionalTimeframe>('all');
@@ -53,6 +74,34 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const [agendaData, setAgendaData] = useState<MeetingAgendaData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Segment filter state
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
+  const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
+
+  // Detect whether trips data has B2B / Repeat columns
+  const hasChannelColumn = useMemo(() => {
+    if (!rawData.trips || rawData.trips.length === 0) return false;
+    return hasColumn(rawData.trips[0], [...COLUMN_PATTERNS.b2b]);
+  }, [rawData.trips]);
+
+  const hasClientTypeColumn = useMemo(() => {
+    if (!rawData.trips || rawData.trips.length === 0) return false;
+    return hasColumn(rawData.trips[0], [...COLUMN_PATTERNS.repeatNew]);
+  }, [rawData.trips]);
+
+  // Pre-filter all data sources by channel and client type
+  const segmentFilteredData = useMemo(() => {
+    const applyFilters = (rows: CSVRow[]) =>
+      filterByClientType(filterByChannel(rows, channelFilter), clientTypeFilter);
+
+    return {
+      trips: applyFilters(rawData.trips || []),
+      hotPass: applyFilters(rawData.hotPass || []),
+      quotes: applyFilters(rawData.quotes || []),
+      passthroughs: applyFilters(rawData.passthroughs || []),
+    };
+  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs, channelFilter, clientTypeFilter]);
+
   // Training generation state
   const [hoveredRecommendation, setHoveredRecommendation] = useState<number | null>(null);
   const [showTrainingConfirm, setShowTrainingConfirm] = useState(false);
@@ -67,26 +116,26 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
 
   // Regional performance analysis
   const filteredRegionalPerformance = useMemo((): DepartmentRegionalPerformance | null => {
-    if (!rawData.trips || rawData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(rawData.trips, regionalTimeframe, rawData.hotPass, rawData.quotes, rawData.passthroughs);
-  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs, regionalTimeframe]);
+    if (segmentFilteredData.trips.length === 0) return null;
+    return analyzeRegionalPerformance(segmentFilteredData.trips, regionalTimeframe, segmentFilteredData.hotPass, segmentFilteredData.quotes, segmentFilteredData.passthroughs);
+  }, [segmentFilteredData, regionalTimeframe]);
 
   const filteredAgentRegionalAnalysis = useMemo((): AgentRegionalAnalysis[] => {
-    if (!rawData.trips || rawData.trips.length === 0 || !filteredRegionalPerformance) return [];
-    return analyzeAgentRegionalDeviations(rawData.trips, filteredRegionalPerformance, regionalTimeframe);
-  }, [rawData.trips, filteredRegionalPerformance, regionalTimeframe]);
+    if (segmentFilteredData.trips.length === 0 || !filteredRegionalPerformance) return [];
+    return analyzeAgentRegionalDeviations(segmentFilteredData.trips, filteredRegionalPerformance, regionalTimeframe);
+  }, [segmentFilteredData, filteredRegionalPerformance, regionalTimeframe]);
 
   // Always-pinned current quarter performance for focus areas (ignores user-selected timeframe)
   const thisQuarterPerformance = useMemo((): DepartmentRegionalPerformance | null => {
-    if (!rawData.trips || rawData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(rawData.trips, 'thisQuarter', rawData.hotPass, rawData.quotes, rawData.passthroughs);
-  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs]);
+    if (segmentFilteredData.trips.length === 0) return null;
+    return analyzeRegionalPerformance(segmentFilteredData.trips, 'thisQuarter', segmentFilteredData.hotPass, segmentFilteredData.quotes, segmentFilteredData.passthroughs);
+  }, [segmentFilteredData]);
 
   // Previous quarter performance for QTD vs prev quarter comparisons in focus areas
   const prevQuarterPerformance = useMemo((): DepartmentRegionalPerformance | null => {
-    if (!rawData.trips || rawData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(rawData.trips, 'lastQuarter', rawData.hotPass, rawData.quotes, rawData.passthroughs);
-  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs]);
+    if (segmentFilteredData.trips.length === 0) return null;
+    return analyzeRegionalPerformance(segmentFilteredData.trips, 'lastQuarter', segmentFilteredData.hotPass, segmentFilteredData.quotes, segmentFilteredData.passthroughs);
+  }, [segmentFilteredData]);
 
   // Focus area recommendations always compare current quarter vs previous quarter
   const departmentRecommendations = useMemo((): DepartmentImprovementRecommendation[] => {
@@ -365,6 +414,28 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
           </button>
         ))}
       </div>
+
+      {/* Segment Filters */}
+      {(hasChannelColumn || hasClientTypeColumn) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {hasChannelColumn && (
+            <SlidingPillGroup
+              options={CHANNEL_OPTIONS}
+              value={channelFilter}
+              onChange={setChannelFilter}
+              size="sm"
+            />
+          )}
+          {hasClientTypeColumn && (
+            <SlidingPillGroup
+              options={CLIENT_TYPE_OPTIONS}
+              value={clientTypeFilter}
+              onChange={setClientTypeFilter}
+              size="sm"
+            />
+          )}
+        </div>
+      )}
 
       {/* Department Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

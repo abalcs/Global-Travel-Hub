@@ -108,3 +108,44 @@ export const getColumnValues = (rows: CSVRow[], patterns: string[]): string[] =>
 
   return rows.map((row) => (row[column] || '').trim()).filter(Boolean);
 };
+
+// ============ Segment Filter Functions ============
+
+export type ChannelFilter = 'all' | 'b2b' | 'b2c';
+export type ClientTypeFilter = 'all' | 'repeat' | 'prospect';
+
+/**
+ * Filter rows by B2B/B2C channel.
+ * Returns original array when filter is 'all'.
+ * Returns empty array if column not found and filter is active.
+ */
+export const filterByChannel = (rows: CSVRow[], filter: ChannelFilter): CSVRow[] => {
+  if (filter === 'all' || rows.length === 0) return rows;
+
+  const col = findColumn(rows[0], [...COLUMN_PATTERNS.b2b]);
+  if (!col) return [];
+
+  return rows.filter((row) => {
+    const val = (row[col] || '').toString().toLowerCase().trim();
+    const isB2b = val === 'b2b' || val.includes('b2b') || val === 'business';
+    return filter === 'b2b' ? isB2b : !isB2b;
+  });
+};
+
+/**
+ * Filter rows by Repeat/Prospect client type.
+ * Returns original array when filter is 'all'.
+ * Returns empty array if column not found and filter is active.
+ */
+export const filterByClientType = (rows: CSVRow[], filter: ClientTypeFilter): CSVRow[] => {
+  if (filter === 'all' || rows.length === 0) return rows;
+
+  const col = findColumn(rows[0], [...COLUMN_PATTERNS.repeatNew]);
+  if (!col) return [];
+
+  return rows.filter((row) => {
+    const val = (row[col] || '').toString().toLowerCase().trim();
+    const isRepeat = val === 'repeat' || val === 'returning' || val === 'existing';
+    return filter === 'repeat' ? isRepeat : !isRepeat;
+  });
+};
