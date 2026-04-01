@@ -116,14 +116,13 @@ export type ClientTypeFilter = 'all' | 'repeat' | 'prospect';
 
 /**
  * Filter rows by B2B/B2C channel.
- * Returns original array when filter is 'all'.
- * Returns empty array if column not found and filter is active.
+ * Returns original array when filter is 'all' or column is absent.
  */
 export const filterByChannel = (rows: CSVRow[], filter: ChannelFilter): CSVRow[] => {
   if (filter === 'all' || rows.length === 0) return rows;
 
   const col = findColumn(rows[0], [...COLUMN_PATTERNS.b2b]);
-  if (!col) return [];
+  if (!col) return rows;
 
   return rows.filter((row) => {
     const val = (row[col] || '').toString().toLowerCase().trim();
@@ -134,14 +133,13 @@ export const filterByChannel = (rows: CSVRow[], filter: ChannelFilter): CSVRow[]
 
 /**
  * Filter rows by Repeat/Prospect client type.
- * Returns original array when filter is 'all'.
- * Returns empty array if column not found and filter is active.
+ * Returns original array when filter is 'all' or column is absent.
  */
 export const filterByClientType = (rows: CSVRow[], filter: ClientTypeFilter): CSVRow[] => {
   if (filter === 'all' || rows.length === 0) return rows;
 
   const col = findColumn(rows[0], [...COLUMN_PATTERNS.repeatNew]);
-  if (!col) return [];
+  if (!col) return rows;
 
   return rows.filter((row) => {
     const val = (row[col] || '').toString().toLowerCase().trim();
