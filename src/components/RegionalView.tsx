@@ -100,14 +100,16 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const [customTrainingFocus, setCustomTrainingFocus] = useState<string>('');
 
   // Regional performance analysis
-  // When segment-filtered, omit separate reports so T>P is derived from the
-  // trips report's own passthrough date column (avoids ratio mismatches).
+  // When segment-filtered, omit only the separate passthroughs report so T>P
+  // is derived from the trips report's own passthrough date column (both sides
+  // of the ratio come from the same filtered set). hotPass and quotes reports
+  // are always passed through so HP rate and P>Q rate remain visible.
   const filteredRegionalPerformance = useMemo((): DepartmentRegionalPerformance | null => {
     if (filteredTrips.length === 0) return null;
     return analyzeRegionalPerformance(
       filteredTrips, regionalTimeframe,
-      isSegmentFiltered ? [] : rawData.hotPass,
-      isSegmentFiltered ? [] : rawData.quotes,
+      rawData.hotPass,
+      rawData.quotes,
       isSegmentFiltered ? [] : rawData.passthroughs
     );
   }, [filteredTrips, rawData.hotPass, rawData.quotes, rawData.passthroughs, regionalTimeframe, isSegmentFiltered]);
@@ -122,8 +124,8 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
     if (filteredTrips.length === 0) return null;
     return analyzeRegionalPerformance(
       filteredTrips, 'thisQuarter',
-      isSegmentFiltered ? [] : rawData.hotPass,
-      isSegmentFiltered ? [] : rawData.quotes,
+      rawData.hotPass,
+      rawData.quotes,
       isSegmentFiltered ? [] : rawData.passthroughs
     );
   }, [filteredTrips, rawData.hotPass, rawData.quotes, rawData.passthroughs, isSegmentFiltered]);
@@ -133,8 +135,8 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
     if (filteredTrips.length === 0) return null;
     return analyzeRegionalPerformance(
       filteredTrips, 'lastQuarter',
-      isSegmentFiltered ? [] : rawData.hotPass,
-      isSegmentFiltered ? [] : rawData.quotes,
+      rawData.hotPass,
+      rawData.quotes,
       isSegmentFiltered ? [] : rawData.passthroughs
     );
   }, [filteredTrips, rawData.hotPass, rawData.quotes, rawData.passthroughs, isSegmentFiltered]);
