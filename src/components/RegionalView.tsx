@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import type { RawParsedData } from '../utils/indexedDB';
-import type { CSVRow } from '../utils/csvParser';
 import {
   analyzeRegionalPerformance,
   analyzeAgentRegionalDeviations,
@@ -76,18 +75,17 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>('all');
 
-  // Pre-filter all data sources by channel and client type
-  const segmentFilteredData = useMemo(() => {
-    const applyFilters = (rows: CSVRow[]) =>
-      filterByClientType(filterByChannel(rows, channelFilter), clientTypeFilter);
+  // Pre-filter only the trips report by channel and client type.
+  // The trips report has B2B/Repeat columns AND a passthrough date column,
+  // so analyzeRegionalPerformance derives T>P from filtered trips alone.
+  // When a segment filter is active, we pass empty arrays for the separate
+  // passthroughs/hotPass/quotes reports (which lack segment columns) so the
+  // function falls back to counting passthroughs from the trips data itself.
+  const filteredTrips = useMemo(() => {
+    return filterByClientType(filterByChannel(rawData.trips || [], channelFilter), clientTypeFilter);
+  }, [rawData.trips, channelFilter, clientTypeFilter]);
 
-    return {
-      trips: applyFilters(rawData.trips || []),
-      hotPass: applyFilters(rawData.hotPass || []),
-      quotes: applyFilters(rawData.quotes || []),
-      passthroughs: applyFilters(rawData.passthroughs || []),
-    };
-  }, [rawData.trips, rawData.hotPass, rawData.quotes, rawData.passthroughs, channelFilter, clientTypeFilter]);
+  const isSegmentFiltered = channelFilter !== 'all' || clientTypeFilter !== 'all';
 
   // Training generation state
   const [hoveredRecommendation, setHoveredRecommendation] = useState<number | null>(null);
@@ -102,27 +100,44 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const [customTrainingFocus, setCustomTrainingFocus] = useState<string>('');
 
   // Regional performance analysis
+  // When segment-filtered, omit separate reports so T>P is derived from the
+  // trips report's own passthrough date column (avoids ratio mismatches).
   const filteredRegionalPerformance = useMemo((): DepartmentRegionalPerformance | null => {
-    if (segmentFilteredData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(segmentFilteredData.trips, regionalTimeframe, segmentFilteredData.hotPass, segmentFilteredData.quotes, segmentFilteredData.passthroughs);
-  }, [segmentFilteredData, regionalTimeframe]);
+    if (filteredTrips.length === 0) return null;
+    return analyzeRegionalPerformance(
+      filteredTrips, regionalTimeframe,
+      isSegmentFiltered ? [] : rawData.hotPass,
+      isSegmentFiltered ? [] : rawData.quotes,
+      isSegmentFiltered ? [] : rawData.passthroughs
+    );
+  }, [filteredTrips, rawData.hotPass, rawData.quotes, rawData.passthroughs, regionalTimeframe, isSegmentFiltered]);
 
   const filteredAgentRegionalAnalysis = useMemo((): AgentRegionalAnalysis[] => {
-    if (segmentFilteredData.trips.length === 0 || !filteredRegionalPerformance) return [];
-    return analyzeAgentRegionalDeviations(segmentFilteredData.trips, filteredRegionalPerformance, regionalTimeframe);
-  }, [segmentFilteredData, filteredRegionalPerformance, regionalTimeframe]);
+    if (filteredTrips.length === 0 || !filteredRegionalPerformance) return [];
+    return analyzeAgentRegionalDeviations(filteredTrips, filteredRegionalPerformance, regionalTimeframe);
+  }, [filteredTrips, filteredRegionalPerformance, regionalTimeframe]);
 
   // Always-pinned current quarter performance for focus areas (ignores user-selected timeframe)
   const thisQuarterPerformance = useMemo((): DepartmentRegionalPerformance | null => {
-    if (segmentFilteredData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(segmentFilteredData.trips, 'thisQuarter', segmentFilteredData.hotPass, segmentFilteredData.quotes, segmentFilteredData.passthroughs);
-  }, [segmentFilteredData]);
+    if (filteredTrips.length === 0) return null;
+    return analyzeRegionalPerformance(
+      filteredTrips, 'thisQuarter',
+      isSegmentFiltered ? [] : rawData.hotPass,
+      isSegmentFiltered ? [] : rawData.quotes,
+      isSegmentFiltered ? [] : rawData.passthroughs
+    );
+  }, [filteredTrips, rawData.hotPass, rawData.quotes, rawData.passthroughs, isSegmentFiltered]);
 
   // Previous quarter performance for QTD vs prev quarter comparisons in focus areas
   const prevQuarterPerformance = useMemo((): DepartmentRegionalPerformance | null => {
-    if (segmentFilteredData.trips.length === 0) return null;
-    return analyzeRegionalPerformance(segmentFilteredData.trips, 'lastQuarter', segmentFilteredData.hotPass, segmentFilteredData.quotes, segmentFilteredData.passthroughs);
-  }, [segmentFilteredData]);
+    if (filteredTrips.length === 0) return null;
+    return analyzeRegionalPerformance(
+      filteredTrips, 'lastQuarter',
+      isSegmentFiltered ? [] : rawData.hotPass,
+      isSegmentFiltered ? [] : rawData.quotes,
+      isSegmentFiltered ? [] : rawData.passthroughs
+    );
+  }, [filteredTrips, rawData.hotPass, rawData.quotes, rawData.passthroughs, isSegmentFiltered]);
 
   // Focus area recommendations always compare current quarter vs previous quarter
   const departmentRecommendations = useMemo((): DepartmentImprovementRecommendation[] => {
