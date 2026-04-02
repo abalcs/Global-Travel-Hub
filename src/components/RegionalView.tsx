@@ -352,6 +352,18 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
     return regions;
   }, [filteredRegionalPerformance, sortColumn, sortDirection, regionGroupFilter, subRegionFilter]);
 
+  // Aggregate totals for the currently filtered destinations
+  const tableTotals = useMemo(() => {
+    const totalTrips = sortedRegions.reduce((sum, r) => sum + r.trips, 0);
+    const totalPassthroughs = sortedRegions.reduce((sum, r) => sum + r.passthroughs, 0);
+    const totalHotPasses = sortedRegions.reduce((sum, r) => sum + (r.hotPasses ?? 0), 0);
+    const totalQuotes = sortedRegions.reduce((sum, r) => sum + (r.quotes ?? 0), 0);
+    const tpRate = totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0;
+    const hotPassRate = totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0;
+    const pqRate = totalPassthroughs > 0 ? (totalQuotes / totalPassthroughs) * 100 : 0;
+    return { totalTrips, totalPassthroughs, tpRate, hotPassRate, pqRate };
+  }, [sortedRegions]);
+
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -877,6 +889,31 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                 );
               })}
             </tbody>
+            {sortedRegions.length > 0 && (
+              <tfoot className={`sticky bottom-0 ${isAudley ? 'bg-white' : 'bg-slate-800'}`}>
+                <tr className={`border-t-2 font-semibold text-sm ${
+                  isAudley ? 'border-[#c4956a]/40 text-[#0a1628]' : 'border-slate-500 text-slate-200'
+                }`}>
+                  <td className="py-2 pl-2"></td>
+                  <td className="py-2">Totals</td>
+                  <td className={`py-2 text-right ${isAudley ? 'text-[#c4956a]' : 'text-teal-400'}`}>
+                    {tableTotals.tpRate.toFixed(1)}%
+                  </td>
+                  <td className={`py-2 text-right ${isAudley ? 'text-amber-600' : 'text-amber-400'}`}>
+                    {tableTotals.totalPassthroughs > 0 ? `${tableTotals.hotPassRate.toFixed(1)}%` : '-'}
+                  </td>
+                  <td className={`py-2 text-right ${isAudley ? 'text-purple-600' : 'text-purple-400'}`}>
+                    {tableTotals.totalPassthroughs > 0 ? `${tableTotals.pqRate.toFixed(1)}%` : '-'}
+                  </td>
+                  <td className={`py-2 text-right ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>
+                    {tableTotals.totalTrips.toLocaleString()}
+                  </td>
+                  <td className={`py-2 text-right pr-2 ${isAudley ? 'text-[#0a1628]' : 'text-slate-300'}`}>
+                    {tableTotals.totalPassthroughs.toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
