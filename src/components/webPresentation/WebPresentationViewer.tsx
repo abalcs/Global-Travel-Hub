@@ -192,6 +192,15 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       }));
 
     // Leaderboard (all agents, top 5 per category)
+    const allByPassthroughs = [...metrics]
+      .sort((a, b) => b.passthroughs - a.passthroughs)
+      .map(m => ({
+        agentName: m.agentName,
+        value: m.passthroughs,
+        isOnSelectedTeam: isOnSelectedTeam(m.agentName),
+        isSenior: isSenior(m.agentName),
+      }));
+
     const allByQuotes = [...metrics]
       .sort((a, b) => b.quotes - a.quotes)
       .map(m => ({
@@ -270,6 +279,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       byPassthroughs,
       byQuotes,
       byHotPassRate,
+      allByPassthroughs,
       allByQuotes,
       allByBookings,
       allByHotPassRate,
@@ -409,6 +419,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       case 6:
         slideContent = (
           <WebLeaderboardSlide
+            byPassthroughs={slideData.allByPassthroughs}
             byQuotes={slideData.allByQuotes}
             byBookings={slideData.allByBookings}
             byHotPassRate={slideData.allByHotPassRate}

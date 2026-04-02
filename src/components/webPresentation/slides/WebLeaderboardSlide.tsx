@@ -18,6 +18,7 @@ interface LeaderboardEntry {
 }
 
 interface WebLeaderboardSlideProps {
+  byPassthroughs: LeaderboardEntry[];
   byQuotes: LeaderboardEntry[];
   byBookings: LeaderboardEntry[];
   byHotPassRate: LeaderboardEntry[];
@@ -35,15 +36,16 @@ const LeaderboardColumn: React.FC<{
   isRate?: boolean;
   colors: SlideColors;
   columnDelay: number;
+  compact?: boolean;
   revealedPositions: Set<number>;
   onReveal: (position: number) => void;
-}> = ({ title, entries, isRate, colors, columnDelay, revealedPositions, onReveal }) => {
+}> = ({ title, entries, isRate, colors, columnDelay, compact, revealedPositions, onReveal }) => {
   const medals = ['🥇', '🥈', '🥉'];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-w-0">
       <motion.h3
-        className="text-sm font-bold mb-4 pb-2 border-b"
+        className={`${compact ? 'text-xs mb-2 pb-1.5' : 'text-xs mb-2 pb-1.5'} font-bold border-b`}
         style={{ color: `#${colors.accent}`, borderColor: `#${colors.accent}40` }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -51,7 +53,7 @@ const LeaderboardColumn: React.FC<{
       >
         {title}
       </motion.h3>
-      <div className="flex-1 flex flex-col justify-start gap-1.5">
+      <div className="flex-1 flex flex-col justify-start gap-0.5">
         {entries.slice(0, 5).map((entry, i) => {
           const isTop3 = i < 3;
           const isRevealed = revealedPositions.has(i);
@@ -62,7 +64,7 @@ const LeaderboardColumn: React.FC<{
             return (
               <motion.div
                 key={`hidden-${i}`}
-                className="flex items-center justify-between py-2 px-2.5 rounded-md cursor-pointer group"
+                className="flex items-center justify-between py-1 px-2 rounded cursor-pointer group"
                 style={{
                   backgroundColor: `#${colors.myTeamHighlight}`,
                   border: `1px dashed #${colors.accent}60`,
@@ -75,14 +77,14 @@ const LeaderboardColumn: React.FC<{
                 whileTap={{ scale: 0.98 }}
               >
                 <span
-                  className="text-sm flex items-center gap-2"
+                  className="text-xs flex items-center gap-1"
                   style={{ color: `#${colors.text}` }}
                 >
-                  <span className="text-base">{medals[i]}</span>
-                  <span className="italic opacity-70">Team member - click to reveal!</span>
+                  <span className="text-sm">{medals[i]}</span>
+                  <span className="italic opacity-70">Click to reveal!</span>
                 </span>
                 <span
-                  className="text-lg group-hover:animate-pulse"
+                  className="text-sm group-hover:animate-pulse"
                   style={{ color: `#${colors.accent}` }}
                 >
                   ?
@@ -97,7 +99,7 @@ const LeaderboardColumn: React.FC<{
           return (
             <motion.div
               key={entry.agentName}
-              className="flex items-center justify-between py-2 px-2.5 rounded-md"
+              className="flex items-center justify-between py-1 px-2 rounded"
               style={{
                 backgroundColor: entry.isOnSelectedTeam
                   ? `#${colors.myTeamHighlight}`
@@ -111,23 +113,23 @@ const LeaderboardColumn: React.FC<{
               }
             >
               <span
-                className="text-sm truncate flex-1 flex items-center gap-1"
+                className="text-xs truncate flex-1 flex items-center gap-0.5"
                 style={{
                   color: entry.isOnSelectedTeam ? `#${colors.text}` : `#${colors.textLight}`,
                   fontWeight: entry.isOnSelectedTeam ? 600 : 400,
                 }}
               >
-                {isTop3 && <span className="text-base mr-1">{medals[i]}</span>}
+                {isTop3 && <span className="text-sm mr-0.5">{medals[i]}</span>}
                 {!isTop3 && `${i + 1}. `}
                 {entry.agentName}
                 {entry.isSenior && (
-                  <span className="ml-1 text-amber-400" title="Senior">
+                  <span className="ml-0.5 text-amber-400" title="Senior">
                     ⚜
                   </span>
                 )}
               </span>
               <span
-                className="text-sm font-semibold ml-3 tabular-nums"
+                className="text-xs font-semibold ml-2 tabular-nums whitespace-nowrap"
                 style={{
                   color: entry.isOnSelectedTeam ? `#${colors.text}` : `#${colors.textLight}`,
                 }}
@@ -143,6 +145,7 @@ const LeaderboardColumn: React.FC<{
 };
 
 export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
+  byPassthroughs,
   byQuotes,
   byBookings,
   byHotPassRate,
@@ -157,6 +160,7 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
 
   // Track revealed positions for each column (top 3 are hidden by default)
   const [revealedByColumn, setRevealedByColumn] = useState<Record<string, Set<number>>>({
+    passthroughs: new Set(),
     quotes: new Set(),
     bookings: new Set(),
     hotPassRate: new Set(),
@@ -178,7 +182,7 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
 
   return (
     <div
-      className="w-full h-full flex flex-col px-8 py-5 relative overflow-hidden"
+      className="w-full h-full flex flex-col px-6 py-4 relative overflow-hidden"
       style={{ backgroundColor: `#${colors.background}` }}
     >
       {/* Background Image */}
@@ -217,10 +221,10 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
       )}
 
       {/* Header */}
-      <div className={`${layout?.headerMargin || 'mb-4'} flex items-center justify-between relative z-10`}>
+      <div className="mb-3 flex items-center justify-between relative z-10">
         <div>
           <motion.h2
-            className={`${layout?.titleSize || 'text-3xl'} font-bold`}
+            className={`${layout?.titleSize || 'text-2xl'} font-bold`}
             style={{ color: `#${colors.text}` }}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -229,20 +233,20 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
             DEPARTMENT LEADERBOARD
           </motion.h2>
           <motion.div
-            className="h-1 w-32 mt-1.5"
+            className="h-1 w-32 mt-1"
             style={{ backgroundColor: `#${colors.accent}` }}
             initial={{ scaleX: 0, originX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           />
           <motion.p
-            className="mt-1 text-sm"
+            className="mt-0.5 text-xs"
             style={{ color: `#${colors.textLight}` }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            Department Wide
+            Department Wide — Top 5
           </motion.p>
         </div>
 
@@ -254,69 +258,96 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
           transition={{ delay: 0.4 }}
         >
           <div
-            className="w-4 h-4 rounded"
+            className="w-3.5 h-3.5 rounded"
             style={{ backgroundColor: `#${colors.myTeamHighlight}` }}
           />
-          <span className="text-sm" style={{ color: `#${colors.textLight}` }}>
+          <span className="text-xs" style={{ color: `#${colors.textLight}` }}>
             = {selectedTeamName}
           </span>
         </motion.div>
       </div>
 
-      {/* Six columns */}
-      <div className={`flex-1 grid grid-cols-6 ${layout?.spacing || 'gap-4'} relative z-10`}>
-        <LeaderboardColumn
-          title="Quotes"
-          entries={byQuotes}
-          colors={colors}
-          columnDelay={0.3}
-          revealedPositions={revealedByColumn.quotes}
-          onReveal={(pos) => handleReveal('quotes', pos)}
+      {/* Two-row layout */}
+      <div className="flex-1 flex flex-col gap-2 relative z-10 min-h-0">
+        {/* Top row: Volume metrics (4 columns) */}
+        <div className="flex-1 grid grid-cols-4 gap-3 min-h-0">
+          <LeaderboardColumn
+            title="Passthroughs"
+            entries={byPassthroughs}
+            colors={colors}
+            columnDelay={0.3}
+            revealedPositions={revealedByColumn.passthroughs}
+            onReveal={(pos) => handleReveal('passthroughs', pos)}
+          />
+          <LeaderboardColumn
+            title="Quotes"
+            entries={byQuotes}
+            colors={colors}
+            columnDelay={0.35}
+            revealedPositions={revealedByColumn.quotes}
+            onReveal={(pos) => handleReveal('quotes', pos)}
+          />
+          <LeaderboardColumn
+            title="Bookings"
+            entries={byBookings}
+            colors={colors}
+            columnDelay={0.4}
+            revealedPositions={revealedByColumn.bookings}
+            onReveal={(pos) => handleReveal('bookings', pos)}
+          />
+          <LeaderboardColumn
+            title="Hot Pass %"
+            entries={byHotPassRate}
+            isRate
+            colors={colors}
+            columnDelay={0.45}
+            revealedPositions={revealedByColumn.hotPassRate}
+            onReveal={(pos) => handleReveal('hotPassRate', pos)}
+          />
+        </div>
+
+        {/* Divider */}
+        <motion.div
+          className="h-px w-full"
+          style={{ backgroundColor: `#${colors.accent}30` }}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.4, delay: 0.5 }}
         />
-        <LeaderboardColumn
-          title="Bookings"
-          entries={byBookings}
-          colors={colors}
-          columnDelay={0.35}
-          revealedPositions={revealedByColumn.bookings}
-          onReveal={(pos) => handleReveal('bookings', pos)}
-        />
-        <LeaderboardColumn
-          title="Hot Pass %"
-          entries={byHotPassRate}
-          isRate
-          colors={colors}
-          columnDelay={0.4}
-          revealedPositions={revealedByColumn.hotPassRate}
-          onReveal={(pos) => handleReveal('hotPassRate', pos)}
-        />
-        <LeaderboardColumn
-          title="T→P %"
-          entries={byTPRate}
-          isRate
-          colors={colors}
-          columnDelay={0.45}
-          revealedPositions={revealedByColumn.tpRate}
-          onReveal={(pos) => handleReveal('tpRate', pos)}
-        />
-        <LeaderboardColumn
-          title="P→Q %"
-          entries={byPQRate}
-          isRate
-          colors={colors}
-          columnDelay={0.5}
-          revealedPositions={revealedByColumn.pqRate}
-          onReveal={(pos) => handleReveal('pqRate', pos)}
-        />
-        <LeaderboardColumn
-          title="T→Q %"
-          entries={byTQRate}
-          isRate
-          colors={colors}
-          columnDelay={0.55}
-          revealedPositions={revealedByColumn.tqRate}
-          onReveal={(pos) => handleReveal('tqRate', pos)}
-        />
+
+        {/* Bottom row: Rate metrics (3 columns, centered) */}
+        <div className="flex-1 grid grid-cols-3 gap-3 min-h-0 px-8">
+          <LeaderboardColumn
+            title="T→P %"
+            entries={byTPRate}
+            isRate
+            compact
+            colors={colors}
+            columnDelay={0.5}
+            revealedPositions={revealedByColumn.tpRate}
+            onReveal={(pos) => handleReveal('tpRate', pos)}
+          />
+          <LeaderboardColumn
+            title="P→Q %"
+            entries={byPQRate}
+            isRate
+            compact
+            colors={colors}
+            columnDelay={0.55}
+            revealedPositions={revealedByColumn.pqRate}
+            onReveal={(pos) => handleReveal('pqRate', pos)}
+          />
+          <LeaderboardColumn
+            title="T→Q %"
+            entries={byTQRate}
+            isRate
+            compact
+            colors={colors}
+            columnDelay={0.6}
+            revealedPositions={revealedByColumn.tqRate}
+            onReveal={(pos) => handleReveal('tqRate', pos)}
+          />
+        </div>
       </div>
     </div>
   );

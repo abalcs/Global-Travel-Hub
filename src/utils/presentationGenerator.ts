@@ -325,6 +325,7 @@ export const generatePresentation = async (
     .sort((a, b) => b.hotPassRate - a.hotPassRate);
 
   // For leaderboard - use ALL metrics but highlight My Team
+  const allByPassthroughs = [...metrics].sort((a, b) => b.passthroughs - a.passthroughs);
   const allByQuotes = [...metrics].sort((a, b) => b.quotes - a.quotes);
   const allByBookings = [...metrics].sort((a, b) => b.bookings - a.bookings);
   const allByHotPassRate = [...metrics]
@@ -875,60 +876,71 @@ export const generatePresentation = async (
     color: COLORS.textLight,
   });
 
-  // Column headers — 6 columns, top 5 each
-  const leaderboardColumns: { label: string; data: typeof allByQuotes; getValue: (m: (typeof allByQuotes)[0]) => string; x: number }[] = [
-    { label: 'Quotes', data: allByQuotes, getValue: (m) => `${m.quotes}`, x: 0.3 },
-    { label: 'Bookings', data: allByBookings, getValue: (m) => `${m.bookings}`, x: 1.9 },
-    { label: 'Hot Pass %', data: allByHotPassRate, getValue: (m) => `${m.hotPassRate.toFixed(0)}%`, x: 3.5 },
-    { label: 'T→P %', data: allByTPRate, getValue: (m) => `${(m as typeof allByTPRate[0]).tpRate.toFixed(0)}%`, x: 5.1 },
-    { label: 'P→Q %', data: allByPQRate, getValue: (m) => `${(m as typeof allByPQRate[0]).pqRate.toFixed(0)}%`, x: 6.7 },
-    { label: 'T→Q %', data: allByTQRate, getValue: (m) => `${(m as typeof allByTQRate[0]).tqRate.toFixed(0)}%`, x: 8.3 },
+  // Two-row leaderboard layout — top 5 per column
+  type LeaderboardCol = { label: string; data: { agentName: string }[]; getValue: (m: Record<string, unknown>) => string; x: number };
+
+  // Row 1: Volume metrics (4 columns)
+  const row1Cols: LeaderboardCol[] = [
+    { label: 'Passthroughs', data: allByPassthroughs, getValue: (m) => `${m.passthroughs}`, x: 0.3 },
+    { label: 'Quotes', data: allByQuotes, getValue: (m) => `${m.quotes}`, x: 2.65 },
+    { label: 'Bookings', data: allByBookings, getValue: (m) => `${m.bookings}`, x: 5.0 },
+    { label: 'Hot Pass %', data: allByHotPassRate, getValue: (m) => `${(m.hotPassRate as number).toFixed(0)}%`, x: 7.35 },
   ];
 
-  leaderboardColumns.forEach(col => {
-    slide7.addText(col.label, {
-      x: col.x, y: 1.1, w: 1.4, h: 0.4,
-      fontSize: 12,
-      fontFace: 'Arial',
-      color: COLORS.accent,
-      bold: true,
-    });
+  // Row 2: Rate metrics (3 columns, offset for centering)
+  const row2Cols: LeaderboardCol[] = [
+    { label: 'T→P %', data: allByTPRate, getValue: (m) => `${(m.tpRate as number).toFixed(0)}%`, x: 1.0 },
+    { label: 'P→Q %', data: allByPQRate, getValue: (m) => `${(m.pqRate as number).toFixed(0)}%`, x: 3.85 },
+    { label: 'T→Q %', data: allByTQRate, getValue: (m) => `${(m.tqRate as number).toFixed(0)}%`, x: 6.7 },
+  ];
 
-    col.data.slice(0, 5).forEach((agent, i) => {
-      const seniorBadge = getSeniorBadge(isSenior(agent.agentName));
-      const isOnMyTeam = isOnSelectedTeam(agent.agentName);
-      const value = col.getValue(agent);
+  const renderPptxLeaderboardRow = (cols: LeaderboardCol[], yStart: number) => {
+    cols.forEach(col => {
+      slide7.addText(col.label, {
+        x: col.x, y: yStart, w: 2.1, h: 0.3,
+        fontSize: 11,
+        fontFace: 'Arial',
+        color: COLORS.accent,
+        bold: true,
+      });
 
-      const yPos = 1.55 + (i * 0.45);
+      col.data.slice(0, 5).forEach((agent, i) => {
+        const seniorBadge = getSeniorBadge(isSenior(agent.agentName));
+        const isOnMyTeam = isOnSelectedTeam(agent.agentName);
+        const value = col.getValue(agent);
+        const yPos = yStart + 0.35 + (i * 0.35);
 
-      // Highlight background for My Team members
-      if (isOnMyTeam) {
-        slide7.addShape('roundRect', {
-          x: col.x - 0.05, y: yPos - 0.05, w: 1.5, h: 0.4,
-          fill: { type: 'solid', color: COLORS.myTeamHighlight },
-          line: { width: 0 },
-          rectRadius: 0.05,
+        if (isOnMyTeam) {
+          slide7.addShape('roundRect', {
+            x: col.x - 0.05, y: yPos - 0.03, w: 2.2, h: 0.33,
+            fill: { type: 'solid', color: COLORS.myTeamHighlight },
+            line: { width: 0 },
+            rectRadius: 0.05,
+          });
+        }
+
+        slide7.addText(`${i + 1}. ${agent.agentName}${seniorBadge}`, {
+          x: col.x, y: yPos, w: 1.6, h: 0.3,
+          fontSize: 9,
+          fontFace: 'Arial',
+          color: isOnMyTeam ? COLORS.text : COLORS.textLight,
+          bold: isOnMyTeam,
         });
-      }
 
-      slide7.addText(`${i + 1}. ${agent.agentName}${seniorBadge}`, {
-        x: col.x, y: yPos, w: 1.1, h: 0.35,
-        fontSize: 9,
-        fontFace: 'Arial',
-        color: isOnMyTeam ? COLORS.text : COLORS.textLight,
-        bold: isOnMyTeam,
-      });
-
-      slide7.addText(`${value}`, {
-        x: col.x + 1.05, y: yPos, w: 0.4, h: 0.35,
-        fontSize: 9,
-        fontFace: 'Arial',
-        color: isOnMyTeam ? COLORS.text : COLORS.textLight,
-        bold: isOnMyTeam,
-        align: 'right',
+        slide7.addText(`${value}`, {
+          x: col.x + 1.6, y: yPos, w: 0.5, h: 0.3,
+          fontSize: 9,
+          fontFace: 'Arial',
+          color: isOnMyTeam ? COLORS.text : COLORS.textLight,
+          bold: isOnMyTeam,
+          align: 'right',
+        });
       });
     });
-  });
+  };
+
+  renderPptxLeaderboardRow(row1Cols, 1.1);
+  renderPptxLeaderboardRow(row2Cols, 3.35);
 
   // ===== SLIDE 8: Cascades =====
   const slide8 = pptx.addSlide();
