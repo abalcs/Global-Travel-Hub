@@ -330,6 +330,18 @@ export const generatePresentation = async (
   const allByHotPassRate = [...metrics]
     .filter(m => m.passthroughs >= 5)
     .sort((a, b) => b.hotPassRate - a.hotPassRate);
+  const allByTPRate = [...metrics]
+    .filter(m => m.trips >= 5)
+    .map(m => ({ ...m, tpRate: m.trips > 0 ? (m.passthroughs / m.trips) * 100 : 0 }))
+    .sort((a, b) => b.tpRate - a.tpRate);
+  const allByPQRate = [...metrics]
+    .filter(m => m.passthroughs >= 5)
+    .map(m => ({ ...m, pqRate: m.passthroughs > 0 ? (m.quotes / m.passthroughs) * 100 : 0 }))
+    .sort((a, b) => b.pqRate - a.pqRate);
+  const allByTQRate = [...metrics]
+    .filter(m => m.trips >= 5)
+    .map(m => ({ ...m, tqRate: m.trips > 0 ? (m.quotes / m.trips) * 100 : 0 }))
+    .sort((a, b) => b.tqRate - a.tqRate);
 
   // ===== SLIDE 1: Title Slide =====
   const slide1 = pptx.addSlide();
@@ -863,35 +875,36 @@ export const generatePresentation = async (
     color: COLORS.textLight,
   });
 
-  // Column headers
-  const columns = [
-    { label: 'Quotes', data: allByQuotes, x: 0.5, valueKey: 'quotes' as const },
-    { label: 'Bookings', data: allByBookings, x: 3.5, valueKey: 'bookings' as const },
-    { label: 'Hot Pass %', data: allByHotPassRate, x: 6.5, valueKey: 'hotPassRate' as const, isRate: true },
+  // Column headers — 6 columns, top 5 each
+  const leaderboardColumns: { label: string; data: typeof allByQuotes; getValue: (m: (typeof allByQuotes)[0]) => string; x: number }[] = [
+    { label: 'Quotes', data: allByQuotes, getValue: (m) => `${m.quotes}`, x: 0.3 },
+    { label: 'Bookings', data: allByBookings, getValue: (m) => `${m.bookings}`, x: 1.9 },
+    { label: 'Hot Pass %', data: allByHotPassRate, getValue: (m) => `${m.hotPassRate.toFixed(0)}%`, x: 3.5 },
+    { label: 'T→P %', data: allByTPRate, getValue: (m) => `${(m as typeof allByTPRate[0]).tpRate.toFixed(0)}%`, x: 5.1 },
+    { label: 'P→Q %', data: allByPQRate, getValue: (m) => `${(m as typeof allByPQRate[0]).pqRate.toFixed(0)}%`, x: 6.7 },
+    { label: 'T→Q %', data: allByTQRate, getValue: (m) => `${(m as typeof allByTQRate[0]).tqRate.toFixed(0)}%`, x: 8.3 },
   ];
 
-  columns.forEach(col => {
+  leaderboardColumns.forEach(col => {
     slide7.addText(col.label, {
-      x: col.x, y: 1.1, w: 2.8, h: 0.4,
-      fontSize: 14,
+      x: col.x, y: 1.1, w: 1.4, h: 0.4,
+      fontSize: 12,
       fontFace: 'Arial',
       color: COLORS.accent,
       bold: true,
     });
 
-    col.data.slice(0, 8).forEach((agent, i) => {
+    col.data.slice(0, 5).forEach((agent, i) => {
       const seniorBadge = getSeniorBadge(isSenior(agent.agentName));
       const isOnMyTeam = isOnSelectedTeam(agent.agentName);
-      const value = col.isRate
-        ? `${agent.hotPassRate.toFixed(0)}%`
-        : agent[col.valueKey];
+      const value = col.getValue(agent);
 
       const yPos = 1.55 + (i * 0.45);
 
       // Highlight background for My Team members
       if (isOnMyTeam) {
         slide7.addShape('roundRect', {
-          x: col.x - 0.05, y: yPos - 0.05, w: 2.9, h: 0.4,
+          x: col.x - 0.05, y: yPos - 0.05, w: 1.5, h: 0.4,
           fill: { type: 'solid', color: COLORS.myTeamHighlight },
           line: { width: 0 },
           rectRadius: 0.05,
@@ -899,16 +912,16 @@ export const generatePresentation = async (
       }
 
       slide7.addText(`${i + 1}. ${agent.agentName}${seniorBadge}`, {
-        x: col.x, y: yPos, w: 2.2, h: 0.35,
-        fontSize: 11,
+        x: col.x, y: yPos, w: 1.1, h: 0.35,
+        fontSize: 9,
         fontFace: 'Arial',
         color: isOnMyTeam ? COLORS.text : COLORS.textLight,
         bold: isOnMyTeam,
       });
 
       slide7.addText(`${value}`, {
-        x: col.x + 2.2, y: yPos, w: 0.6, h: 0.35,
-        fontSize: 11,
+        x: col.x + 1.05, y: yPos, w: 0.4, h: 0.35,
+        fontSize: 9,
         fontFace: 'Arial',
         color: isOnMyTeam ? COLORS.text : COLORS.textLight,
         bold: isOnMyTeam,

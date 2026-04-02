@@ -191,16 +191,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         isSenior: isSenior(m.agentName),
       }));
 
-    // Leaderboard (all agents)
-    const allByPassthroughs = [...metrics]
-      .sort((a, b) => b.passthroughs - a.passthroughs)
-      .map(m => ({
-        agentName: m.agentName,
-        value: m.passthroughs,
-        isOnSelectedTeam: isOnSelectedTeam(m.agentName),
-        isSenior: isSenior(m.agentName),
-      }));
-
+    // Leaderboard (all agents, top 5 per category)
     const allByQuotes = [...metrics]
       .sort((a, b) => b.quotes - a.quotes)
       .map(m => ({
@@ -251,6 +242,17 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       }))
       .sort((a, b) => b.value - a.value);
 
+    // P>Q rate (Passthroughs to Quotes)
+    const allByPQRate = [...metrics]
+      .filter(m => m.passthroughs >= 5)
+      .map(m => ({
+        agentName: m.agentName,
+        value: m.passthroughs > 0 ? (m.quotes / m.passthroughs) * 100 : 0,
+        isOnSelectedTeam: isOnSelectedTeam(m.agentName),
+        isSenior: isSenior(m.agentName),
+      }))
+      .sort((a, b) => b.value - a.value);
+
     return {
       selectedTeamName,
       selectedTeamCount,
@@ -268,12 +270,12 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       byPassthroughs,
       byQuotes,
       byHotPassRate,
-      allByPassthroughs,
       allByQuotes,
       allByBookings,
       allByHotPassRate,
       allByTQRate,
       allByTPRate,
+      allByPQRate,
     };
   }, [metrics, seniors, teams, config]);
 
@@ -407,12 +409,12 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       case 6:
         slideContent = (
           <WebLeaderboardSlide
-            byPassthroughs={slideData.allByPassthroughs}
             byQuotes={slideData.allByQuotes}
             byBookings={slideData.allByBookings}
             byHotPassRate={slideData.allByHotPassRate}
-            byTQRate={slideData.allByTQRate}
             byTPRate={slideData.allByTPRate}
+            byPQRate={slideData.allByPQRate}
+            byTQRate={slideData.allByTQRate}
             selectedTeamName={slideData.selectedTeamName}
             colors={colors}
             layout={layout}

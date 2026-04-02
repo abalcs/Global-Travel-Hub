@@ -59,6 +59,18 @@ export const generateHtmlPresentation = (data: ExportData): string => {
   const allByHotPassRate = [...metrics]
     .filter(m => m.passthroughs >= 5)
     .sort((a, b) => b.hotPassRate - a.hotPassRate);
+  const allByTPRate = [...metrics]
+    .filter(m => m.trips >= 5)
+    .map(m => ({ ...m, tpRate: m.trips > 0 ? (m.passthroughs / m.trips) * 100 : 0 }))
+    .sort((a, b) => b.tpRate - a.tpRate);
+  const allByPQRate = [...metrics]
+    .filter(m => m.passthroughs >= 5)
+    .map(m => ({ ...m, pqRate: m.passthroughs > 0 ? (m.quotes / m.passthroughs) * 100 : 0 }))
+    .sort((a, b) => b.pqRate - a.pqRate);
+  const allByTQRate = [...metrics]
+    .filter(m => m.trips >= 5)
+    .map(m => ({ ...m, tqRate: m.trips > 0 ? (m.quotes / m.trips) * 100 : 0 }))
+    .sort((a, b) => b.tqRate - a.tqRate);
 
   const seniorBadge = (name: string) => isSenior(name) ? ' <span class="senior">⚜</span>' : '';
 
@@ -128,7 +140,7 @@ export const generateHtmlPresentation = (data: ExportData): string => {
     .leaderboard-header { display: flex; justify-content: space-between; align-items: center; }
     .legend { display: flex; align-items: center; gap: 0.5rem; color: #${colors.textLight}; font-size: 0.75rem; }
     .legend-box { width: 16px; height: 16px; background: #${colors.myTeamHighlight}; border-radius: 4px; }
-    .leaderboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; flex: 1; margin-top: 1rem; }
+    .leaderboard-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; flex: 1; margin-top: 1rem; }
     .leaderboard-col h3 { color: #${colors.accent}; font-size: 0.875rem; font-weight: bold; margin-bottom: 1rem; }
     .leaderboard-item { display: flex; justify-content: space-between; padding: 0.375rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-bottom: 2px; }
     .leaderboard-item.highlight { background: #${colors.myTeamHighlight}; }
@@ -265,15 +277,27 @@ export const generateHtmlPresentation = (data: ExportData): string => {
       <div class="leaderboard-grid">
         <div class="leaderboard-col">
           <h3>Quotes</h3>
-          ${allByQuotes.slice(0, 8).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.quotes}</span></div>`).join('')}
+          ${allByQuotes.slice(0, 5).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.quotes}</span></div>`).join('')}
         </div>
         <div class="leaderboard-col">
           <h3>Bookings</h3>
-          ${allByBookings.slice(0, 8).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.bookings}</span></div>`).join('')}
+          ${allByBookings.slice(0, 5).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.bookings}</span></div>`).join('')}
         </div>
         <div class="leaderboard-col">
           <h3>Hot Pass %</h3>
-          ${allByHotPassRate.slice(0, 8).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.hotPassRate.toFixed(0)}%</span></div>`).join('')}
+          ${allByHotPassRate.slice(0, 5).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.hotPassRate.toFixed(0)}%</span></div>`).join('')}
+        </div>
+        <div class="leaderboard-col">
+          <h3>T→P %</h3>
+          ${allByTPRate.slice(0, 5).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.tpRate.toFixed(0)}%</span></div>`).join('')}
+        </div>
+        <div class="leaderboard-col">
+          <h3>P→Q %</h3>
+          ${allByPQRate.slice(0, 5).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.pqRate.toFixed(0)}%</span></div>`).join('')}
+        </div>
+        <div class="leaderboard-col">
+          <h3>T→Q %</h3>
+          ${allByTQRate.slice(0, 5).map((p, i) => `<div class="leaderboard-item ${isOnSelectedTeam(p.agentName) ? 'highlight' : ''}"><span class="name">${i + 1}. ${p.agentName}${seniorBadge(p.agentName)}</span><span>${p.tqRate.toFixed(0)}%</span></div>`).join('')}
         </div>
       </div>
     </div>

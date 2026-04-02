@@ -18,12 +18,12 @@ interface LeaderboardEntry {
 }
 
 interface WebLeaderboardSlideProps {
-  byPassthroughs: LeaderboardEntry[];
   byQuotes: LeaderboardEntry[];
   byBookings: LeaderboardEntry[];
   byHotPassRate: LeaderboardEntry[];
-  byTQRate: LeaderboardEntry[];
   byTPRate: LeaderboardEntry[];
+  byPQRate: LeaderboardEntry[];
+  byTQRate: LeaderboardEntry[];
   selectedTeamName: string;
   colors: SlideColors;
   layout?: LayoutStyles;
@@ -52,7 +52,7 @@ const LeaderboardColumn: React.FC<{
         {title}
       </motion.h3>
       <div className="flex-1 flex flex-col justify-start gap-1.5">
-        {entries.slice(0, 10).map((entry, i) => {
+        {entries.slice(0, 5).map((entry, i) => {
           const isTop3 = i < 3;
           const isRevealed = revealedPositions.has(i);
           const shouldHide = isTop3 && entry.isOnSelectedTeam && !isRevealed;
@@ -143,12 +143,12 @@ const LeaderboardColumn: React.FC<{
 };
 
 export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
-  byPassthroughs,
   byQuotes,
   byBookings,
   byHotPassRate,
-  byTQRate,
   byTPRate,
+  byPQRate,
+  byTQRate,
   selectedTeamName,
   colors,
   layout,
@@ -157,12 +157,12 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
 
   // Track revealed positions for each column (top 3 are hidden by default)
   const [revealedByColumn, setRevealedByColumn] = useState<Record<string, Set<number>>>({
-    passthroughs: new Set(),
     quotes: new Set(),
     bookings: new Set(),
-    tqRate: new Set(),
-    tpRate: new Set(),
     hotPassRate: new Set(),
+    tpRate: new Set(),
+    pqRate: new Set(),
+    tqRate: new Set(),
   });
 
   const handleReveal = (column: string, position: number) => {
@@ -173,7 +173,7 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
   };
 
   // Pick consistent image based on data
-  const imageIndex = byPassthroughs.length % MOUNTAIN_IMAGES.length;
+  const imageIndex = byQuotes.length % MOUNTAIN_IMAGES.length;
   const backgroundImage = MOUNTAIN_IMAGES[imageIndex];
 
   return (
@@ -266,18 +266,10 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
       {/* Six columns */}
       <div className={`flex-1 grid grid-cols-6 ${layout?.spacing || 'gap-4'} relative z-10`}>
         <LeaderboardColumn
-          title="Passthroughs"
-          entries={byPassthroughs}
-          colors={colors}
-          columnDelay={0.3}
-          revealedPositions={revealedByColumn.passthroughs}
-          onReveal={(pos) => handleReveal('passthroughs', pos)}
-        />
-        <LeaderboardColumn
           title="Quotes"
           entries={byQuotes}
           colors={colors}
-          columnDelay={0.35}
+          columnDelay={0.3}
           revealedPositions={revealedByColumn.quotes}
           onReveal={(pos) => handleReveal('quotes', pos)}
         />
@@ -285,36 +277,45 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
           title="Bookings"
           entries={byBookings}
           colors={colors}
-          columnDelay={0.4}
+          columnDelay={0.35}
           revealedPositions={revealedByColumn.bookings}
           onReveal={(pos) => handleReveal('bookings', pos)}
-        />
-        <LeaderboardColumn
-          title="T→Q %"
-          entries={byTQRate}
-          isRate
-          colors={colors}
-          columnDelay={0.45}
-          revealedPositions={revealedByColumn.tqRate}
-          onReveal={(pos) => handleReveal('tqRate', pos)}
-        />
-        <LeaderboardColumn
-          title="T→P %"
-          entries={byTPRate}
-          isRate
-          colors={colors}
-          columnDelay={0.5}
-          revealedPositions={revealedByColumn.tpRate}
-          onReveal={(pos) => handleReveal('tpRate', pos)}
         />
         <LeaderboardColumn
           title="Hot Pass %"
           entries={byHotPassRate}
           isRate
           colors={colors}
-          columnDelay={0.55}
+          columnDelay={0.4}
           revealedPositions={revealedByColumn.hotPassRate}
           onReveal={(pos) => handleReveal('hotPassRate', pos)}
+        />
+        <LeaderboardColumn
+          title="T→P %"
+          entries={byTPRate}
+          isRate
+          colors={colors}
+          columnDelay={0.45}
+          revealedPositions={revealedByColumn.tpRate}
+          onReveal={(pos) => handleReveal('tpRate', pos)}
+        />
+        <LeaderboardColumn
+          title="P→Q %"
+          entries={byPQRate}
+          isRate
+          colors={colors}
+          columnDelay={0.5}
+          revealedPositions={revealedByColumn.pqRate}
+          onReveal={(pos) => handleReveal('pqRate', pos)}
+        />
+        <LeaderboardColumn
+          title="T→Q %"
+          entries={byTQRate}
+          isRate
+          colors={colors}
+          columnDelay={0.55}
+          revealedPositions={revealedByColumn.tqRate}
+          onReveal={(pos) => handleReveal('tqRate', pos)}
         />
       </div>
     </div>
