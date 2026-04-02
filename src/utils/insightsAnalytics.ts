@@ -56,6 +56,40 @@ for (const [program, destinations] of Object.entries(PROGRAM_DESTINATION_MAP)) {
   }
 }
 
+// ============ Sub-Region Groupings within each Program ============
+
+export const SUBREGION_MAP: Record<string, Record<string, string[]>> = {
+  CANAL: {
+    'North America': ['California', 'Alaska', 'Southwest & Rockies', 'Deep South', 'New England', 'Hawaii', 'Pacific Northwest', 'Canada', 'The USA'],
+    'Latin America': ['Antarctica', 'Arctic', 'Argentina', 'Belize', 'Bolivia', 'Brazil', 'Caribbean', 'Chile', 'Colombia', 'Costa Rica', 'Ecuador', 'Guatemala', 'Panama', 'Mexico', 'Peru', 'Uruguay'],
+    'Pacific': ['Australia', 'Cook Islands', 'Fiji', 'French Polynesia', 'New Zealand', 'Samoa'],
+  },
+  WEMEA: {
+    'Africa': ['Botswana', 'Kenya', 'Madagascar', 'Mauritius', 'Malawi', 'Morocco', 'Mozambique', 'Namibia', 'Rwanda', 'Seychelles', 'South Africa', 'Tanzania', 'Uganda', 'Zambia', 'Zimbabwe'],
+    'Middle East & Europe': ['Dubai', 'Egypt', 'England', 'Wales', 'Iceland', 'Ireland', 'Israel', 'Jordan', 'Oman', 'Portugal', 'Scotland', 'Spain'],
+  },
+  ESE: {
+    'Western Europe': ['Austria', 'France', 'Germany', 'Greece', 'Italy', 'Belgium', 'Benelux', 'Luxembourg', 'Netherlands', 'Switzerland'],
+    'Northern Europe': ['Norway', 'Sweden', 'Denmark', 'Scandinavia', 'Scandanavia'],
+    'Eastern Europe': ['Budapest', 'Slovenia', 'Montenegro', 'Bosnia', 'Croatia', 'Prague', 'Turkey'],
+  },
+  ASIA: {
+    'South Asia': ['Bhutan', 'Nepal', 'Southern India', 'India', 'Wildlife India', 'Sri Lanka', 'Maldives'],
+    'Southeast Asia': ['Borneo', 'Myanmar', 'Cambodia', 'Indonesia', 'Laos', 'Malaysia', 'Philippines', 'Singapore', 'Thailand', 'Vietnam'],
+    'East Asia': ['China', 'Japan', 'South Korea', 'Russia', 'Uzbekistan', 'Kyrgyzstan'],
+  },
+};
+
+// Create reverse lookup: destination -> sub-region name
+export const DESTINATION_TO_SUBREGION: Record<string, string> = {};
+for (const subregions of Object.values(SUBREGION_MAP)) {
+  for (const [subregion, destinations] of Object.entries(subregions)) {
+    for (const dest of destinations) {
+      DESTINATION_TO_SUBREGION[dest.toLowerCase()] = subregion;
+    }
+  }
+}
+
 // Note: Debug console logs have been removed for production use
 
 // Get the correct program for a destination

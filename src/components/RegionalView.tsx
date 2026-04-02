@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import type { RawParsedData } from '../utils/indexedDB';
@@ -10,6 +10,8 @@ import {
   extractUSPrograms,
   generateMeetingAgendaData,
   DESTINATION_TO_PROGRAM,
+  DESTINATION_TO_SUBREGION,
+  SUBREGION_MAP,
   type RegionalTimeframe,
   type DepartmentRegionalPerformance,
   type AgentRegionalAnalysis,
@@ -64,6 +66,23 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [recommendationType, setRecommendationType] = useState<RecommendationType>('tp');
   const [regionGroupFilter, setRegionGroupFilter] = useState<RegionGroup>('all');
+  const [subRegionFilter, setSubRegionFilter] = useState<string>('all');
+
+  // Reset sub-region when top-level program changes
+  useEffect(() => {
+    setSubRegionFilter('all');
+  }, [regionGroupFilter]);
+
+  // Build sub-region pill options when a specific program is selected
+  const subRegionOptions = useMemo((): PillOption<string>[] => {
+    if (regionGroupFilter === 'all') return [];
+    const subregions = SUBREGION_MAP[regionGroupFilter];
+    if (!subregions) return [];
+    return [
+      { value: 'all', label: 'All' },
+      ...Object.keys(subregions).map(name => ({ value: name, label: name })),
+    ];
+  }, [regionGroupFilter]);
 
   // Meeting agenda state
   const [showAgendaModal, setShowAgendaModal] = useState(false);
@@ -282,6 +301,14 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
       });
     }
 
+    // Filter by sub-region if not "all"
+    if (subRegionFilter !== 'all') {
+      regions = regions.filter(r => {
+        const subregion = DESTINATION_TO_SUBREGION[r.region.toLowerCase()];
+        return subregion === subRegionFilter;
+      });
+    }
+
     regions.sort((a, b) => {
       let aVal: number | string;
       let bVal: number | string;
@@ -323,7 +350,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
     });
 
     return regions;
-  }, [filteredRegionalPerformance, sortColumn, sortDirection, regionGroupFilter]);
+  }, [filteredRegionalPerformance, sortColumn, sortDirection, regionGroupFilter, subRegionFilter]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -755,12 +782,22 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
             All Destinations ({sortedRegions.length} destinations)
             <span className={`text-xs ml-2 ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-500'}`}>Click column headers to sort</span>
           </h3>
-          <SlidingPillGroup
-            options={REGION_GROUP_OPTIONS}
-            value={regionGroupFilter}
-            onChange={setRegionGroupFilter}
-            size="sm"
-          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <SlidingPillGroup
+              options={REGION_GROUP_OPTIONS}
+              value={regionGroupFilter}
+              onChange={setRegionGroupFilter}
+              size="sm"
+            />
+            {subRegionOptions.length > 0 && (
+              <SlidingPillGroup
+                options={subRegionOptions}
+                value={subRegionFilter}
+                onChange={setSubRegionFilter}
+                size="sm"
+              />
+            )}
+          </div>
         </div>
         <div className="max-h-[400px] overflow-y-auto">
           <table className="w-full">
