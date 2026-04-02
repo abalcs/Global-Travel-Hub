@@ -10,13 +10,16 @@ interface ResultsTableProps {
 
 type SeniorFilter = 'all' | 'seniors' | 'non-seniors' | 'new-hires';
 
-type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatPassthroughs' | 'repeatTpRate' | 'b2bTrips' | 'b2bPassthroughs' | 'b2bTpRate' | 'partnerTrips' | 'partnerPassthroughs' | 'partnerTpRate' | 'taTrips' | 'taPassthroughs' | 'taTpRate' | 'quotesStarted' | 'potentialTQ' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
+type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatPassthroughs' | 'repeatTpRate' | 'prospectTrips' | 'prospectPassthroughs' | 'prospectTpRate' | 'b2bTrips' | 'b2bPassthroughs' | 'b2bTpRate' | 'partnerTrips' | 'partnerPassthroughs' | 'partnerTpRate' | 'taTrips' | 'taPassthroughs' | 'taTpRate' | 'quotesStarted' | 'potentialTQ' | 'passthroughsFromTrips' | 'quotesFromTrips' | 'quotesFromPassthroughs' | 'hotPassRate' | 'bookings' | 'nonConvertedRate' | null;
 
 // Columns that can be toggled on/off
 interface ColumnVisibility {
   repeatTrips: boolean;
   repeatPassthroughs: boolean;
   repeatTpRate: boolean;
+  prospectTrips: boolean;
+  prospectPassthroughs: boolean;
+  prospectTpRate: boolean;
   b2bTrips: boolean;
   b2bPassthroughs: boolean;
   b2bTpRate: boolean;
@@ -72,6 +75,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     repeatTrips: false,
     repeatPassthroughs: false,
     repeatTpRate: true,
+    prospectTrips: false,
+    prospectPassthroughs: false,
+    prospectTpRate: true,
     b2bTrips: false,
     b2bPassthroughs: false,
     b2bTpRate: false,
@@ -93,6 +99,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       repeatTrips: true,
       repeatPassthroughs: true,
       repeatTpRate: true,
+      prospectTrips: true,
+      prospectPassthroughs: true,
+      prospectTpRate: true,
       b2bTrips: true,
       b2bPassthroughs: true,
       b2bTpRate: true,
@@ -112,6 +121,9 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       repeatTrips: false,
       repeatPassthroughs: false,
       repeatTpRate: false,
+      prospectTrips: false,
+      prospectPassthroughs: false,
+      prospectTpRate: false,
       b2bTrips: false,
       b2bPassthroughs: false,
       b2bTpRate: false,
@@ -221,6 +233,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       totalLeads: acc.totalLeads + m.totalLeads,
       repeatTrips: acc.repeatTrips + m.repeatTrips,
       repeatPassthroughs: acc.repeatPassthroughs + m.repeatPassthroughs,
+      prospectTrips: acc.prospectTrips + m.prospectTrips,
+      prospectPassthroughs: acc.prospectPassthroughs + m.prospectPassthroughs,
       b2bTrips: acc.b2bTrips + m.b2bTrips,
       b2bPassthroughs: acc.b2bPassthroughs + m.b2bPassthroughs,
       partnerTrips: acc.partnerTrips + m.partnerTrips,
@@ -229,7 +243,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       taPassthroughs: acc.taPassthroughs + m.taPassthroughs,
       quotesStarted: acc.quotesStarted + m.quotesStarted,
     }),
-    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, partnerTrips: 0, partnerPassthroughs: 0, taTrips: 0, taPassthroughs: 0, quotesStarted: 0 }
+    { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, prospectTrips: 0, prospectPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, partnerTrips: 0, partnerPassthroughs: 0, taTrips: 0, taPassthroughs: 0, quotesStarted: 0 }
   ), [sortedMetrics]);
 
   const totalMetrics = useMemo(() => ({
@@ -239,6 +253,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
     hotPassRate: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
     nonConvertedRate: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
     repeatTpRate: totals.repeatTrips > 0 ? (totals.repeatPassthroughs / totals.repeatTrips) * 100 : 0,
+    prospectTpRate: totals.prospectTrips > 0 ? (totals.prospectPassthroughs / totals.prospectTrips) * 100 : 0,
     b2bTpRate: totals.b2bTrips > 0 ? (totals.b2bPassthroughs / totals.b2bTrips) * 100 : 0,
     partnerTpRate: totals.partnerTrips > 0 ? (totals.partnerPassthroughs / totals.partnerTrips) * 100 : 0,
     taTpRate: totals.taTrips > 0 ? (totals.taPassthroughs / totals.taTrips) * 100 : 0,
@@ -416,6 +431,33 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                 />
                 <span className="text-sm text-gray-700">Repeat T&gt;P %</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.prospectTrips}
+                  onChange={() => toggleColumn('prospectTrips')}
+                  className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Prospect Trips</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.prospectPassthroughs}
+                  onChange={() => toggleColumn('prospectPassthroughs')}
+                  className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Prospect TP</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={columnVisibility.prospectTpRate}
+                  onChange={() => toggleColumn('prospectTpRate')}
+                  className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Prospect T&gt;P %</span>
+              </label>
               <div className="h-4 w-px bg-gray-300" />
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -590,6 +632,39 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <div className="flex items-center justify-center">
                     Repeat T&gt;P %
                     <SortIcon column="repeatTpRate" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.prospectTrips && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-orange-600 uppercase tracking-wider cursor-pointer hover:bg-orange-50 transition-colors"
+                  onClick={() => handleSort('prospectTrips')}
+                >
+                  <div className="flex items-center justify-center">
+                    Prospect Trips
+                    <SortIcon column="prospectTrips" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.prospectPassthroughs && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-orange-600 uppercase tracking-wider cursor-pointer hover:bg-orange-50 transition-colors"
+                  onClick={() => handleSort('prospectPassthroughs')}
+                >
+                  <div className="flex items-center justify-center">
+                    Prospect TP
+                    <SortIcon column="prospectPassthroughs" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
+              {columnVisibility.prospectTpRate && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-orange-600 uppercase tracking-wider cursor-pointer hover:bg-orange-50 transition-colors"
+                  onClick={() => handleSort('prospectTpRate')}
+                >
+                  <div className="flex items-center justify-center">
+                    Prospect T&gt;P %
+                    <SortIcon column="prospectTpRate" sortColumn={sortColumn} sortDirection={sortDirection} />
                   </div>
                 </th>
               )}
@@ -826,6 +901,21 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                       {formatPercent(m.repeatTpRate)}
                     </td>
                   )}
+                  {columnVisibility.prospectTrips && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 text-center">
+                      {m.prospectTrips}
+                    </td>
+                  )}
+                  {columnVisibility.prospectPassthroughs && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600 text-center">
+                      {m.prospectPassthroughs}
+                    </td>
+                  )}
+                  {columnVisibility.prospectTpRate && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-orange-600 text-center">
+                      {formatPercent(m.prospectTpRate)}
+                    </td>
+                  )}
                   {columnVisibility.b2bTrips && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-teal-600 text-center">
                       {m.b2bTrips}
@@ -931,6 +1021,21 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               {columnVisibility.repeatTpRate && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-violet-300 text-center">
                   {formatPercent(totalMetrics.repeatTpRate)}
+                </td>
+              )}
+              {columnVisibility.prospectTrips && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-300 text-center">
+                  {totals.prospectTrips}
+                </td>
+              )}
+              {columnVisibility.prospectPassthroughs && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-300 text-center">
+                  {totals.prospectPassthroughs}
+                </td>
+              )}
+              {columnVisibility.prospectTpRate && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-300 text-center">
+                  {formatPercent(totalMetrics.prospectTpRate)}
                 </td>
               )}
               {columnVisibility.b2bTrips && (
