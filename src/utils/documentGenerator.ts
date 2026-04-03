@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import pptxgen from 'pptxgenjs';
 import { saveAs } from 'file-saver';
-import type { MeetingAgendaData, DestinationOpportunity, TopHotPassDestination, DepartmentSubRegionBreakdown } from './insightsAnalytics';
+import type { MeetingAgendaData, DestinationOpportunity, TopHotPassDestination, DepartmentSubRegionBreakdown, ProgramTrends } from './insightsAnalytics';
 
 // Re-export training generator functions
 export { generateDestinationTraining } from './trainingGenerator';
@@ -302,7 +302,65 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
   const findSubRegionBreakdown = (programName: string): DepartmentSubRegionBreakdown | undefined =>
     data.departmentSubRegions.find(d => d.program === programName);
 
-  for (const po of data.perProgramOpportunities) {
+  // Helper to find trends data for a program
+  const findProgramTrends = (programName: string): ProgramTrends | undefined =>
+    data.perProgramTrends.find(t => t.program === programName);
+
+  // Helper to render a trends mini-table
+  const renderTrendsTable = (
+    label: string,
+    labelColor: [number, number, number],
+    headerBg: [number, number, number],
+    opps: DestinationOpportunity[],
+    changePrefix: string,
+  ) => {
+    doc.setTextColor(...labelColor);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, margin, yPos);
+    yPos += 6;
+
+    if (opps.length === 0) {
+      doc.setTextColor(107, 114, 128);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.text('No significant changes', margin + 4, yPos);
+      yPos += 8;
+      return;
+    }
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Destination', 'Current', 'Prev', 'Change']],
+      body: opps.map(opp => [
+        opp.region,
+        `${opp.currentRate.toFixed(1)}%`,
+        `${opp.historicalRate.toFixed(1)}%`,
+        `${changePrefix}${Math.abs(opp.deviation).toFixed(1)}pp`,
+      ]),
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [229, 231, 235], lineWidth: 0.1 },
+      headStyles: { fillColor: headerBg, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center', textColor: labelColor, fontStyle: 'bold' },
+      },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+    });
+    yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+  };
+
+  for (let i = 0; i < data.perProgramOpportunities.length; i++) {
+    const po = data.perProgramOpportunities[i];
+
+    // Force page break before second+ department
+    if (i > 0) {
+      doc.addPage();
+      yPos = margin;
+    }
+
     // ---- Department Header Bar ----
     checkPageBreak(60);
     doc.setFillColor(77, 114, 109); // Audley Teal
@@ -364,6 +422,34 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
       [0, 123, 199], // Audley Blue
       po.topBestPq, po.pqNeeding,
     );
+
+    // ---- Trends Section ----
+    const trends = findProgramTrends(po.program);
+    if (trends) {
+      sectionNum++;
+      checkPageBreak(50);
+
+      // Section header bar — purple/indigo accent
+      doc.setFillColor(99, 102, 241); // indigo-500
+      doc.rect(margin, yPos, 4, 10, 'F');
+      doc.setTextColor(49, 49, 49); // Audley Charcoal
+      doc.setFontSize(12);
+      doc.setFont('times', 'bold');
+      doc.text(`${sectionNum}. Trends — ${po.program}`, margin + 8, yPos + 7);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(periodComparison, pageWidth - margin, yPos + 7, { align: 'right' });
+      yPos += 14;
+
+      // T>P Trends
+      renderTrendsTable('T>P Improving', [22, 163, 74], [22, 163, 74], trends.tpImproved, '+');
+      renderTrendsTable('T>P Declining', [220, 38, 38], [220, 38, 38], trends.tpDeclined, '-');
+
+      // P>Q Trends
+      renderTrendsTable('P>Q Improving', [22, 163, 74], [22, 163, 74], trends.pqImproved, '+');
+      renderTrendsTable('P>Q Declining', [220, 38, 38], [220, 38, 38], trends.pqDeclined, '-');
+    }
   }
 
   // ===== HOT PASS PERFORMANCE (combined) =====

@@ -2221,6 +2221,15 @@ export interface ProgramOpportunities {
   pqNeeding: DestinationOpportunity[];    // Top 2 needing improvement P>Q
 }
 
+// Per-department period-over-period trends (old comparison logic)
+export interface ProgramTrends {
+  program: string;
+  tpImproved: DestinationOpportunity[];   // Destinations where T>P rate improved vs prev period
+  tpDeclined: DestinationOpportunity[];   // Destinations where T>P rate declined vs prev period
+  pqImproved: DestinationOpportunity[];   // Destinations where P>Q improved
+  pqDeclined: DestinationOpportunity[];   // Destinations where P>Q declined
+}
+
 export interface TopHotPassDestination {
   region: string;
   hotPassRate: number;
@@ -2252,6 +2261,7 @@ export interface MeetingAgendaData {
   perProgramOpportunities: ProgramOpportunities[];  // Per-dept T>P and P>Q top/bottom
   programStats: ProgramStats[];                     // Per-department breakdown when multiple selected
   departmentSubRegions: DepartmentSubRegionBreakdown[];  // Sub-region breakdown per department
+  perProgramTrends: ProgramTrends[];                     // Per-dept period-over-period trends
   currentPeriodLabel: string;                        // e.g., "This Quarter"
   previousPeriodLabel: string;                       // e.g., "Last Quarter"
   overallStats: {
@@ -2366,9 +2376,53 @@ export const generateMeetingAgendaData = (
     return { best, needing };
   };
 
+  // Build period-over-period trends (old comparison logic, no dept avg benchmark)
+  const buildTrends = (
+    qtdRegions: DepartmentRegionalPerformance['allRegions'],
+    prevQtrLookup: Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>,
+    metricKey: 'tpRate' | 'pqRate' | 'hotPassRate',
+    volumeKey: 'trips' | 'passthroughs',
+    outputKey: 'passthroughs' | 'quotes' | 'hotPasses',
+    minVolume: number,
+  ): { improved: DestinationOpportunity[]; declined: DestinationOpportunity[] } => {
+    const entries = qtdRegions
+      .filter(r => r[volumeKey] >= minVolume)
+      .map(r => {
+        const prev = prevQtrLookup.get(r.region);
+        const prevRate = prev ? prev[metricKey] : 0;
+        const deviation = r[metricKey] - prevRate;
+        // potentialGain for declined: volume lost if prev rate had been maintained
+        const potentialGain = Math.max(0, (prevRate / 100) * r[volumeKey] - r[outputKey]);
+        // surplus for improved: extra conversions vs what prev rate would have predicted
+        const surplus = r[outputKey] - Math.max(0, (prevRate / 100) * r[volumeKey]);
+        return {
+          region: r.region,
+          currentRate: r[metricKey],
+          historicalRate: prevRate,
+          deviation,
+          volume: r[volumeKey],
+          potentialGain,
+          volumeWeightedScore: Math.max(0, surplus),
+        };
+      });
+
+    const improved = entries
+      .filter(e => e.deviation > 1)
+      .sort((a, b) => b.volumeWeightedScore - a.volumeWeightedScore)
+      .slice(0, 3);
+
+    const declined = entries
+      .filter(e => e.deviation < -1)
+      .sort((a, b) => b.potentialGain - a.potentialGain)
+      .slice(0, 3);
+
+    return { improved, declined };
+  };
+
   // Build per-program opportunities
   const programNames = program.split(' & ').map(p => p.trim().toUpperCase());
   const perProgramOpportunities: ProgramOpportunities[] = [];
+  const perProgramTrends: ProgramTrends[] = [];
   const programStats: ProgramStats[] = [];
   const topHotPassDestinations: TopHotPassDestination[] = [];
 
@@ -2394,6 +2448,18 @@ export const generateMeetingAgendaData = (
       tpNeeding: tp.needing,
       topBestPq: pq.best,
       pqNeeding: pq.needing,
+    });
+
+    // Period-over-period trends for this department
+    const tpTrends = buildTrends(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5);
+    const pqTrends = buildTrends(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3);
+
+    perProgramTrends.push({
+      program: pName,
+      tpImproved: tpTrends.improved,
+      tpDeclined: tpTrends.declined,
+      pqImproved: pqTrends.improved,
+      pqDeclined: pqTrends.declined,
     });
 
     // Stats for overview slide (always build, even for single program)
@@ -2487,6 +2553,7 @@ export const generateMeetingAgendaData = (
     hotPassOpportunities: hp.needing,
     topHotPassDestinations,
     perProgramOpportunities,
+    perProgramTrends,
     programStats,
     departmentSubRegions,
     currentPeriodLabel,
