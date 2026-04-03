@@ -244,55 +244,6 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     }
   };
 
-  // Helper to render a simple top hot pass destinations list (fallback when no significant changes)
-  const renderTopHotPassSection = (secNum: number, destinations: TopHotPassDestination[]) => {
-    checkPageBreak(50);
-    doc.setFillColor(217, 119, 6); // Amber
-    doc.rect(margin, yPos, 4, 10, 'F');
-    doc.setTextColor(49, 49, 49);
-    doc.setFontSize(12);
-    doc.setFont('times', 'bold');
-    doc.text(`${secNum}. Top Hot Pass Destinations (QTD)`, margin + 8, yPos + 7);
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text('(5 min)', pageWidth - margin, yPos + 7, { align: 'right' });
-    yPos += 14;
-
-    if (destinations.length > 0) {
-      const showProgram = destinations.some(d => d.program);
-      const headRow = showProgram
-        ? ['#', 'Destination', 'Dept', 'HP Rate', 'Volume']
-        : ['#', 'Destination', 'HP Rate', 'Volume'];
-      const bodyRows = destinations.map((d, i) => {
-        const row = [`${i + 1}`, d.region];
-        if (showProgram) row.push(d.program || '');
-        row.push(`${d.hotPassRate.toFixed(1)}%`, `${d.volume}`);
-        return row;
-      });
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [headRow],
-        body: bodyRows,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9, cellPadding: 2, lineColor: [229, 231, 235], lineWidth: 0.1 },
-        headStyles: { fillColor: [217, 119, 6], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-        columnStyles: {
-          0: { halign: 'center', cellWidth: 8 },
-          1: { fontStyle: 'bold' },
-        },
-        alternateRowStyles: { fillColor: [249, 250, 251] },
-      });
-      yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-    } else {
-      doc.setTextColor(107, 114, 128);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
-      doc.text('No hot pass data available.', margin, yPos);
-      yPos += 10;
-    }
-  };
 
   // ===== PER-DEPT SECTIONS WITH SUB-REGION BREAKDOWNS =====
   const periodComparison = `(${data.currentPeriodLabel} vs ${data.previousPeriodLabel})`;
@@ -423,6 +374,14 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
       po.topBestPq, po.pqNeeding,
     );
 
+    // ---- Hot Pass Performance ----
+    sectionNum++;
+    renderOpportunitySection(
+      sectionNum, `Hot Pass Performance — ${po.program}`, periodComparison,
+      [217, 119, 6], // Amber
+      po.topBestHp, po.hpNeeding,
+    );
+
     // ---- Trends Section ----
     const trends = findProgramTrends(po.program);
     if (trends) {
@@ -448,27 +407,15 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     }
   }
 
-  // ===== HOT PASS PERFORMANCE (combined) =====
-  sectionNum++;
-  if (data.hotPassOpportunities.length > 0) {
-    renderOpportunitySection(
-      sectionNum, `Hot Pass Performance ${periodComparison}`, '(5 min)',
-      [217, 119, 6], // Amber
-      [], data.hotPassOpportunities,
-    );
-  } else {
-    // Fallback: show top 4 hot pass destinations by rate
-    renderTopHotPassSection(sectionNum, data.topHotPassDestinations);
-  }
-
-  // ===== SECTION 4: CAPACITY CONSTRAINTS =====
+  // ===== CAPACITY CONSTRAINTS =====
   checkPageBreak(50);
   doc.setFillColor(217, 119, 6); // Amber
   doc.rect(margin, yPos, 4, 10, 'F');
   doc.setTextColor(49, 49, 49); // Audley Charcoal
   doc.setFontSize(12);
   doc.setFont('times', 'bold');
-  doc.text('4. Availability & Capacity Constraints', margin + 8, yPos + 7);
+  sectionNum++;
+  doc.text(`${sectionNum}. Availability & Capacity Constraints`, margin + 8, yPos + 7);
   doc.setTextColor(107, 114, 128);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');

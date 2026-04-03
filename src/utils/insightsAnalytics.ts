@@ -2219,6 +2219,8 @@ export interface ProgramOpportunities {
   tpNeeding: DestinationOpportunity[];    // Top 2 needing improvement T>P
   topBestPq: DestinationOpportunity[];    // Top 2 best P>Q
   pqNeeding: DestinationOpportunity[];    // Top 2 needing improvement P>Q
+  topBestHp: DestinationOpportunity[];    // Top 2 best Hot Pass
+  hpNeeding: DestinationOpportunity[];    // Top 2 needing improvement Hot Pass
 }
 
 // Per-department period-over-period trends (T>Q = quotes / trips)
@@ -2453,6 +2455,7 @@ export const generateMeetingAgendaData = (
 
     const tp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5, pQtd.overallTpRate);
     const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3, pQtd.overallPqRate, 65);
+    const hp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'hotPassRate', 'passthroughs', 'hotPasses', 3, pQtd.overallHotPassRate);
 
     perProgramOpportunities.push({
       program: pName,
@@ -2460,6 +2463,8 @@ export const generateMeetingAgendaData = (
       tpNeeding: tp.needing,
       topBestPq: pq.best,
       pqNeeding: pq.needing,
+      topBestHp: hp.best,
+      hpNeeding: hp.needing,
     });
 
     // Period-over-period T>Q trends for this department (quotes / trips)
