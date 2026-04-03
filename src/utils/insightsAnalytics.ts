@@ -2314,15 +2314,21 @@ export const generateMeetingAgendaData = (
     outputKey: 'passthroughs' | 'quotes' | 'hotPasses',
     minVolume: number,
     deptAvgRate: number,
+    companyTarget?: number,  // If set, "needing" only includes destinations below this rate
   ): { best: DestinationOpportunity[]; needing: DestinationOpportunity[] } => {
+    // Benchmark includes company target when provided
+    const getTargetRate = (prevRate: number) =>
+      companyTarget != null
+        ? Math.max(prevRate, deptAvgRate, companyTarget)
+        : Math.max(prevRate, deptAvgRate);
+
     const mapped = qtdRegions
       .filter(r => r[volumeKey] >= minVolume)
       .map(r => {
         const prev = prevQtrLookup.get(r.region);
         const prevRate = prev ? prev[metricKey] : 0;
         const deviation = r[metricKey] - prevRate;
-        // Use the higher of prev period rate and dept average as the benchmark
-        const targetRate = Math.max(prevRate, deptAvgRate);
+        const targetRate = getTargetRate(prevRate);
         // potentialGain: how many more conversions if destination matched the target rate
         const potentialGain = Math.max(0, (targetRate / 100) * r[volumeKey] - r[outputKey]);
         return {
@@ -2343,7 +2349,7 @@ export const generateMeetingAgendaData = (
       .map(r => {
         const prev = prevQtrLookup.get(r.region);
         const prevRate = prev ? prev[metricKey] : 0;
-        const targetRate = Math.max(prevRate, deptAvgRate);
+        const targetRate = getTargetRate(prevRate);
         const deviation = r[metricKey] - targetRate;
         if (deviation <= 0) return null;
         // Surplus: how many MORE conversions vs what target rate would have predicted
@@ -2364,10 +2370,14 @@ export const generateMeetingAgendaData = (
       .sort((a, b) => b.volumeWeightedScore - a.volumeWeightedScore)
       .slice(0, 2);
 
-    // Needing: below target rate (prev period OR dept average), ranked by absolute potential gain
-    // This surfaces high-volume destinations with below-average rates even if they didn't decline
+    // Needing: below target rate, ranked by absolute potential gain
+    // When companyTarget is set, exclude destinations already meeting the target
     const needing = [...mapped]
-      .filter(o => o.potentialGain > 0)
+      .filter(o => {
+        if (o.potentialGain <= 0) return false;
+        if (companyTarget != null && o.currentRate >= companyTarget) return false;
+        return true;
+      })
       .sort((a, b) => b.potentialGain - a.potentialGain)
       .slice(0, 2);
 
@@ -2442,7 +2452,7 @@ export const generateMeetingAgendaData = (
     }
 
     const tp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5, pQtd.overallTpRate);
-    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3, pQtd.overallPqRate);
+    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3, pQtd.overallPqRate, 65);
 
     perProgramOpportunities.push({
       program: pName,
