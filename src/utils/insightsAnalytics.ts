@@ -2316,8 +2316,14 @@ export const generateMeetingAgendaData = (
     outputKey: 'passthroughs' | 'quotes' | 'hotPasses',
     minVolume: number,
     deptAvgRate: number,
-    companyTarget?: number,  // If set, "needing" only includes destinations below this rate
+    opts?: {
+      companyTarget?: number;  // If set, "needing" only includes destinations below this rate
+      rankByTrips?: boolean;   // If true, rank needing by trip volume and show trips as volume
+    },
   ): { best: DestinationOpportunity[]; needing: DestinationOpportunity[] } => {
+    const companyTarget = opts?.companyTarget;
+    const rankByTrips = opts?.rankByTrips ?? false;
+
     // Benchmark includes company target when provided
     const getTargetRate = (prevRate: number) =>
       companyTarget != null
@@ -2333,12 +2339,14 @@ export const generateMeetingAgendaData = (
         const targetRate = getTargetRate(prevRate);
         // potentialGain: how many more conversions if destination matched the target rate
         const potentialGain = Math.max(0, (targetRate / 100) * r[volumeKey] - r[outputKey]);
+        // When rankByTrips, show trip volume instead of the metric's native volume
+        const displayVolume = rankByTrips ? r.trips : r[volumeKey];
         return {
           region: r.region,
           currentRate: r[metricKey],
           historicalRate: prevRate,
           deviation,
-          volume: r[volumeKey],
+          volume: displayVolume,
           potentialGain,
           volumeWeightedScore: potentialGain,
         };
@@ -2356,12 +2364,13 @@ export const generateMeetingAgendaData = (
         if (deviation <= 0) return null;
         // Surplus: how many MORE conversions vs what target rate would have predicted
         const surplus = r[outputKey] - Math.max(0, (targetRate / 100) * r[volumeKey]);
+        const displayVolume = rankByTrips ? r.trips : r[volumeKey];
         return {
           region: r.region,
           currentRate: r[metricKey],
           historicalRate: prevRate,
           deviation: r[metricKey] - prevRate,
-          volume: r[volumeKey],
+          volume: displayVolume,
           potentialGain: Math.max(0, surplus),
           volumeWeightedScore: Math.max(0, surplus),
         };
@@ -2372,15 +2381,16 @@ export const generateMeetingAgendaData = (
       .sort((a, b) => b.volumeWeightedScore - a.volumeWeightedScore)
       .slice(0, 2);
 
-    // Needing: below target rate, ranked by absolute potential gain
+    // Needing: below target rate
     // When companyTarget is set, exclude destinations already meeting the target
+    // When rankByTrips, sort by trip volume (highest volume = biggest opportunity for lift)
     const needing = [...mapped]
       .filter(o => {
         if (o.potentialGain <= 0) return false;
         if (companyTarget != null && o.currentRate >= companyTarget) return false;
         return true;
       })
-      .sort((a, b) => b.potentialGain - a.potentialGain)
+      .sort((a, b) => rankByTrips ? b.volume - a.volume : b.potentialGain - a.potentialGain)
       .slice(0, 2);
 
     return { best, needing };
@@ -2454,8 +2464,8 @@ export const generateMeetingAgendaData = (
     }
 
     const tp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5, pQtd.overallTpRate);
-    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3, pQtd.overallPqRate, 65);
-    const hp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'hotPassRate', 'passthroughs', 'hotPasses', 3, pQtd.overallHotPassRate);
+    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3, pQtd.overallPqRate, { companyTarget: 65 });
+    const hp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'hotPassRate', 'passthroughs', 'hotPasses', 3, pQtd.overallHotPassRate, { companyTarget: 65, rankByTrips: true });
 
     perProgramOpportunities.push({
       program: pName,
@@ -2554,7 +2564,7 @@ export const generateMeetingAgendaData = (
   for (const r of prevPeriodPerformance.allRegions) {
     prevQtrLookupAll.set(r.region, { tpRate: r.tpRate, pqRate: r.pqRate, hotPassRate: r.hotPassRate });
   }
-  const hp = buildOpportunities(regionalPerformance.allRegions, prevQtrLookupAll, 'hotPassRate', 'passthroughs', 'hotPasses', 3, regionalPerformance.overallHotPassRate);
+  const hp = buildOpportunities(regionalPerformance.allRegions, prevQtrLookupAll, 'hotPassRate', 'passthroughs', 'hotPasses', 3, regionalPerformance.overallHotPassRate, { companyTarget: 65, rankByTrips: true });
 
   return {
     program,
