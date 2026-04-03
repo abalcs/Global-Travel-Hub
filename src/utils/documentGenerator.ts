@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import pptxgen from 'pptxgenjs';
 import { saveAs } from 'file-saver';
-import type { MeetingAgendaData, DestinationOpportunity, TopHotPassDestination } from './insightsAnalytics';
+import type { MeetingAgendaData, DestinationOpportunity, TopHotPassDestination, DepartmentSubRegionBreakdown } from './insightsAnalytics';
 
 // Re-export training generator functions
 export { generateDestinationTraining } from './trainingGenerator';
@@ -98,7 +98,7 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${data.date}`, margin + 5, yPos + 7.5);
   doc.text('Duration: 30 minutes', pageWidth / 2, yPos + 7.5, { align: 'center' });
-  doc.text(`QTD vs Prev Quarter`, pageWidth - margin - 5, yPos + 7.5, { align: 'right' });
+  doc.text(`${data.currentPeriodLabel} vs ${data.previousPeriodLabel}`, pageWidth - margin - 5, yPos + 7.5, { align: 'right' });
 
   yPos += 20;
 
@@ -294,18 +294,73 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     }
   };
 
-  // ===== PER-DEPT T>P and P>Q SECTIONS =====
+  // ===== PER-DEPT SECTIONS WITH SUB-REGION BREAKDOWNS =====
+  const periodComparison = `(${data.currentPeriodLabel} vs ${data.previousPeriodLabel})`;
   let sectionNum = 0;
+
+  // Helper to find sub-region breakdown for a program
+  const findSubRegionBreakdown = (programName: string): DepartmentSubRegionBreakdown | undefined =>
+    data.departmentSubRegions.find(d => d.program === programName);
+
   for (const po of data.perProgramOpportunities) {
+    // ---- Department Header Bar ----
+    checkPageBreak(60);
+    doc.setFillColor(77, 114, 109); // Audley Teal
+    doc.roundedRect(margin, yPos, contentWidth, 10, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont('times', 'bold');
+    doc.text(po.program, margin + 5, yPos + 7);
+    yPos += 16;
+
+    // ---- Sub-Region Breakdown Table ----
+    const breakdown = findSubRegionBreakdown(po.program);
+    if (breakdown && breakdown.subRegions.length > 0) {
+      doc.setTextColor(77, 114, 109);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Sub-Region Breakdown', margin, yPos);
+      yPos += 5;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Sub-Region', 'Trips', 'PTs', 'T>P Rate', 'HP Rate', 'P>Q Rate']],
+        body: breakdown.subRegions.map(sr => [
+          sr.subRegion,
+          sr.trips.toLocaleString(),
+          sr.passthroughs.toLocaleString(),
+          `${sr.tpRate.toFixed(1)}%`,
+          `${sr.hotPassRate.toFixed(1)}%`,
+          `${sr.pqRate.toFixed(1)}%`,
+        ]),
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, cellPadding: 2, lineColor: [229, 231, 235], lineWidth: 0.1 },
+        headStyles: { fillColor: [77, 114, 109], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { fontStyle: 'bold' },
+          1: { halign: 'center' },
+          2: { halign: 'center' },
+          3: { halign: 'center' },
+          4: { halign: 'center' },
+          5: { halign: 'center' },
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+      });
+      yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    }
+
+    // ---- T>P Performance ----
     sectionNum++;
     renderOpportunitySection(
-      sectionNum, `T>P Performance — ${po.program}`, '(QTD vs Prev Qtr)',
+      sectionNum, `T>P Performance — ${po.program}`, periodComparison,
       [77, 114, 109], // Audley Teal
       po.topBestTp, po.tpNeeding,
     );
+
+    // ---- P>Q Performance ----
     sectionNum++;
     renderOpportunitySection(
-      sectionNum, `P>Q Performance — ${po.program}`, '(QTD vs Prev Qtr)',
+      sectionNum, `P>Q Performance — ${po.program}`, periodComparison,
       [0, 123, 199], // Audley Blue
       po.topBestPq, po.pqNeeding,
     );
@@ -315,7 +370,7 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
   sectionNum++;
   if (data.hotPassOpportunities.length > 0) {
     renderOpportunitySection(
-      sectionNum, 'Hot Pass Performance (QTD vs Prev Quarter)', '(5 min)',
+      sectionNum, `Hot Pass Performance ${periodComparison}`, '(5 min)',
       [217, 119, 6], // Amber
       [], data.hotPassOpportunities,
     );

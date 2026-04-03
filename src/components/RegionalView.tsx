@@ -12,7 +12,9 @@ import {
   DESTINATION_TO_PROGRAM,
   DESTINATION_TO_SUBREGION,
   SUBREGION_MAP,
+  MEETING_TIMEFRAME_OPTIONS,
   type RegionalTimeframe,
+  type MeetingTimeframePair,
   type DepartmentRegionalPerformance,
   type AgentRegionalAnalysis,
   type DepartmentImprovementRecommendation,
@@ -87,6 +89,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   // Meeting agenda state
   const [showAgendaModal, setShowAgendaModal] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [meetingTimeframe, setMeetingTimeframe] = useState<MeetingTimeframePair>('thisQuarter');
   const [agendaData, setAgendaData] = useState<MeetingAgendaData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -183,7 +186,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
   const handleGenerateAgenda = () => {
     if (!selectedProgram) return;
 
-    const data = generateMeetingAgendaData(rawData, selectedProgram, regionalTimeframe);
+    const data = generateMeetingAgendaData(rawData, selectedProgram, meetingTimeframe);
     setAgendaData(data);
   };
 
@@ -1280,6 +1283,24 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                     </div>
                   </div>
 
+                  {/* Time Period Selector */}
+                  <div className="bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-xl p-5 border border-slate-600/50">
+                    <p className="font-medium text-white mb-3 flex items-center gap-2">
+                      <span className="text-lg">📅</span> Time Period to Compare
+                    </p>
+                    <select
+                      value={meetingTimeframe}
+                      onChange={(e) => setMeetingTimeframe(e.target.value as MeetingTimeframePair)}
+                      className="w-full bg-slate-800 border border-slate-600 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      {MEETING_TIMEFRAME_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label} vs {opt.prevLabel}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-xl p-5 border border-slate-600/50">
                     <p className="font-medium text-white mb-3 flex items-center gap-2">
                       <span className="text-lg">📋</span> Meeting Agenda (30 min)
@@ -1353,7 +1374,9 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                       </svg>
                     </div>
                     <h4 className="text-xl font-semibold text-white mb-1">Materials Ready!</h4>
-                    <p className="text-slate-400">Your meeting materials for <span className="text-indigo-400 font-medium">{selectedProgram}</span> are ready to download</p>
+                    <p className="text-slate-400">
+                      <span className="text-indigo-400 font-medium">{selectedProgram}</span> — {agendaData.currentPeriodLabel} vs {agendaData.previousPeriodLabel}
+                    </p>
                   </div>
 
                   {/* Stats Preview */}
@@ -1434,6 +1457,7 @@ export const RegionalView: React.FC<RegionalViewProps> = ({ rawData }) => {
                   onClick={() => {
                     setAgendaData(null);
                     setSelectedProgram('');
+                    setMeetingTimeframe('thisQuarter');
                   }}
                   className="px-4 py-2 text-slate-400 hover:text-white transition-colors text-sm"
                 >

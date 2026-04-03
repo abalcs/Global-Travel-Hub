@@ -146,7 +146,25 @@ export interface BookingCorrelation {
   description: string;
 }
 
-export type RegionalTimeframe = 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'lastYear' | 'all';
+export type RegionalTimeframe = 'lastWeek' | 'thisMonth' | 'lastMonth' | 'monthBeforeLast' | 'thisQuarter' | 'lastQuarter' | 'quarterBeforeLast' | 'lastYear' | 'all';
+
+export type MeetingTimeframePair = 'thisQuarter' | 'thisMonth' | 'lastMonth' | 'lastQuarter';
+
+export const MEETING_TIMEFRAME_OPTIONS: { value: MeetingTimeframePair; label: string; prevLabel: string }[] = [
+  { value: 'thisQuarter', label: 'This Quarter', prevLabel: 'Last Quarter' },
+  { value: 'thisMonth', label: 'This Month', prevLabel: 'Last Month' },
+  { value: 'lastMonth', label: 'Last Month', prevLabel: 'Month Before' },
+  { value: 'lastQuarter', label: 'Last Quarter', prevLabel: 'Quarter Before' },
+];
+
+export const getPreviousTimeframe = (current: MeetingTimeframePair): RegionalTimeframe => {
+  switch (current) {
+    case 'thisQuarter': return 'lastQuarter';
+    case 'thisMonth': return 'lastMonth';
+    case 'lastMonth': return 'monthBeforeLast';
+    case 'lastQuarter': return 'quarterBeforeLast';
+  }
+};
 
 export interface RegionalPerformance {
   region: string;
@@ -607,6 +625,22 @@ const getTimeframeRange = (timeframe: RegionalTimeframe): TimeframeRange => {
       const firstOfLastQuarter = new Date(lastQuarterYear, lastQuarter * 3, 1);
       const lastOfLastQuarter = new Date(lastQuarterYear, (lastQuarter + 1) * 3, 0, 23, 59, 59, 999);
       return { start: firstOfLastQuarter, end: lastOfLastQuarter };
+    }
+    case 'monthBeforeLast': {
+      // Month before last: 1st to last day of (current month - 2)
+      const firstOfMBL = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      const lastOfMBL = new Date(today.getFullYear(), today.getMonth() - 1, 0, 23, 59, 59, 999);
+      return { start: firstOfMBL, end: lastOfMBL };
+    }
+    case 'quarterBeforeLast': {
+      // Quarter before last: full quarter two quarters ago
+      const currentQ = Math.floor(today.getMonth() / 3);
+      const twoQuartersAgo = currentQ - 2;
+      const qblQuarter = ((twoQuartersAgo % 4) + 4) % 4;
+      const qblYear = twoQuartersAgo < 0 ? today.getFullYear() - 1 : today.getFullYear();
+      const firstOfQBL = new Date(qblYear, qblQuarter * 3, 1);
+      const lastOfQBL = new Date(qblYear, (qblQuarter + 1) * 3, 0, 23, 59, 59, 999);
+      return { start: firstOfQBL, end: lastOfQBL };
     }
     case 'lastYear': {
       // Last year: Jan 1 to Dec 31 of previous year
@@ -2194,6 +2228,22 @@ export interface TopHotPassDestination {
   program?: string;     // which dept, when multiple selected
 }
 
+export interface SubRegionMetrics {
+  subRegion: string;
+  trips: number;
+  passthroughs: number;
+  hotPasses: number;
+  quotes: number;
+  tpRate: number;
+  hotPassRate: number;
+  pqRate: number;
+}
+
+export interface DepartmentSubRegionBreakdown {
+  program: string;
+  subRegions: SubRegionMetrics[];
+}
+
 export interface MeetingAgendaData {
   program: string;
   date: string;
@@ -2201,6 +2251,9 @@ export interface MeetingAgendaData {
   topHotPassDestinations: TopHotPassDestination[];   // Top 4 by HP rate (fallback when no significant changes)
   perProgramOpportunities: ProgramOpportunities[];  // Per-dept T>P and P>Q top/bottom
   programStats: ProgramStats[];                     // Per-department breakdown when multiple selected
+  departmentSubRegions: DepartmentSubRegionBreakdown[];  // Sub-region breakdown per department
+  currentPeriodLabel: string;                        // e.g., "This Quarter"
+  previousPeriodLabel: string;                       // e.g., "Last Quarter"
   overallStats: {
     totalTrips: number;
     totalPassthroughs: number;
@@ -2213,7 +2266,7 @@ export interface MeetingAgendaData {
 export const generateMeetingAgendaData = (
   rawData: RawParsedData,
   program: string,
-  _timeframe: RegionalTimeframe = 'all'
+  timeframe: MeetingTimeframePair = 'thisQuarter'
 ): MeetingAgendaData | null => {
   // Filter data by all selected programs combined
   const filteredData = filterDataByProgram(rawData, program);
@@ -2223,10 +2276,16 @@ export const generateMeetingAgendaData = (
     return null;
   }
 
-  // Use QTD (thisQuarter) for current performance
-  const qtdTimeframe: RegionalTimeframe = 'thisQuarter';
+  // Get the current and previous timeframe based on selected meeting timeframe
+  const currentTimeframe: RegionalTimeframe = timeframe;
+  const previousTimeframe: RegionalTimeframe = getPreviousTimeframe(timeframe);
+  const tfOption = MEETING_TIMEFRAME_OPTIONS.find(o => o.value === timeframe);
+  const currentPeriodLabel = tfOption?.label ?? 'This Quarter';
+  const previousPeriodLabel = tfOption?.prevLabel ?? 'Last Quarter';
+
+  // Use selected timeframe for current performance
   const regionalPerformance = analyzeRegionalPerformance(
-    filteredData.trips, qtdTimeframe, filteredData.hotPass, filteredData.quotes, filteredData.passthroughs
+    filteredData.trips, currentTimeframe, filteredData.hotPass, filteredData.quotes, filteredData.passthroughs
   );
 
   if (regionalPerformance.allRegions.length === 0) {
@@ -2313,8 +2372,8 @@ export const generateMeetingAgendaData = (
     const pData = filterDataByProgram(rawData, pName);
     if (pData.trips.length === 0) continue;
 
-    const pQtd = analyzeRegionalPerformance(pData.trips, qtdTimeframe, pData.hotPass, pData.quotes, pData.passthroughs);
-    const pPrev = analyzeRegionalPerformance(pData.trips, 'lastQuarter', pData.hotPass, pData.quotes, pData.passthroughs);
+    const pQtd = analyzeRegionalPerformance(pData.trips, currentTimeframe, pData.hotPass, pData.quotes, pData.passthroughs);
+    const pPrev = analyzeRegionalPerformance(pData.trips, previousTimeframe, pData.hotPass, pData.quotes, pData.passthroughs);
 
     // Build prev quarter lookup for this program
     const pPrevLookup = new Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>();
@@ -2361,12 +2420,54 @@ export const generateMeetingAgendaData = (
   topHotPassDestinations.sort((a, b) => b.hotPassRate - a.hotPassRate);
   topHotPassDestinations.splice(4);
 
+  // Build sub-region breakdowns per department
+  const departmentSubRegions: DepartmentSubRegionBreakdown[] = [];
+  for (const pName of programNames) {
+    const subRegionDef = SUBREGION_MAP[pName];
+    if (!subRegionDef) continue;
+
+    // Find this program's QTD performance (already computed above in programStats loop)
+    const pData = filterDataByProgram(rawData, pName);
+    if (pData.trips.length === 0) continue;
+    const pQtd = analyzeRegionalPerformance(pData.trips, currentTimeframe, pData.hotPass, pData.quotes, pData.passthroughs);
+
+    // Aggregate destinations into sub-regions
+    const subRegionMetrics: SubRegionMetrics[] = [];
+    for (const [srName, destinations] of Object.entries(subRegionDef)) {
+      const destSet = new Set(destinations.map(d => d.toLowerCase()));
+      const matchingRegions = pQtd.allRegions.filter(r => destSet.has(r.region.toLowerCase()));
+
+      const trips = matchingRegions.reduce((sum, r) => sum + r.trips, 0);
+      const passthroughs = matchingRegions.reduce((sum, r) => sum + r.passthroughs, 0);
+      const hotPasses = matchingRegions.reduce((sum, r) => sum + r.hotPasses, 0);
+      const quotes = matchingRegions.reduce((sum, r) => sum + r.quotes, 0);
+
+      if (trips === 0 && passthroughs === 0) continue;
+
+      subRegionMetrics.push({
+        subRegion: srName,
+        trips,
+        passthroughs,
+        hotPasses,
+        quotes,
+        tpRate: trips > 0 ? (passthroughs / trips) * 100 : 0,
+        hotPassRate: passthroughs > 0 ? (hotPasses / passthroughs) * 100 : 0,
+        pqRate: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
+      });
+    }
+
+    departmentSubRegions.push({
+      program: pName,
+      subRegions: subRegionMetrics.sort((a, b) => b.trips - a.trips),
+    });
+  }
+
   // Hot pass opportunities across all selected programs combined
-  const prevQuarterPerformance = analyzeRegionalPerformance(
-    filteredData.trips, 'lastQuarter', filteredData.hotPass, filteredData.quotes, filteredData.passthroughs
+  const prevPeriodPerformance = analyzeRegionalPerformance(
+    filteredData.trips, previousTimeframe, filteredData.hotPass, filteredData.quotes, filteredData.passthroughs
   );
   const prevQtrLookupAll = new Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>();
-  for (const r of prevQuarterPerformance.allRegions) {
+  for (const r of prevPeriodPerformance.allRegions) {
     prevQtrLookupAll.set(r.region, { tpRate: r.tpRate, pqRate: r.pqRate, hotPassRate: r.hotPassRate });
   }
   const hp = buildOpportunities(regionalPerformance.allRegions, prevQtrLookupAll, 'hotPassRate', 'passthroughs', 'hotPasses', 3);
@@ -2383,6 +2484,9 @@ export const generateMeetingAgendaData = (
     topHotPassDestinations,
     perProgramOpportunities,
     programStats,
+    departmentSubRegions,
+    currentPeriodLabel,
+    previousPeriodLabel,
     overallStats: {
       totalTrips: regionalPerformance.totalTrips,
       totalPassthroughs: regionalPerformance.totalPassthroughs,

@@ -170,7 +170,7 @@ export const isDateInRange = (
  * Get the start and end dates for common timeframe options.
  */
 export const getTimeframeDates = (
-  timeframe: 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'lastYear' | 'all'
+  timeframe: 'lastWeek' | 'thisMonth' | 'lastMonth' | 'monthBeforeLast' | 'thisQuarter' | 'lastQuarter' | 'quarterBeforeLast' | 'lastYear' | 'all'
 ): { start: Date | null; end: Date | null } => {
   if (timeframe === 'all') {
     return { start: null, end: null };
@@ -213,6 +213,19 @@ export const getTimeframeDates = (
       const quarter = lastQuarter < 0 ? 3 : lastQuarter;
       start = new Date(year, quarter * 3, 1);
       end = new Date(year, quarter * 3 + 3, 0);
+      break;
+    }
+    case 'monthBeforeLast': {
+      start = new Date(currentYear, currentMonth - 2, 1);
+      end = new Date(currentYear, currentMonth - 1, 0);
+      break;
+    }
+    case 'quarterBeforeLast': {
+      const twoQuartersAgo = currentQuarter - 2;
+      const qblQuarter = ((twoQuartersAgo % 4) + 4) % 4;
+      const qblYear = twoQuartersAgo < 0 ? currentYear - 1 : currentYear;
+      start = new Date(qblYear, qblQuarter * 3, 1);
+      end = new Date(qblYear, qblQuarter * 3 + 3, 0);
       break;
     }
     case 'lastYear': {
