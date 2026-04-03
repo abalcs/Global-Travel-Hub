@@ -2294,7 +2294,10 @@ export const generateMeetingAgendaData = (
   }
 
   // Helper: build opportunity arrays ranked by potentialGain (quantitative impact)
-  // potentialGain = extra conversions if destination matched its prev quarter rate
+  // potentialGain = extra conversions if destination matched its target rate
+  // Target rate = max(prev period rate, department average rate) — this ensures
+  // high-volume destinations with below-average rates surface even if they didn't
+  // specifically decline from the previous period.
   const buildOpportunities = (
     qtdRegions: DepartmentRegionalPerformance['allRegions'],
     prevQtrLookup: Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>,
@@ -2302,17 +2305,18 @@ export const generateMeetingAgendaData = (
     volumeKey: 'trips' | 'passthroughs',
     outputKey: 'passthroughs' | 'quotes' | 'hotPasses',
     minVolume: number,
+    deptAvgRate: number,
   ): { best: DestinationOpportunity[]; needing: DestinationOpportunity[] } => {
     const mapped = qtdRegions
       .filter(r => r[volumeKey] >= minVolume)
       .map(r => {
         const prev = prevQtrLookup.get(r.region);
-        if (!prev) return null; // skip if no prev quarter data
-        const prevRate = prev[metricKey];
+        const prevRate = prev ? prev[metricKey] : 0;
         const deviation = r[metricKey] - prevRate;
-        // potentialGain: how many more conversions if we matched prev quarter rate
-        const potentialGain = Math.max(0, (prevRate / 100) * r[volumeKey] - r[outputKey]);
-        // Rank by potentialGain directly — this IS the quantitative materiality
+        // Use the higher of prev period rate and dept average as the benchmark
+        const targetRate = Math.max(prevRate, deptAvgRate);
+        // potentialGain: how many more conversions if destination matched the target rate
+        const potentialGain = Math.max(0, (targetRate / 100) * r[volumeKey] - r[outputKey]);
         return {
           region: r.region,
           currentRate: r[metricKey],
@@ -2325,37 +2329,37 @@ export const generateMeetingAgendaData = (
       })
       .filter((o): o is DestinationOpportunity => o !== null);
 
-    // Best: outperforming prev quarter, ranked by how much extra volume gained
-    // For "best" we compute gain in reverse: extra conversions above prev quarter expectation
+    // Best: outperforming both prev period and dept average, ranked by surplus volume
     const bestMapped = qtdRegions
       .filter(r => r[volumeKey] >= minVolume)
       .map(r => {
         const prev = prevQtrLookup.get(r.region);
-        if (!prev) return null;
-        const prevRate = prev[metricKey];
-        const deviation = r[metricKey] - prevRate;
+        const prevRate = prev ? prev[metricKey] : 0;
+        const targetRate = Math.max(prevRate, deptAvgRate);
+        const deviation = r[metricKey] - targetRate;
         if (deviation <= 0) return null;
-        // Surplus: how many MORE conversions vs what prev quarter rate would have predicted
-        const surplus = r[outputKey] - Math.max(0, (prevRate / 100) * r[volumeKey]);
+        // Surplus: how many MORE conversions vs what target rate would have predicted
+        const surplus = r[outputKey] - Math.max(0, (targetRate / 100) * r[volumeKey]);
         return {
           region: r.region,
           currentRate: r[metricKey],
           historicalRate: prevRate,
-          deviation,
+          deviation: r[metricKey] - prevRate,
           volume: r[volumeKey],
           potentialGain: Math.max(0, surplus),
           volumeWeightedScore: Math.max(0, surplus),
         };
       })
-      .filter((o): o is DestinationOpportunity => o !== null && o.deviation > 1);
+      .filter((o): o is DestinationOpportunity => o !== null && o.potentialGain > 0);
 
     const best = [...bestMapped]
       .sort((a, b) => b.volumeWeightedScore - a.volumeWeightedScore)
       .slice(0, 2);
 
-    // Needing: underperforming prev quarter, ranked by potential gain (biggest quantitative upside)
+    // Needing: below target rate (prev period OR dept average), ranked by absolute potential gain
+    // This surfaces high-volume destinations with below-average rates even if they didn't decline
     const needing = [...mapped]
-      .filter(o => o.deviation < -1)
+      .filter(o => o.potentialGain > 0)
       .sort((a, b) => b.potentialGain - a.potentialGain)
       .slice(0, 2);
 
@@ -2381,8 +2385,8 @@ export const generateMeetingAgendaData = (
       pPrevLookup.set(r.region, { tpRate: r.tpRate, pqRate: r.pqRate, hotPassRate: r.hotPassRate });
     }
 
-    const tp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5);
-    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3);
+    const tp = buildOpportunities(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5, pQtd.overallTpRate);
+    const pq = buildOpportunities(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3, pQtd.overallPqRate);
 
     perProgramOpportunities.push({
       program: pName,
@@ -2470,7 +2474,7 @@ export const generateMeetingAgendaData = (
   for (const r of prevPeriodPerformance.allRegions) {
     prevQtrLookupAll.set(r.region, { tpRate: r.tpRate, pqRate: r.pqRate, hotPassRate: r.hotPassRate });
   }
-  const hp = buildOpportunities(regionalPerformance.allRegions, prevQtrLookupAll, 'hotPassRate', 'passthroughs', 'hotPasses', 3);
+  const hp = buildOpportunities(regionalPerformance.allRegions, prevQtrLookupAll, 'hotPassRate', 'passthroughs', 'hotPasses', 3, regionalPerformance.overallHotPassRate);
 
   return {
     program,
