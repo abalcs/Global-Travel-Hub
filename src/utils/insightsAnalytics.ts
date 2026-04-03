@@ -2221,13 +2221,11 @@ export interface ProgramOpportunities {
   pqNeeding: DestinationOpportunity[];    // Top 2 needing improvement P>Q
 }
 
-// Per-department period-over-period trends (old comparison logic)
+// Per-department period-over-period trends (T>Q = quotes / trips)
 export interface ProgramTrends {
   program: string;
-  tpImproved: DestinationOpportunity[];   // Destinations where T>P rate improved vs prev period
-  tpDeclined: DestinationOpportunity[];   // Destinations where T>P rate declined vs prev period
-  pqImproved: DestinationOpportunity[];   // Destinations where P>Q improved
-  pqDeclined: DestinationOpportunity[];   // Destinations where P>Q declined
+  tqImproved: DestinationOpportunity[];   // Destinations where T>Q rate improved vs prev period
+  tqDeclined: DestinationOpportunity[];   // Destinations where T>Q rate declined vs prev period
 }
 
 export interface TopHotPassDestination {
@@ -2376,31 +2374,35 @@ export const generateMeetingAgendaData = (
     return { best, needing };
   };
 
-  // Build period-over-period trends (old comparison logic, no dept avg benchmark)
-  const buildTrends = (
+  // Build T>Q period-over-period trends (quotes / trips, no dept avg benchmark)
+  const buildTqTrends = (
     qtdRegions: DepartmentRegionalPerformance['allRegions'],
-    prevQtrLookup: Map<string, { tpRate: number; pqRate: number; hotPassRate: number }>,
-    metricKey: 'tpRate' | 'pqRate' | 'hotPassRate',
-    volumeKey: 'trips' | 'passthroughs',
-    outputKey: 'passthroughs' | 'quotes' | 'hotPasses',
+    prevRegions: DepartmentRegionalPerformance['allRegions'],
     minVolume: number,
   ): { improved: DestinationOpportunity[]; declined: DestinationOpportunity[] } => {
+    const prevLookup = new Map<string, { tqRate: number }>();
+    for (const r of prevRegions) {
+      const tqRate = r.trips > 0 ? (r.quotes / r.trips) * 100 : 0;
+      prevLookup.set(r.region, { tqRate });
+    }
+
     const entries = qtdRegions
-      .filter(r => r[volumeKey] >= minVolume)
+      .filter(r => r.trips >= minVolume)
       .map(r => {
-        const prev = prevQtrLookup.get(r.region);
-        const prevRate = prev ? prev[metricKey] : 0;
-        const deviation = r[metricKey] - prevRate;
-        // potentialGain for declined: volume lost if prev rate had been maintained
-        const potentialGain = Math.max(0, (prevRate / 100) * r[volumeKey] - r[outputKey]);
-        // surplus for improved: extra conversions vs what prev rate would have predicted
-        const surplus = r[outputKey] - Math.max(0, (prevRate / 100) * r[volumeKey]);
+        const currentTqRate = r.trips > 0 ? (r.quotes / r.trips) * 100 : 0;
+        const prev = prevLookup.get(r.region);
+        const prevRate = prev ? prev.tqRate : 0;
+        const deviation = currentTqRate - prevRate;
+        // potentialGain for declined: quotes lost if prev rate had been maintained
+        const potentialGain = Math.max(0, (prevRate / 100) * r.trips - r.quotes);
+        // surplus for improved: extra quotes vs what prev rate would have predicted
+        const surplus = r.quotes - Math.max(0, (prevRate / 100) * r.trips);
         return {
           region: r.region,
-          currentRate: r[metricKey],
+          currentRate: currentTqRate,
           historicalRate: prevRate,
           deviation,
-          volume: r[volumeKey],
+          volume: r.trips,
           potentialGain,
           volumeWeightedScore: Math.max(0, surplus),
         };
@@ -2450,16 +2452,13 @@ export const generateMeetingAgendaData = (
       pqNeeding: pq.needing,
     });
 
-    // Period-over-period trends for this department
-    const tpTrends = buildTrends(pQtd.allRegions, pPrevLookup, 'tpRate', 'trips', 'passthroughs', 5);
-    const pqTrends = buildTrends(pQtd.allRegions, pPrevLookup, 'pqRate', 'passthroughs', 'quotes', 3);
+    // Period-over-period T>Q trends for this department (quotes / trips)
+    const tqTrends = buildTqTrends(pQtd.allRegions, pPrev.allRegions, 5);
 
     perProgramTrends.push({
       program: pName,
-      tpImproved: tpTrends.improved,
-      tpDeclined: tpTrends.declined,
-      pqImproved: pqTrends.improved,
-      pqDeclined: pqTrends.declined,
+      tqImproved: tqTrends.improved,
+      tqDeclined: tqTrends.declined,
     });
 
     // Stats for overview slide (always build, even for single program)

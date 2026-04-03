@@ -435,20 +435,16 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
       doc.setTextColor(49, 49, 49); // Audley Charcoal
       doc.setFontSize(12);
       doc.setFont('times', 'bold');
-      doc.text(`${sectionNum}. Trends — ${po.program}`, margin + 8, yPos + 7);
+      doc.text(`${sectionNum}. T>Q Trends — ${po.program}`, margin + 8, yPos + 7);
       doc.setTextColor(100, 116, 139); // slate-500
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.text(periodComparison, pageWidth - margin, yPos + 7, { align: 'right' });
       yPos += 14;
 
-      // T>P Trends
-      renderTrendsTable('T>P Improving', [22, 163, 74], [22, 163, 74], trends.tpImproved, '+');
-      renderTrendsTable('T>P Declining', [220, 38, 38], [220, 38, 38], trends.tpDeclined, '-');
-
-      // P>Q Trends
-      renderTrendsTable('P>Q Improving', [22, 163, 74], [22, 163, 74], trends.pqImproved, '+');
-      renderTrendsTable('P>Q Declining', [220, 38, 38], [220, 38, 38], trends.pqDeclined, '-');
+      // T>Q Trends (quotes / trips)
+      renderTrendsTable('T>Q Improving', [22, 163, 74], [22, 163, 74], trends.tqImproved, '+');
+      renderTrendsTable('T>Q Declining', [220, 38, 38], [220, 38, 38], trends.tqDeclined, '-');
     }
   }
 
