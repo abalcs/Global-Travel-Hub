@@ -216,6 +216,12 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     doc.setFont('helvetica', 'normal');
     doc.text(`\u2022 ${bulletText}`, margin + 2, yPos);
     yPos += 5;
+
+    if (po.pqNeeding.length > 0) {
+      const pqTop = po.pqNeeding[0];
+      doc.text(`    \u2022 P>Q: ${pqTop.region} (${pqTop.currentRate.toFixed(1)}% on ${pqTop.volume} PTs, potential +${Math.round(pqTop.potentialGain)} quotes)`, margin + 6, yPos);
+      yPos += 5;
+    }
   }
   yPos += 4;
 
