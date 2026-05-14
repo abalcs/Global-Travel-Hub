@@ -144,6 +144,7 @@ export interface AppConfig {
   teams: Team[];
   seniors: string[];
   newHires: string[];
+  cascades?: string[];
   updatedAt?: string;
 }
 
@@ -171,6 +172,7 @@ export async function loadConfigFromFirestore(): Promise<AppConfig | null> {
         teams: data.teams || [],
         seniors: data.seniors || [],
         newHires: data.newHires || [],
+        cascades: data.cascades || [],
         updatedAt: data.updatedAt || null,
       };
     }

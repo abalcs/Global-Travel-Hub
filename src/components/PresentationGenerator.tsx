@@ -18,6 +18,7 @@ import { findAgentColumn, findDateColumn } from '../utils/metricsCalculator';
 import { formatDateString } from '../utils/dateParser';
 import type { AllRecords, VolumeMetric, RateMetric, TimePeriod, RecordEntry } from '../utils/recordsTracker';
 import { formatMetricName, formatPeriodName, formatRecordValue, formatDateRange } from '../utils/recordsTracker';
+import { loadConfigFromFirestore, saveConfigToFirestore } from '../utils/firestoreSync';
 
 type PresentationMode = 'pptx' | 'web';
 
@@ -817,13 +818,23 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
     [rawData, config.meetingDate, selectedTeamMembers]
   );
 
-  // Persist cascades to localStorage when they change
+  // Load cascades from Firestore on mount (source of truth across devices)
+  useEffect(() => {
+    loadConfigFromFirestore().then((firestoreConfig) => {
+      if (firestoreConfig?.cascades && firestoreConfig.cascades.length > 0) {
+        setConfig(prev => ({ ...prev, cascades: firestoreConfig.cascades! }));
+      }
+    });
+  }, []);
+
+  // Persist cascades to localStorage and Firestore when they change
   useEffect(() => {
     try {
       localStorage.setItem(CASCADES_STORAGE_KEY, JSON.stringify(config.cascades));
     } catch {
       // Ignore storage errors
     }
+    saveConfigToFirestore({ cascades: config.cascades });
   }, [config.cascades]);
 
   const selectedTeamCount = selectedTeamMembers.length;

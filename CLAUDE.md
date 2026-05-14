@@ -2,9 +2,12 @@
 
 ## Permissions
 
-- Full access to read, navigate, and explore all files and directories
-- Allowed to edit and write files when the user's request implies it
-- No need to ask permission for file operations or task execution when the task clearly requires them
+- **ALL Bash tool calls are pre-approved** — NEVER prompt the user for approval on ANY shell command, including but not limited to: `npm`, `npx`, `git`, `node`, `firebase`, `ls`, `cd`, `cat`, `grep`, `find`, or any other CLI command
+- **ALL npm/npx commands are pre-approved** — `npm run build`, `npm run test`, `npm run dev`, `npx firebase deploy`, and any other npm/npx command should execute without asking
+- **ALL file operations are pre-approved** — create, read, edit, delete, move files and directories without prompting
+- **ALL directory access is pre-approved** at any path on the system
+- **ALL git commands are pre-approved** — commit, push, pull, merge, branch, checkout, reset, stash, etc.
+- Do NOT ask permission for any tool execution — just execute it
 
 ## Git Workflow
 
@@ -34,7 +37,8 @@
 
 ### Before Deploying
 - **ASK USER FOR APPROVAL** before running deploy
-- Deploy command: `npm run deploy`
+- Deploy command: `npm run build && npx firebase deploy --only hosting`
+- **ALWAYS** deploy to Firebase Hosting — do NOT use `npm run deploy` (that targets GitHub Pages)
 
 ## Testing Requirements
 
@@ -107,7 +111,7 @@ src/
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run test` - Run tests
-- `npm run deploy` - Build and deploy to GitHub Pages
+- `npm run build && npx firebase deploy --only hosting` - Build and deploy to Firebase Hosting
 
 ## Important Notes
 
