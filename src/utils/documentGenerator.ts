@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import pptxgen from 'pptxgenjs';
 import { saveAs } from 'file-saver';
-import type { MeetingAgendaData, DestinationOpportunity, TopHotPassDestination, DepartmentSubRegionBreakdown, ProgramTrends } from './insightsAnalytics';
+import type { MeetingAgendaData, DestinationOpportunity, TopHotPassDestination, DepartmentSubRegionBreakdown } from './insightsAnalytics';
 
 // Re-export training generator functions
 export { generateDestinationTraining } from './trainingGenerator';
@@ -58,6 +58,13 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
       return true;
     }
     return false;
+  };
+
+  // Rate color helper — returns RGB tuple based on rate vs 65% target
+  const rateColor = (rate: number): [number, number, number] => {
+    if (rate >= 65) return [22, 163, 74];   // green
+    if (rate >= 55) return [217, 119, 6];   // amber
+    return [220, 38, 38];                   // red
   };
 
   // ===== HEADER =====
@@ -165,9 +172,52 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
         5: { halign: 'center' },
       },
       alternateRowStyles: { fillColor: [249, 250, 251] },
+      didParseCell: (hookData: { section: string; column: { index: number }; cell: { styles: { textColor: [number, number, number] | number | string | false }; raw: unknown } }) => {
+        if (hookData.section === 'body' && [3, 4, 5].includes(hookData.column.index)) {
+          const raw = String(hookData.cell.raw);
+          const num = parseFloat(raw.replace('%', ''));
+          if (!isNaN(num)) {
+            hookData.cell.styles.textColor = [...rateColor(num)];
+          }
+        }
+      },
     });
     yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   }
+
+  // ===== EXECUTIVE SUMMARY =====
+  checkPageBreak(30);
+  doc.setTextColor(77, 114, 109);
+  doc.setFontSize(11);
+  doc.setFont('times', 'bold');
+  doc.text('Executive Summary', margin, yPos);
+  yPos += 6;
+
+  for (const po of data.perProgramOpportunities) {
+    // Collect all needing-improvement opportunities across T>P, P>Q, HP
+    const allNeeding: { opp: DestinationOpportunity; metric: string; volumeUnit: string }[] = [];
+    for (const opp of po.tpNeeding) allNeeding.push({ opp, metric: 'T>P', volumeUnit: 'trips' });
+    for (const opp of po.pqNeeding) allNeeding.push({ opp, metric: 'P>Q', volumeUnit: 'PTs' });
+    for (const opp of po.hpNeeding) allNeeding.push({ opp, metric: 'HP', volumeUnit: 'trips' });
+
+    let bulletText: string;
+    if (allNeeding.length === 0) {
+      bulletText = `${po.program}: All metrics meeting targets`;
+    } else {
+      // Pick the top opportunity area (largest potentialGain)
+      const top = allNeeding.reduce((best, cur) =>
+        cur.opp.potentialGain > best.opp.potentialGain ? cur : best
+      );
+      bulletText = `${po.program}: ${top.opp.region} is the biggest opportunity (${top.metric} at ${top.opp.currentRate.toFixed(1)}% on ${top.opp.volume} ${top.volumeUnit})`;
+    }
+
+    doc.setTextColor(77, 114, 109);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`\u2022 ${bulletText}`, margin + 2, yPos);
+    yPos += 5;
+  }
+  yPos += 4;
 
   // Helper to render an opportunity section in PDF with best and needing improvement
   const renderOpportunitySection = (
@@ -177,6 +227,8 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     accentColor: [number, number, number],
     bestOpps: DestinationOpportunity[],
     needingOpps: DestinationOpportunity[],
+    volumeLabel: string,
+    gainLabel: string,
   ) => {
     checkPageBreak(50);
     doc.setFillColor(...accentColor);
@@ -207,33 +259,62 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
 
       autoTable(doc, {
         startY: yPos,
-        head: [['#', 'Destination', 'QTD', 'Prev Qtr', 'Gap', 'Volume', '+Gain']],
-        body: opps.map((opp, i) => [
-          `${i + 1}`, opp.region, `${opp.currentRate.toFixed(1)}%`, `${opp.historicalRate.toFixed(1)}%`,
-          `${Math.abs(opp.deviation).toFixed(1)}pp`, `${opp.volume}`, `+${Math.round(opp.potentialGain)}`,
-        ]),
+        head: [['#', 'Destination', data.currentPeriodLabel, data.previousPeriodLabel, 'Gap', volumeLabel, gainLabel, 'Trend']],
+        body: opps.map((opp, i) => {
+          const trendVal = opp.currentRate - opp.historicalRate;
+          const trendStr = trendVal >= 0
+            ? `+${trendVal.toFixed(1)}pp`
+            : `${trendVal.toFixed(1)}pp`;
+          return [
+            `${i + 1}`, opp.region, `${opp.currentRate.toFixed(1)}%`, `${opp.historicalRate.toFixed(1)}%`,
+            `${Math.abs(opp.deviation).toFixed(1)}pp`, `${opp.volume}`, `+${Math.round(opp.potentialGain)}`,
+            trendStr,
+          ];
+        }),
         margin: { left: margin, right: margin },
         styles: { fontSize: 9, cellPadding: 2, lineColor: [229, 231, 235], lineWidth: 0.1 },
         headStyles: { fillColor: headerBg, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
         columnStyles: {
           0: { halign: 'center', cellWidth: 8 },
           1: { fontStyle: 'bold' },
-          2: { halign: 'center', textColor: labelColor, fontStyle: 'bold' },
+          2: { halign: 'center', fontStyle: 'bold' },
           3: { halign: 'center' },
           4: { halign: 'center' },
           5: { halign: 'center' },
           6: { halign: 'center', textColor: accentColor, fontStyle: 'bold' },
+          7: { halign: 'center', fontStyle: 'bold' },
         },
         alternateRowStyles: { fillColor: [249, 250, 251] },
+        didParseCell: (hookData: { section: string; column: { index: number }; cell: { styles: { textColor: [number, number, number] | number | string | false }; raw: unknown } }) => {
+          if (hookData.section === 'body') {
+            // Color-code QTD rate cell (column 2)
+            if (hookData.column.index === 2) {
+              const raw = String(hookData.cell.raw);
+              const num = parseFloat(raw.replace('%', ''));
+              if (!isNaN(num)) {
+                hookData.cell.styles.textColor = [...rateColor(num)];
+              }
+            }
+            // Color-code Trend cell (column 7)
+            if (hookData.column.index === 7) {
+              const raw = String(hookData.cell.raw);
+              if (raw.startsWith('+')) {
+                hookData.cell.styles.textColor = [22, 163, 74]; // green
+              } else if (raw.startsWith('-')) {
+                hookData.cell.styles.textColor = [220, 38, 38]; // red
+              }
+            }
+          }
+        },
       });
       yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
     };
 
     // Top performing (outperforming prev quarter)
-    renderOppTable('Top Performing (vs Prev Quarter)', accentColor, accentColor, bestOpps);
+    renderOppTable(`Top Performing (vs ${data.previousPeriodLabel})`, accentColor, accentColor, bestOpps);
 
-    // Needing improvement (underperforming prev quarter)
-    renderOppTable('Opportunity Areas (vs Prev Quarter)', [220, 38, 38], [220, 38, 38], needingOpps);
+    // Needing improvement (underperforming previous period)
+    renderOppTable(`Opportunity Areas (vs ${data.previousPeriodLabel})`, [220, 38, 38], [220, 38, 38], needingOpps);
 
     if (bestOpps.length === 0 && needingOpps.length === 0) {
       doc.setTextColor(107, 114, 128);
@@ -252,56 +333,6 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
   // Helper to find sub-region breakdown for a program
   const findSubRegionBreakdown = (programName: string): DepartmentSubRegionBreakdown | undefined =>
     data.departmentSubRegions.find(d => d.program === programName);
-
-  // Helper to find trends data for a program
-  const findProgramTrends = (programName: string): ProgramTrends | undefined =>
-    data.perProgramTrends.find(t => t.program === programName);
-
-  // Helper to render a trends mini-table
-  const renderTrendsTable = (
-    label: string,
-    labelColor: [number, number, number],
-    headerBg: [number, number, number],
-    opps: DestinationOpportunity[],
-    changePrefix: string,
-  ) => {
-    doc.setTextColor(...labelColor);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, margin, yPos);
-    yPos += 6;
-
-    if (opps.length === 0) {
-      doc.setTextColor(107, 114, 128);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      doc.text('No significant changes', margin + 4, yPos);
-      yPos += 8;
-      return;
-    }
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Destination', 'Current', 'Prev', 'Change']],
-      body: opps.map(opp => [
-        opp.region,
-        `${opp.currentRate.toFixed(1)}%`,
-        `${opp.historicalRate.toFixed(1)}%`,
-        `${changePrefix}${Math.abs(opp.deviation).toFixed(1)}pp`,
-      ]),
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [229, 231, 235], lineWidth: 0.1 },
-      headStyles: { fillColor: headerBg, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-      columnStyles: {
-        0: { fontStyle: 'bold' },
-        1: { halign: 'center' },
-        2: { halign: 'center' },
-        3: { halign: 'center', textColor: labelColor, fontStyle: 'bold' },
-      },
-      alternateRowStyles: { fillColor: [249, 250, 251] },
-    });
-    yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-  };
 
   for (let i = 0; i < data.perProgramOpportunities.length; i++) {
     const po = data.perProgramOpportunities[i];
@@ -322,8 +353,28 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     doc.text(po.program, margin + 5, yPos + 7);
     yPos += 16;
 
-    // ---- Sub-Region Breakdown Table ----
+    // ---- Department Headline Stat ----
     const breakdown = findSubRegionBreakdown(po.program);
+    if (breakdown && breakdown.subRegions.length > 0) {
+      let belowTargetCount = 0;
+      let tripsAtRisk = 0;
+      for (const sr of breakdown.subRegions) {
+        if (sr.tpRate < 65 || sr.hotPassRate < 65 || sr.pqRate < 65) {
+          belowTargetCount++;
+          tripsAtRisk += sr.trips;
+        }
+      }
+      doc.setTextColor(128, 128, 128);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.text(
+        `${belowTargetCount} sub-region${belowTargetCount !== 1 ? 's' : ''} below 65% target | ${tripsAtRisk.toLocaleString()} total trips`,
+        margin, yPos,
+      );
+      yPos += 6;
+    }
+
+    // ---- Sub-Region Breakdown Table ----
     if (breakdown && breakdown.subRegions.length > 0) {
       doc.setTextColor(77, 114, 109);
       doc.setFontSize(10);
@@ -354,6 +405,15 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
           5: { halign: 'center' },
         },
         alternateRowStyles: { fillColor: [249, 250, 251] },
+        didParseCell: (hookData: { section: string; column: { index: number }; cell: { styles: { textColor: [number, number, number] | number | string | false }; raw: unknown } }) => {
+          if (hookData.section === 'body' && [3, 4, 5].includes(hookData.column.index)) {
+            const raw = String(hookData.cell.raw);
+            const num = parseFloat(raw.replace('%', ''));
+            if (!isNaN(num)) {
+              hookData.cell.styles.textColor = [...rateColor(num)];
+            }
+          }
+        },
       });
       yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
     }
@@ -361,101 +421,48 @@ export const generatePDFDocument = async (data: MeetingAgendaData): Promise<void
     // ---- T>P Performance ----
     sectionNum++;
     renderOpportunitySection(
-      sectionNum, `T>P Performance — ${po.program}`, periodComparison,
+      sectionNum, `T>P Performance \u2014 ${po.program}`, periodComparison,
       [77, 114, 109], // Audley Teal
       po.topBestTp, po.tpNeeding,
+      'Trips', '+PTs',
     );
 
     // ---- P>Q Performance ----
     sectionNum++;
     renderOpportunitySection(
-      sectionNum, `P>Q Performance — ${po.program}`, periodComparison,
+      sectionNum, `P>Q Performance \u2014 ${po.program}`, periodComparison,
       [0, 123, 199], // Audley Blue
       po.topBestPq, po.pqNeeding,
+      'PTs', '+Quotes',
     );
 
     // ---- Hot Pass Performance ----
     sectionNum++;
     renderOpportunitySection(
-      sectionNum, `Hot Pass Performance — ${po.program}`, periodComparison,
+      sectionNum, `Hot Pass Performance \u2014 ${po.program}`, periodComparison,
       [217, 119, 6], // Amber
       po.topBestHp, po.hpNeeding,
+      'Trips', '+HPs',
     );
 
-    // ---- Trends Section ----
-    const trends = findProgramTrends(po.program);
-    if (trends) {
-      sectionNum++;
-      checkPageBreak(50);
-
-      // Section header bar — purple/indigo accent
-      doc.setFillColor(99, 102, 241); // indigo-500
-      doc.rect(margin, yPos, 4, 10, 'F');
-      doc.setTextColor(49, 49, 49); // Audley Charcoal
-      doc.setFontSize(12);
-      doc.setFont('times', 'bold');
-      doc.text(`${sectionNum}. T>Q Trends — ${po.program}`, margin + 8, yPos + 7);
-      doc.setTextColor(100, 116, 139); // slate-500
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(periodComparison, pageWidth - margin, yPos + 7, { align: 'right' });
-      yPos += 14;
-
-      // T>Q Trends (quotes / trips)
-      renderTrendsTable('T>Q Improving', [22, 163, 74], [22, 163, 74], trends.tqImproved, '+');
-      renderTrendsTable('T>Q Declining', [220, 38, 38], [220, 38, 38], trends.tqDeclined, '-');
-    }
-  }
-
-  // ===== CAPACITY CONSTRAINTS =====
-  checkPageBreak(50);
-  doc.setFillColor(217, 119, 6); // Amber
-  doc.rect(margin, yPos, 4, 10, 'F');
-  doc.setTextColor(49, 49, 49); // Audley Charcoal
-  doc.setFontSize(12);
-  doc.setFont('times', 'bold');
-  sectionNum++;
-  doc.text(`${sectionNum}. Availability & Capacity Constraints`, margin + 8, yPos + 7);
-  doc.setTextColor(107, 114, 128);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('(5 min)', pageWidth - margin, yPos + 7, { align: 'right' });
-  yPos += 14;
-
-  // Discussion prompts
-  const capacityPrompts = [
-    'Any destinations with limited CS availability?',
-    'Upcoming blackout dates or seasonal constraints?',
-    'High-demand periods requiring extra support?',
-    'Supplier capacity issues to be aware of?',
-  ];
-
-  capacityPrompts.forEach((prompt) => {
-    checkPageBreak(10);
+    // ---- Discussion Points (replaces standalone Capacity Constraints) ----
+    checkPageBreak(22);
     doc.setFillColor(254, 243, 199); // Light amber
-    doc.roundedRect(margin, yPos, contentWidth, 8, 1, 1, 'F');
+    doc.roundedRect(margin, yPos, contentWidth, 18, 2, 2, 'F');
+    doc.setDrawColor(217, 119, 6);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, yPos, contentWidth, 18, 2, 2, 'S');
 
     doc.setTextColor(180, 83, 9);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Discussion Points', margin + 3, yPos + 4.5);
     doc.setFont('helvetica', 'normal');
-    doc.text(`• ${prompt}`, margin + 4, yPos + 5.5);
-
-    yPos += 10;
-  });
-
-  // Notes area
-  yPos += 4;
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(margin, yPos, contentWidth, 20, 2, 2, 'F');
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(margin, yPos, contentWidth, 20, 2, 2, 'S');
-  doc.setTextColor(148, 163, 184);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
-  doc.text('Notes:', margin + 3, yPos + 5);
-
-  yPos += 28;
+    doc.text('\u2022 CS availability constraints?', margin + 3, yPos + 9.5);
+    doc.text('\u2022 Seasonal capacity issues?', margin + 60, yPos + 9.5);
+    doc.text('\u2022 High-demand support needed?', margin + 115, yPos + 9.5);
+    yPos += 24;
+  }
 
   // ===== FOOTER =====
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -682,7 +689,7 @@ export const generatePowerPoint = async (data: MeetingAgendaData): Promise<void>
     slide.addShape('rect', { x: xStart, y: 1.5, w: halfW, h: 0.35, fill: { color: headerBgColor } });
     slide.addText('Destination', { x: xStart + 0.1, y: 1.52, w: 1.3, h: 0.3, fontSize: 10, color: 'FFFFFF', bold: true, fontFace: FONTS.body });
     slide.addText('QTD', { x: xStart + 1.4, y: 1.52, w: 0.65, h: 0.3, fontSize: 10, color: 'FFFFFF', bold: true, align: 'center', fontFace: FONTS.body });
-    slide.addText('Prev Qtr', { x: xStart + 2.05, y: 1.52, w: 0.75, h: 0.3, fontSize: 10, color: 'FFFFFF', bold: true, align: 'center', fontFace: FONTS.body });
+    slide.addText(data.previousPeriodLabel, { x: xStart + 2.05, y: 1.52, w: 0.75, h: 0.3, fontSize: 10, color: 'FFFFFF', bold: true, align: 'center', fontFace: FONTS.body });
     slide.addText('Vol', { x: xStart + 2.8, y: 1.52, w: 0.6, h: 0.3, fontSize: 10, color: 'FFFFFF', bold: true, align: 'center', fontFace: FONTS.body });
     slide.addText(gainLabel, { x: xStart + 3.4, y: 1.52, w: 0.8, h: 0.3, fontSize: 10, color: 'FFFFFF', bold: true, align: 'center', fontFace: FONTS.body });
 
@@ -716,11 +723,11 @@ export const generatePowerPoint = async (data: MeetingAgendaData): Promise<void>
     slide.background = { color: 'FFFFFF' };
     addSlideHeader(slide, title, subtitle);
 
-    // Left half: Top 2 Best (outperforming prev quarter)
-    renderOppHalf(slide, 0.5, 'Top Performing (vs Prev Qtr)', accentColor, accentColor, bestOpps, accentColor, '+Surplus');
+    // Left half: Top 2 Best (outperforming previous period)
+    renderOppHalf(slide, 0.5, `Top Performing (vs ${data.previousPeriodLabel})`, accentColor, accentColor, bestOpps, accentColor, '+Surplus');
 
-    // Right half: Top 2 Opportunity Areas (underperforming prev quarter)
-    renderOppHalf(slide, 5.2, 'Opportunity Areas (vs Prev Qtr)', 'DC2626', 'DC2626', needingOpps, 'DC2626', gainLabel);
+    // Right half: Top 2 Opportunity Areas (underperforming previous period)
+    renderOppHalf(slide, 5.2, `Opportunity Areas (vs ${data.previousPeriodLabel})`, 'DC2626', 'DC2626', needingOpps, 'DC2626', gainLabel);
 
     if (bestOpps.length === 0 && needingOpps.length === 0) {
       addEmptyStateMessage(slide, `No ${title.toLowerCase()} comparison data available.`);
@@ -789,13 +796,13 @@ export const generatePowerPoint = async (data: MeetingAgendaData): Promise<void>
   for (const po of data.perProgramOpportunities) {
     // T>P slide for this department — Audley teal
     addOpportunitySlide(
-      `T>P Performance — ${po.program}`, 'QTD vs Previous Quarter', '4D726D',
+      `T>P Performance — ${po.program}`, `${data.currentPeriodLabel} vs ${data.previousPeriodLabel}`, '4D726D',
       po.topBestTp, po.tpNeeding, '+PTs',
     );
 
     // P>Q slide for this department — Audley blue
     addOpportunitySlide(
-      `P>Q Performance — ${po.program}`, 'QTD vs Previous Quarter', '007BC7',
+      `P>Q Performance — ${po.program}`, `${data.currentPeriodLabel} vs ${data.previousPeriodLabel}`, '007BC7',
       po.topBestPq, po.pqNeeding, '+Quotes',
     );
   }
@@ -803,7 +810,7 @@ export const generatePowerPoint = async (data: MeetingAgendaData): Promise<void>
   // ===== HOT PASS SLIDE (combined) =====
   if (data.hotPassOpportunities.length > 0) {
     addOpportunitySlide(
-      'Hot Pass Performance', 'QTD vs Previous Quarter', 'D97706',
+      'Hot Pass Performance', `${data.currentPeriodLabel} vs ${data.previousPeriodLabel}`, 'D97706',
       [], data.hotPassOpportunities, '+HPs',
     );
   } else {

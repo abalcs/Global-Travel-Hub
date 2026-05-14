@@ -146,15 +146,17 @@ export interface BookingCorrelation {
   description: string;
 }
 
-export type RegionalTimeframe = 'lastWeek' | 'thisMonth' | 'lastMonth' | 'monthBeforeLast' | 'thisQuarter' | 'lastQuarter' | 'quarterBeforeLast' | 'lastYear' | 'all';
+export type RegionalTimeframe = 'lastWeek' | 'thisMonth' | 'lastMonth' | 'monthBeforeLast' | 'thisQuarter' | 'lastQuarter' | 'quarterBeforeLast' | 'sameQuarterLastYear' | 'lastQuarterLastYear' | 'lastYear' | 'all';
 
-export type MeetingTimeframePair = 'thisQuarter' | 'thisMonth' | 'lastMonth' | 'lastQuarter';
+export type MeetingTimeframePair = 'thisQuarter' | 'thisMonth' | 'lastMonth' | 'lastQuarter' | 'thisQuarterYoY' | 'lastQuarterYoY';
 
 export const MEETING_TIMEFRAME_OPTIONS: { value: MeetingTimeframePair; label: string; prevLabel: string }[] = [
   { value: 'thisQuarter', label: 'This Quarter', prevLabel: 'Last Quarter' },
   { value: 'thisMonth', label: 'This Month', prevLabel: 'Last Month' },
   { value: 'lastMonth', label: 'Last Month', prevLabel: 'Month Before' },
   { value: 'lastQuarter', label: 'Last Quarter', prevLabel: 'Quarter Before' },
+  { value: 'thisQuarterYoY', label: 'This Quarter', prevLabel: 'Same Quarter Last Year' },
+  { value: 'lastQuarterYoY', label: 'Last Quarter', prevLabel: 'Same Quarter Last Year' },
 ];
 
 export const getPreviousTimeframe = (current: MeetingTimeframePair): RegionalTimeframe => {
@@ -163,6 +165,17 @@ export const getPreviousTimeframe = (current: MeetingTimeframePair): RegionalTim
     case 'thisMonth': return 'lastMonth';
     case 'lastMonth': return 'monthBeforeLast';
     case 'lastQuarter': return 'quarterBeforeLast';
+    case 'thisQuarterYoY': return 'sameQuarterLastYear';
+    case 'lastQuarterYoY': return 'lastQuarterLastYear';
+  }
+};
+
+/** Map a MeetingTimeframePair to the RegionalTimeframe used for the "current" side of the comparison. */
+export const getCurrentTimeframe = (pair: MeetingTimeframePair): RegionalTimeframe => {
+  switch (pair) {
+    case 'thisQuarterYoY': return 'thisQuarter';
+    case 'lastQuarterYoY': return 'lastQuarter';
+    default: return pair;
   }
 };
 
@@ -641,6 +654,24 @@ const getTimeframeRange = (timeframe: RegionalTimeframe): TimeframeRange => {
       const firstOfQBL = new Date(qblYear, qblQuarter * 3, 1);
       const lastOfQBL = new Date(qblYear, (qblQuarter + 1) * 3, 0, 23, 59, 59, 999);
       return { start: firstOfQBL, end: lastOfQBL };
+    }
+    case 'sameQuarterLastYear': {
+      // Same quarter number as current, one year back (full quarter)
+      const sqCurrentQ = Math.floor(today.getMonth() / 3);
+      const sqYear = today.getFullYear() - 1;
+      const sqStart = new Date(sqYear, sqCurrentQ * 3, 1);
+      const sqEnd = new Date(sqYear, (sqCurrentQ + 1) * 3, 0, 23, 59, 59, 999);
+      return { start: sqStart, end: sqEnd };
+    }
+    case 'lastQuarterLastYear': {
+      // Same quarter number as last quarter, one year back
+      const lqCurrentQ = Math.floor(today.getMonth() / 3);
+      const lq = lqCurrentQ === 0 ? 3 : lqCurrentQ - 1;
+      // If current quarter is Q1, last quarter is Q4, so go back 2 years
+      const lqYear = lqCurrentQ === 0 ? today.getFullYear() - 2 : today.getFullYear() - 1;
+      const lqStart = new Date(lqYear, lq * 3, 1);
+      const lqEnd = new Date(lqYear, (lq + 1) * 3, 0, 23, 59, 59, 999);
+      return { start: lqStart, end: lqEnd };
     }
     case 'lastYear': {
       // Last year: Jan 1 to Dec 31 of previous year
@@ -2287,7 +2318,7 @@ export const generateMeetingAgendaData = (
   }
 
   // Get the current and previous timeframe based on selected meeting timeframe
-  const currentTimeframe: RegionalTimeframe = timeframe;
+  const currentTimeframe: RegionalTimeframe = getCurrentTimeframe(timeframe);
   const previousTimeframe: RegionalTimeframe = getPreviousTimeframe(timeframe);
   const tfOption = MEETING_TIMEFRAME_OPTIONS.find(o => o.value === timeframe);
   const currentPeriodLabel = tfOption?.label ?? 'This Quarter';

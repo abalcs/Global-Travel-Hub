@@ -170,7 +170,7 @@ export const isDateInRange = (
  * Get the start and end dates for common timeframe options.
  */
 export const getTimeframeDates = (
-  timeframe: 'lastWeek' | 'thisMonth' | 'lastMonth' | 'monthBeforeLast' | 'thisQuarter' | 'lastQuarter' | 'quarterBeforeLast' | 'lastYear' | 'all'
+  timeframe: 'lastWeek' | 'thisMonth' | 'lastMonth' | 'monthBeforeLast' | 'thisQuarter' | 'lastQuarter' | 'quarterBeforeLast' | 'sameQuarterLastYear' | 'lastQuarterLastYear' | 'lastYear' | 'all'
 ): { start: Date | null; end: Date | null } => {
   if (timeframe === 'all') {
     return { start: null, end: null };
@@ -226,6 +226,20 @@ export const getTimeframeDates = (
       const qblYear = twoQuartersAgo < 0 ? currentYear - 1 : currentYear;
       start = new Date(qblYear, qblQuarter * 3, 1);
       end = new Date(qblYear, qblQuarter * 3 + 3, 0);
+      break;
+    }
+    case 'sameQuarterLastYear': {
+      // Same quarter number as current, one year back (full quarter)
+      start = new Date(currentYear - 1, currentQuarter * 3, 1);
+      end = new Date(currentYear - 1, (currentQuarter + 1) * 3, 0);
+      break;
+    }
+    case 'lastQuarterLastYear': {
+      // Same quarter number as last quarter, one year back
+      const lq = currentQuarter === 0 ? 3 : currentQuarter - 1;
+      const lqYear = currentQuarter === 0 ? currentYear - 2 : currentYear - 1;
+      start = new Date(lqYear, lq * 3, 1);
+      end = new Date(lqYear, (lq + 1) * 3, 0);
       break;
     }
     case 'lastYear': {
