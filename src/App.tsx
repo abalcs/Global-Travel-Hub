@@ -24,8 +24,8 @@ import { getDb } from './firebase.config';
 import audleyLogo from './assets/audley-logo.png';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
 import type { CSVRow } from './utils/csvParser';
-import { saveTeams, saveSeniors, saveNewHires } from './utils/storage';
-import { type RawParsedData } from './utils/indexedDB';
+import { saveTeams, saveSeniors, saveNewHires, saveTams } from './utils/storage';
+import { type RawParsedData, type CrmParsedData } from './utils/indexedDB';
 import { saveRawDataToFirestore, loadConfigFromFirestore, saveConfigToFirestore } from './utils/firestoreSync';
 // firestoreService save calls removed — metrics/timeseries/summary are recalculated
 // from raw data on every load, so caching them in Firestore is unnecessary.
@@ -55,6 +55,8 @@ import {
 } from './utils/recordsTracker';
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
+import { parseCrmExcel, buildMetrics } from './utils/excelParser';
+import { TamView } from './components/TamView';
 
 /** Tag each row with its origin file so data doesn't get mixed up after storage */
 const tagRows = (rows: CSVRow[], source: string): CSVRow[] =>
@@ -153,15 +155,27 @@ function App() {
     quotesStarted: null,
   });
 
+  // New CRM Excel file state (replaces old 7-file CSV upload)
+  const [excelFiles, setExcelFiles] = useState<{
+    enquiries: File | null;
+    passthroughs: File | null;
+    quotes: File | null;
+    bookings: File | null;
+  }>({ enquiries: null, passthroughs: null, quotes: null, bookings: null });
+  const [excelProcessing, setExcelProcessing] = useState(false);
+  const [excelDateRange, setExcelDateRange] = useState<string>('');
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [seniors, setSeniors] = useState<string[]>([]);
   const [newHires, setNewHires] = useState<string[]>([]);
+  const [tams, setTams] = useState<string[]>([]);
   const [metrics, setMetrics] = useState<Metrics[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
-  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records'>(() => {
+  const [crmParsedData, setCrmParsedData] = useState<CrmParsedData | null>(null);
+  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
-    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records') {
+    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam') {
       return saved;
     }
     return 'summary'; // Show Summary by default
@@ -189,10 +203,21 @@ function App() {
   useEffect(() => {
     // Load config from Firestore (single source of truth)
     loadConfigFromFirestore().then((config) => {
-      if (config && (config.teams.length > 0 || config.seniors.length > 0 || config.newHires.length > 0)) {
-        setTeams(config.teams);
+      if (config && (config.teams.length > 0 || config.seniors.length > 0 || config.newHires.length > 0 || config.tams.length > 0)) {
+        // Remove agents no longer on the team
+        const removedAgents = ['Megan McNamara'];
+        const cleanedTeams = config.teams.map(t => ({
+          ...t,
+          agentNames: t.agentNames.filter(n => !removedAgents.includes(n)),
+        }));
+        setTeams(cleanedTeams);
         setSeniors(config.seniors);
         setNewHires(config.newHires);
+        setTams(config.tams);
+        // Persist cleaned teams back
+        if (JSON.stringify(cleanedTeams) !== JSON.stringify(config.teams)) {
+          saveConfigToFirestore({ teams: cleanedTeams }).catch(() => {});
+        }
       }
     }).catch((err) => {
       console.warn('[App] Firestore config load failed:', err);
@@ -345,6 +370,14 @@ function App() {
     );
   }, []);
 
+  const handleTamsChange = useCallback((updatedTams: string[]) => {
+    setTams(updatedTams);
+    saveTams(updatedTams);
+    saveConfigToFirestore({ tams: updatedTams }).catch(err =>
+      console.warn('[App] Firestore config save failed (non-critical):', err)
+    );
+  }, []);
+
   const handleFileSelect = useCallback(
     (type: keyof FileUploadState) => (file: File | null) => {
       setFiles((prev) => ({ ...prev, [type]: file }));
@@ -352,6 +385,62 @@ function App() {
     },
     []
   );
+
+  const handleExcelFileSelect = useCallback(
+    (type: keyof typeof excelFiles) => (file: File | null) => {
+      setExcelFiles((prev) => ({ ...prev, [type]: file }));
+      setError(null);
+    },
+    []
+  );
+
+  // Process new CRM Excel files into metrics
+  const processExcelFiles = useCallback(async () => {
+    if (!excelFiles.enquiries && !excelFiles.passthroughs && !excelFiles.quotes && !excelFiles.bookings) {
+      setError('Please upload at least one report file');
+      return;
+    }
+
+    setExcelProcessing(true);
+    setError(null);
+
+    try {
+      // Parse each uploaded Excel file
+      const enquiriesReport = excelFiles.enquiries
+        ? parseCrmExcel(await excelFiles.enquiries.arrayBuffer())
+        : null;
+      const ptReport = excelFiles.passthroughs
+        ? parseCrmExcel(await excelFiles.passthroughs.arrayBuffer())
+        : null;
+      const quotesReport = excelFiles.quotes
+        ? parseCrmExcel(await excelFiles.quotes.arrayBuffer())
+        : null;
+      const bookingsReport = excelFiles.bookings
+        ? parseCrmExcel(await excelFiles.bookings.arrayBuffer())
+        : null;
+
+      // Use the first available date range
+      const dateRange = enquiriesReport?.dateRange || ptReport?.dateRange || quotesReport?.dateRange || '';
+      if (dateRange) setExcelDateRange(dateRange);
+
+      // Store raw CRM rows for TAM analytics
+      setCrmParsedData({
+        enquiries: enquiriesReport?.rows ?? [],
+        passthroughs: ptReport?.rows ?? [],
+        quotes: quotesReport?.rows ?? [],
+        bookings: bookingsReport?.rows ?? [],
+      });
+
+      // Build unified metrics from all available reports
+      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
+      setMetrics(metricsData);
+      setShowDataPanel(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process Excel files');
+    } finally {
+      setExcelProcessing(false);
+    }
+  }, [excelFiles]);
 
   const processFiles = useCallback(async () => {
     const hasAllFiles = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted;
@@ -684,6 +773,7 @@ function App() {
   const hasStoredData = rawParsedData !== null;
   const canAnalyze = allFilesUploaded || hasStoredData;
   const requiredFilesCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted, files.quotesStarted].filter(Boolean).length;
+  const excelFilesCount = [excelFiles.enquiries, excelFiles.passthroughs, excelFiles.quotes, excelFiles.bookings].filter(Boolean).length;
 
   // Calculate date range from stored data
   const dataDateRange = useMemo(() => {
@@ -859,7 +949,7 @@ function App() {
         )}
 
         {/* Data Source Panel — HIDDEN when stored data exists, only shown when no data */}
-        {!hasStoredData && !dataLoadProgress.loading && (
+        {!hasStoredData && metrics.length === 0 && !dataLoadProgress.loading && (
           <div className="flex flex-col items-center gap-4 mb-4 animate-fadeIn">
             {/* Reload from Database button */}
             <button
@@ -882,7 +972,7 @@ function App() {
           </div>
         )}
 
-        {!hasStoredData && !dataLoadProgress.loading && (
+        {!dataLoadProgress.loading && (
           <div className={`backdrop-blur rounded-xl border mb-4 overflow-hidden transition-colors ${
             isAudley
               ? 'bg-white border-[#ede8e0] shadow-sm'
@@ -898,12 +988,12 @@ function App() {
                 <svg className={`w-5 h-5 ${isAudley ? 'text-[#c4956a]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Upload Data Files</span>
-                {requiredFilesCount > 0 && (
+                <span className={`font-medium ${isAudley ? 'text-[#0a1628]' : 'text-white'}`}>Upload CRM Reports</span>
+                {excelFilesCount > 0 && (
                   <span className={`px-2 py-0.5 rounded text-xs ${
                     isAudley ? 'bg-[#c4956a]/10 text-[#c4956a]' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {requiredFilesCount}/7 files
+                    {excelFilesCount}/4 files
                   </span>
                 )}
               </div>
@@ -929,84 +1019,63 @@ function App() {
                   isAudley ? 'border-[#ede8e0]' : 'border-[#2a3c5a]'
                 }`}>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <FileUpload
-                    label="Trips"
-                    file={files.trips}
-                    onFileSelect={handleFileSelect('trips')}
+                    label="Enquiries"
+                    file={excelFiles.enquiries}
+                    onFileSelect={handleExcelFileSelect('enquiries')}
                     color="blue"
-                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>}
-                  />
-                  <FileUpload
-                    label="Quotes"
-                    file={files.quotes}
-                    onFileSelect={handleFileSelect('quotes')}
-                    color="green"
-                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
                   />
                   <FileUpload
                     label="Passthroughs"
-                    file={files.passthroughs}
-                    onFileSelect={handleFileSelect('passthroughs')}
+                    file={excelFiles.passthroughs}
+                    onFileSelect={handleExcelFileSelect('passthroughs')}
                     color="purple"
                     icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>}
                   />
                   <FileUpload
-                    label="Hot Pass"
-                    file={files.hotPass}
-                    onFileSelect={handleFileSelect('hotPass')}
-                    color="orange"
-                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg>}
+                    label="Quotes"
+                    file={excelFiles.quotes}
+                    onFileSelect={handleExcelFileSelect('quotes')}
+                    color="green"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
                   />
                   <FileUpload
                     label="Bookings"
-                    file={files.bookings}
-                    onFileSelect={handleFileSelect('bookings')}
+                    file={excelFiles.bookings}
+                    onFileSelect={handleExcelFileSelect('bookings')}
                     color="cyan"
                     icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
                   />
-                  <FileUpload
-                    label="Non-Converted"
-                    file={files.nonConverted}
-                    onFileSelect={handleFileSelect('nonConverted')}
-                    color="rose"
-                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
-                  />
-                  <FileUpload
-                    label="Quotes Started"
-                    file={files.quotesStarted}
-                    onFileSelect={handleFileSelect('quotesStarted')}
-                    color="amber"
-                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
-                  />
                 </div>
 
-                {/* Analyze button when files uploaded manually */}
-                {allFilesUploaded && (
+                {/* Analyze button when at least one file is uploaded */}
+                {excelFilesCount > 0 && (
                   <div className="mt-4">
                     <button
-                      onClick={processFiles}
-                      disabled={isProcessing}
+                      onClick={processExcelFiles}
+                      disabled={excelProcessing}
                       className={`w-full px-4 py-3 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98] ${
                         isAudley
                           ? 'bg-gradient-to-r from-[#c4956a] to-[#007bc7] hover:from-[#b08055] hover:to-[#005a94] shadow-md shadow-[#c4956a]/20'
                           : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
                       }`}
                     >
-                      {isProcessing ? (
+                      {excelProcessing ? (
                         <>
                           <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          <span>{workerState.stage || 'Processing...'}</span>
+                          <span>Processing...</span>
                         </>
                       ) : (
                         <>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                           </svg>
-                          <span>Upload & Analyze</span>
+                          <span>Analyze Reports</span>
                         </>
                       )}
                     </button>
@@ -1059,11 +1128,12 @@ function App() {
           <nav className="flex gap-1 overflow-x-auto max-w-full scrollbar-hide" role="tablist">
             {[
               { value: 'summary', label: 'Summary', disabled: metrics.length === 0 },
-              { value: 'regional', label: 'Regional', disabled: metrics.length === 0 },
-              { value: 'channels', label: 'Channels', disabled: metrics.length === 0 },
-              { value: 'trends', label: 'Trends', disabled: false },
-              { value: 'insights', label: 'Insights', disabled: metrics.length === 0 },
-              { value: 'records', label: 'Records', disabled: false },
+              { value: 'regional', label: 'Regional', disabled: true },
+              { value: 'channels', label: 'Channels', disabled: true },
+              { value: 'trends', label: 'Trends', disabled: true },
+              { value: 'insights', label: 'Insights', disabled: true },
+              { value: 'records', label: 'Records', disabled: true },
+              { value: 'tam', label: 'TAM', disabled: !crmParsedData || tams.length === 0 },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -1071,6 +1141,7 @@ function App() {
                 aria-selected={activeView === tab.value}
                 disabled={tab.disabled}
                 onClick={() => setActiveView(tab.value as typeof activeView)}
+                title={tab.disabled && tab.value !== 'summary' ? (tab.value === 'tam' ? 'Upload CRM data and configure TAMs to enable' : 'Coming soon — rebuilding for new CRM') : undefined}
                 className={`px-4 py-2.5 text-xs font-semibold tracking-[0.1em] uppercase whitespace-nowrap transition-all cursor-pointer border-b-2 ${
                   activeView === tab.value
                     ? isAudley
@@ -1099,6 +1170,17 @@ function App() {
           {/* Summary View */}
           {activeView === 'summary' && metrics.length > 0 && (
             <div className="space-y-4">
+              {/* Report date range banner */}
+              {excelDateRange && (
+                <div className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${
+                  isAudley ? 'bg-[#faf8f5] text-[#4a4a4a] border border-[#ede8e0]' : 'bg-slate-800/50 text-slate-400 border border-slate-700'
+                }`}>
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Report period: {excelDateRange}
+                </div>
+              )}
               <TeamComparison
                 metrics={metrics}
                 teams={teams}
@@ -1112,7 +1194,7 @@ function App() {
                 onApplyDateRange={handleApplyDateRange}
                 onClearDateRange={handleClearDateRange}
               />
-              <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} />
+              <ResultsTable metrics={metrics} teams={teams} seniors={seniors} newHires={newHires} tams={tams} />
             </div>
           )}
 
@@ -1139,6 +1221,11 @@ function App() {
           {/* Records View */}
           {activeView === 'records' && (
             <RecordsView records={records} teams={teams} onClearRecords={handleClearRecords} />
+          )}
+
+          {/* TAM View */}
+          {activeView === 'tam' && crmParsedData && (
+            <TamView crmData={crmParsedData} tams={tams} metrics={metrics} />
           )}
         </div>
 
@@ -1186,6 +1273,9 @@ function App() {
                   <span className={`px-1.5 py-0.5 rounded text-xs ${
                     isAudley ? 'bg-sky-100 text-sky-700' : 'bg-sky-500/20 text-sky-400'
                   }`}>{newHires.length}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${
+                    isAudley ? 'bg-purple-100 text-purple-700' : 'bg-purple-500/20 text-purple-400'
+                  }`}>{tams.length}</span>
                 </div>
                 <button
                   onClick={() => setConfigOpen(false)}
@@ -1207,6 +1297,8 @@ function App() {
                   onSeniorsChange={handleSeniorsChange}
                   newHires={newHires}
                   onNewHiresChange={handleNewHiresChange}
+                  tams={tams}
+                  onTamsChange={handleTamsChange}
                   availableAgents={allAgentNames}
                 />
               </div>

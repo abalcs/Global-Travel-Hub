@@ -1,4 +1,12 @@
 import type { CSVRow } from './csvParser';
+import type { CrmRow } from './excelParser';
+
+export interface CrmParsedData {
+  enquiries: CrmRow[];
+  passthroughs: CrmRow[];
+  quotes: CrmRow[];
+  bookings: CrmRow[];
+}
 
 export interface RawParsedData {
   trips: CSVRow[];
