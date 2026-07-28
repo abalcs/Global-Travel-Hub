@@ -73,12 +73,12 @@ export function computeTamScorecard(
 
   const tamEnq = data.enquiries.filter(isB2B).filter(r => tamSet.has(r.agentName.toLowerCase()));
   const tamPt = data.passthroughs.filter(isB2B).filter(r => tamSet.has(r.agentName.toLowerCase()));
-  const tamQt = data.quotes.filter(isB2B).filter(r => tamSet.has(r.agentName.toLowerCase()));
+  const tamQt = data.quotes.filter(isB2B).filter(r => tamSet.has(r.agentName.toLowerCase()) && r.tripRef.trim());
   const tamBk = data.bookings.filter(isB2B).filter(r => tamSet.has(r.agentName.toLowerCase()));
 
   const nonTamEnq = data.enquiries.filter(isB2B).filter(r => !tamSet.has(r.agentName.toLowerCase()));
   const nonTamPt = data.passthroughs.filter(isB2B).filter(r => !tamSet.has(r.agentName.toLowerCase()));
-  const nonTamQt = data.quotes.filter(isB2B).filter(r => !tamSet.has(r.agentName.toLowerCase()));
+  const nonTamQt = data.quotes.filter(isB2B).filter(r => !tamSet.has(r.agentName.toLowerCase()) && r.tripRef.trim());
   const nonTamBk = data.bookings.filter(isB2B).filter(r => !tamSet.has(r.agentName.toLowerCase()));
 
   return {
@@ -180,7 +180,7 @@ export function computeFunnelData(
 ): FunnelData {
   const enqCount = filterRows(data.enquiries, tams, agentFilter).length;
   const ptCount = filterRows(data.passthroughs, tams, agentFilter).length;
-  const qtCount = filterRows(data.quotes, tams, agentFilter).length;
+  const qtCount = filterRows(data.quotes, tams, agentFilter).filter(r => r.tripRef.trim()).length;
   const bkCount = filterRows(data.bookings, tams, agentFilter).length;
 
   const stages: FunnelStage[] = [
@@ -233,7 +233,7 @@ export function computeDestinationPerformance(
 ): DestinationPerformance[] {
   const enqRows = filterRows(data.enquiries, tams, agentFilter);
   const ptRows = filterRows(data.passthroughs, tams, agentFilter);
-  const qtRows = filterRows(data.quotes, tams, agentFilter);
+  const qtRows = filterRows(data.quotes, tams, agentFilter).filter(r => r.tripRef.trim());
   const bkRows = filterRows(data.bookings, tams, agentFilter);
 
   const destMap = new Map<string, {
@@ -293,7 +293,7 @@ export function computeTamLeaderboard(
 ): TamAgentStats[] {
   const enqRows = filterRows(data.enquiries, tams, agentFilter);
   const ptRows = filterRows(data.passthroughs, tams, agentFilter);
-  const qtRows = filterRows(data.quotes, tams, agentFilter);
+  const qtRows = filterRows(data.quotes, tams, agentFilter).filter(r => r.tripRef.trim());
   const bkRows = filterRows(data.bookings, tams, agentFilter);
 
   const agentMap = new Map<string, {
@@ -412,4 +412,184 @@ export function computeVelocityData(
     .sort((a, b) => a.avgCycleTime - b.avgCycleTime);
 
   return { overallAvgCycleTime, totalDeals, byAgent, byDestination };
+}
+
+// ── 7. Partner Intelligence ──────────────────────────────────────────
+
+export interface PartnerStats {
+  partnerName: string;
+  assignedTam: string;
+  enquiries: number;
+  passthroughs: number;
+  quotes: number;
+  bookings: number;
+  revenue: number;
+  destinations: string[];
+  funnelStatus: 'booked' | 'quoting' | 'progressing' | 'stalled';
+}
+
+export interface PartnerConcentration {
+  tamName: string;
+  partnerCount: number;
+  totalEnquiries: number;
+  totalBookings: number;
+  totalRevenue: number;
+}
+
+export interface PartnerIntelligenceData {
+  totalPartners: number;
+  activePartners: number;
+  stalledPartners: number;
+  bookedPartners: number;
+  partners: PartnerStats[];
+  concentration: PartnerConcentration[];
+  stalledList: PartnerStats[];
+}
+
+export function computePartnerIntelligence(
+  data: CrmParsedData,
+  tams: string[],
+  agentFilter: 'tams' | 'all' = 'tams',
+): PartnerIntelligenceData {
+  // Gather B2B rows with non-empty travelAgentName from each report
+  const enqRows = filterRows(data.enquiries, tams, agentFilter).filter(r => r.travelAgentName.trim());
+  const ptRows = filterRows(data.passthroughs, tams, agentFilter).filter(r => r.travelAgentName.trim());
+  const qtRows = filterRows(data.quotes, tams, agentFilter).filter(r => r.travelAgentName.trim() && r.tripRef.trim());
+  const bkRows = filterRows(data.bookings, tams, agentFilter).filter(r => r.travelAgentName.trim());
+
+  // Group by partner name (case-insensitive)
+  const partnerMap = new Map<string, {
+    displayName: string;
+    agentCounts: Map<string, number>;
+    enquiries: number;
+    passthroughs: number;
+    quotes: number;
+    bookings: number;
+    revenue: number;
+    destinations: Set<string>;
+  }>();
+
+  const ensure = (name: string) => {
+    const key = name.toLowerCase();
+    if (!partnerMap.has(key)) {
+      partnerMap.set(key, {
+        displayName: name,
+        agentCounts: new Map(),
+        enquiries: 0,
+        passthroughs: 0,
+        quotes: 0,
+        bookings: 0,
+        revenue: 0,
+        destinations: new Set(),
+      });
+    }
+    return partnerMap.get(key)!;
+  };
+
+  const trackAgent = (entry: ReturnType<typeof ensure>, agentName: string) => {
+    entry.agentCounts.set(agentName, (entry.agentCounts.get(agentName) || 0) + 1);
+  };
+
+  const trackDest = (entry: ReturnType<typeof ensure>, dest: string) => {
+    if (dest) entry.destinations.add(dest);
+  };
+
+  for (const r of enqRows) {
+    const entry = ensure(r.travelAgentName);
+    entry.enquiries++;
+    trackAgent(entry, r.agentName);
+    trackDest(entry, r.destination);
+  }
+  for (const r of ptRows) {
+    const entry = ensure(r.travelAgentName);
+    entry.passthroughs++;
+    trackAgent(entry, r.agentName);
+    trackDest(entry, r.destination);
+  }
+  for (const r of qtRows) {
+    const entry = ensure(r.travelAgentName);
+    entry.quotes++;
+    trackAgent(entry, r.agentName);
+    trackDest(entry, r.destination);
+  }
+  for (const r of bkRows) {
+    const entry = ensure(r.travelAgentName);
+    entry.bookings++;
+    entry.revenue += r.totalAmountBCY;
+    trackAgent(entry, r.agentName);
+    trackDest(entry, r.destination);
+  }
+
+  // Build PartnerStats
+  const partners: PartnerStats[] = Array.from(partnerMap.values()).map(p => {
+    // Assigned TAM = most frequent agentName
+    let assignedTam = '';
+    let maxCount = 0;
+    for (const [agent, count] of p.agentCounts) {
+      if (count > maxCount) {
+        maxCount = count;
+        assignedTam = agent;
+      }
+    }
+
+    const funnelStatus: PartnerStats['funnelStatus'] =
+      p.bookings > 0 ? 'booked' :
+      p.quotes > 0 ? 'quoting' :
+      p.passthroughs > 0 ? 'progressing' :
+      'stalled';
+
+    return {
+      partnerName: p.displayName,
+      assignedTam,
+      enquiries: p.enquiries,
+      passthroughs: p.passthroughs,
+      quotes: p.quotes,
+      bookings: p.bookings,
+      revenue: p.revenue,
+      destinations: Array.from(p.destinations).slice(0, 3),
+      funnelStatus,
+    };
+  }).sort((a, b) => b.enquiries - a.enquiries);
+
+  const stalledList = partners.filter(p => p.funnelStatus === 'stalled');
+
+  // TAM portfolio concentration
+  const tamMap = new Map<string, {
+    partnerNames: Set<string>;
+    totalEnquiries: number;
+    totalBookings: number;
+    totalRevenue: number;
+  }>();
+
+  for (const p of partners) {
+    if (!p.assignedTam) continue;
+    if (!tamMap.has(p.assignedTam)) {
+      tamMap.set(p.assignedTam, { partnerNames: new Set(), totalEnquiries: 0, totalBookings: 0, totalRevenue: 0 });
+    }
+    const t = tamMap.get(p.assignedTam)!;
+    t.partnerNames.add(p.partnerName);
+    t.totalEnquiries += p.enquiries;
+    t.totalBookings += p.bookings;
+    t.totalRevenue += p.revenue;
+  }
+
+  const concentration: PartnerConcentration[] = Array.from(tamMap.entries())
+    .map(([tamName, t]) => ({
+      tamName,
+      partnerCount: t.partnerNames.size,
+      totalEnquiries: t.totalEnquiries,
+      totalBookings: t.totalBookings,
+      totalRevenue: t.totalRevenue,
+    }))
+    .sort((a, b) => b.totalEnquiries - a.totalEnquiries);
+
+  return {
+    totalPartners: partners.length,
+    activePartners: partners.filter(p => p.passthroughs > 0).length,
+    stalledPartners: stalledList.length,
+    bookedPartners: partners.filter(p => p.bookings > 0).length,
+    partners,
+    concentration,
+    stalledList,
+  };
 }

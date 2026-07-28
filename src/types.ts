@@ -19,6 +19,7 @@ export interface Metrics {
   agentName: string;
   trips: number;
   quotes: number;
+  quotesWithTripRef: number;
   passthroughs: number;
   hotPasses: number;
   bookings: number;
@@ -27,20 +28,30 @@ export interface Metrics {
   quotesFromTrips: number;
   passthroughsFromTrips: number;
   quotesFromPassthroughs: number;
+  bookingsFromEnquiries: number;
   hotPassRate: number;
   nonConvertedRate: number;
   // Repeat client metrics
   repeatTrips: number;
   repeatPassthroughs: number;
   repeatTpRate: number;
+  repeatQuotes: number;
+  repeatQuotesWithTripRef: number;
+  repeatBookings: number;
   // Prospect client metrics (derived: total - repeat)
   prospectTrips: number;
   prospectPassthroughs: number;
   prospectTpRate: number;
+  prospectQuotes: number;
+  prospectQuotesWithTripRef: number;
+  prospectBookings: number;
   // B2B metrics
   b2bTrips: number;
   b2bPassthroughs: number;
   b2bTpRate: number;
+  b2bQuotes: number;
+  b2bQuotesWithTripRef: number;
+  b2bBookings: number;
   // Quotes started metrics
   quotesStarted: number;
   potentialTQ: number;

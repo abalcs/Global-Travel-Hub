@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { TamView } from './TamView';
 import type { CrmParsedData } from '../utils/indexedDB';
 import type { CrmRow } from '../utils/excelParser';
-import type { Metrics } from '../types';
 import { ThemeProvider } from '../contexts/ThemeContext';
 
 // Mock Recharts to avoid rendering issues in test environment
@@ -40,6 +39,7 @@ function makeCrmRow(overrides: Partial<CrmRow> = {}): CrmRow {
     dropoutReason: '',
     dropoutStage: '',
     dropoutNotes: '',
+    travelAgentName: '',
     ...overrides,
   };
 }
@@ -69,30 +69,28 @@ const sampleCrmData: CrmParsedData = {
   ],
 };
 
-const mockMetrics: Metrics[] = [];
-
 const renderWithTheme = (ui: React.ReactElement) =>
   render(<ThemeProvider>{ui}</ThemeProvider>);
 
 describe('TamView', () => {
   it('renders empty state when no TAMs configured', () => {
-    renderWithTheme(<TamView crmData={sampleCrmData} tams={[]} metrics={mockMetrics} />);
+    renderWithTheme(<TamView crmData={sampleCrmData} tams={[]} />);
     expect(screen.getByText('No TAM agents configured')).toBeTruthy();
   });
 
   it('renders empty state when no B2B data', () => {
-    renderWithTheme(<TamView crmData={emptyCrmData} tams={['Alice']} metrics={mockMetrics} />);
+    renderWithTheme(<TamView crmData={emptyCrmData} tams={['Alice']} />);
     expect(screen.getByText('No B2B data found')).toBeTruthy();
   });
 
   it('renders scorecard when B2B data and TAMs exist', () => {
-    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} metrics={mockMetrics} />);
+    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} />);
     expect(screen.getByText('B2B Scorecard')).toBeTruthy();
     expect(screen.getByText('TAM Analytics')).toBeTruthy();
   });
 
   it('renders all 6 sections with data', () => {
-    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} metrics={mockMetrics} />);
+    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} />);
     expect(screen.getByText('B2B Scorecard')).toBeTruthy();
     expect(screen.getByText('B2B Revenue')).toBeTruthy();
     expect(screen.getByText('B2B Conversion Funnel')).toBeTruthy();
@@ -104,15 +102,42 @@ describe('TamView', () => {
   it('renders with Audley theme', () => {
     // Set theme to audley via localStorage
     localStorage.setItem('gtt-theme-preference', 'audley');
-    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} metrics={mockMetrics} />);
+    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} />);
     expect(screen.getByText('TAM Analytics')).toBeTruthy();
     localStorage.removeItem('gtt-theme-preference');
   });
 
   it('renders with default (dark) theme', () => {
     localStorage.setItem('gtt-theme-preference', 'default');
-    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} metrics={mockMetrics} />);
+    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} />);
     expect(screen.getByText('TAM Analytics')).toBeTruthy();
     localStorage.removeItem('gtt-theme-preference');
+  });
+
+  it('renders Partner Intelligence section when travel agent data exists', () => {
+    const dataWithPartners: CrmParsedData = {
+      enquiries: [
+        makeCrmRow({ agentName: 'Alice', destination: 'Italy', travelAgentName: 'Acme Travel' }),
+        makeCrmRow({ agentName: 'Alice', destination: 'France', travelAgentName: 'Acme Travel' }),
+        makeCrmRow({ agentName: 'Bob', destination: 'Spain', travelAgentName: 'Best Tours' }),
+      ],
+      passthroughs: [
+        makeCrmRow({ agentName: 'Alice', destination: 'Italy', travelAgentName: 'Acme Travel' }),
+      ],
+      quotes: [
+        makeCrmRow({ agentName: 'Alice', destination: 'Italy', travelAgentName: 'Acme Travel' }),
+      ],
+      bookings: [
+        makeCrmRow({ agentName: 'Alice', destination: 'Italy', totalAmountBCY: 5000, timeTaken: 14, travelAgentName: 'Acme Travel' }),
+      ],
+    };
+    renderWithTheme(<TamView crmData={dataWithPartners} tams={['Alice', 'Bob']} />);
+    expect(screen.getByText('Partner Intelligence')).toBeTruthy();
+    expect(screen.getByText('Acme Travel')).toBeTruthy();
+  });
+
+  it('does not show Partner Intelligence when no travel agent data', () => {
+    renderWithTheme(<TamView crmData={sampleCrmData} tams={['Alice', 'Bob']} />);
+    expect(screen.queryByText('Partner Intelligence')).toBeNull();
   });
 });

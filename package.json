@@ -16,11 +16,13 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "@stdlib/stats-pcorrtest": "^0.2.3",
     "file-saver": "^2.0.5",
     "firebase": "^12.9.0",
     "framer-motion": "^12.29.0",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
+    "jstat": "^1.9.6",
     "pptxgenjs": "^4.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext';
 import type { CrmParsedData } from '../utils/indexedDB';
-import type { Metrics } from '../types';
 import {
   computeTamScorecard,
   computeRevenueAnalytics,
@@ -10,25 +9,25 @@ import {
   computeDestinationPerformance,
   computeTamLeaderboard,
   computeVelocityData,
+  computePartnerIntelligence,
   type ScorecardMetrics,
   type TamAgentStats,
   type DestinationPerformance as DestPerf,
+  type PartnerStats,
 } from '../utils/tamAnalytics';
+import { filterCrmDataByDate, getCrmDateExtent } from '../utils/excelParser';
+import { DateRangeFilter } from './DateRangeFilter';
 
 interface TamViewProps {
   crmData: CrmParsedData;
   tams: string[];
-  metrics: Metrics[];
 }
 
 type SortKey = keyof TamAgentStats;
 type DestSortKey = keyof DestPerf;
+type PartnerSortKey = 'partnerName' | 'assignedTam' | 'enquiries' | 'passthroughs' | 'quotes' | 'bookings' | 'revenue';
 
-const formatCurrency = (val: number): string => {
-  if (val >= 1_000_000) return `£${(val / 1_000_000).toFixed(1)}M`;
-  if (val >= 1_000) return `£${(val / 1_000).toFixed(0)}k`;
-  return `£${val.toFixed(0)}`;
-};
+const FALLBACK_GBP_USD = 1.27;
 
 const formatDays = (val: number): string => {
   if (val === 0) return '—';
@@ -38,16 +37,85 @@ const formatDays = (val: number): string => {
 export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
   const { isAudley } = useTheme();
   const [agentFilter, setAgentFilter] = useState<'tams' | 'all'>('tams');
+  const [gbpToUsd, setGbpToUsd] = useState(FALLBACK_GBP_USD);
+  const [rateSource, setRateSource] = useState<'loading' | 'live' | 'fallback'>('loading');
+
+  useEffect(() => {
+    const cached = sessionStorage.getItem('gbp-usd-rate');
+    if (cached) {
+      const { rate, ts } = JSON.parse(cached);
+      // Use cache if less than 1 hour old
+      if (Date.now() - ts < 3_600_000) {
+        setGbpToUsd(rate);
+        setRateSource('live');
+        return;
+      }
+    }
+    fetch('https://api.frankfurter.app/latest?from=GBP&to=USD')
+      .then(res => res.json())
+      .then(data => {
+        const rate = data.rates?.USD;
+        if (rate && typeof rate === 'number') {
+          setGbpToUsd(rate);
+          setRateSource('live');
+          sessionStorage.setItem('gbp-usd-rate', JSON.stringify({ rate, ts: Date.now() }));
+        } else {
+          setRateSource('fallback');
+        }
+      })
+      .catch(() => setRateSource('fallback'));
+  }, []);
+
+  const formatCurrency = useCallback((val: number): string => {
+    const converted = val * gbpToUsd;
+    if (converted >= 1_000_000) return `$${(converted / 1_000_000).toFixed(1)}M`;
+    if (converted >= 1_000) return `$${(converted / 1_000).toFixed(0)}k`;
+    return `$${converted.toFixed(0)}`;
+  }, [gbpToUsd]);
   const [leaderboardSort, setLeaderboardSort] = useState<{ key: SortKey; desc: boolean }>({ key: 'bookings', desc: true });
   const [destSort, setDestSort] = useState<{ key: DestSortKey; desc: boolean }>({ key: 'enquiries', desc: true });
+  const [partnerSort, setPartnerSort] = useState<{ key: PartnerSortKey; desc: boolean }>({ key: 'enquiries', desc: true });
+  const [showStalled, setShowStalled] = useState(false);
+  const [showAllDestinations, setShowAllDestinations] = useState(false);
+  const [partnerTamFilter, setPartnerTamFilter] = useState<string>('all');
 
-  // Compute all analytics
-  const scorecard = useMemo(() => computeTamScorecard(crmData, tams), [crmData, tams]);
-  const revenue = useMemo(() => computeRevenueAnalytics(crmData, tams, agentFilter), [crmData, tams, agentFilter]);
-  const funnel = useMemo(() => computeFunnelData(crmData, tams, agentFilter), [crmData, tams, agentFilter]);
-  const destinations = useMemo(() => computeDestinationPerformance(crmData, tams, agentFilter), [crmData, tams, agentFilter]);
-  const leaderboard = useMemo(() => computeTamLeaderboard(crmData, tams, agentFilter), [crmData, tams, agentFilter]);
-  const velocity = useMemo(() => computeVelocityData(crmData, tams, agentFilter), [crmData, tams, agentFilter]);
+  // Independent date filter state
+  const [pendingStartDate, setPendingStartDate] = useState('');
+  const [pendingEndDate, setPendingEndDate] = useState('');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
+
+  const handleApplyDateRange = useCallback(() => {
+    setAppliedStartDate(pendingStartDate);
+    setAppliedEndDate(pendingEndDate);
+  }, [pendingStartDate, pendingEndDate]);
+
+  const handleClearDateRange = useCallback(() => {
+    setPendingStartDate('');
+    setPendingEndDate('');
+    setAppliedStartDate('');
+    setAppliedEndDate('');
+  }, []);
+
+  // Date extent for min/max bounds on the date picker
+  const dateExtent = useMemo(() => getCrmDateExtent(crmData), [crmData]);
+
+  // Filtered CRM data based on applied dates
+  const filteredCrmData = useMemo(
+    () => filterCrmDataByDate(crmData, appliedStartDate, appliedEndDate),
+    [crmData, appliedStartDate, appliedEndDate],
+  );
+
+  const hasDateFilter = appliedStartDate || appliedEndDate;
+
+  // Compute all analytics using filtered data
+  const scorecard = useMemo(() => computeTamScorecard(filteredCrmData, tams), [filteredCrmData, tams]);
+  const revenue = useMemo(() => computeRevenueAnalytics(filteredCrmData, tams, agentFilter), [filteredCrmData, tams, agentFilter]);
+  const funnel = useMemo(() => computeFunnelData(filteredCrmData, tams, agentFilter), [filteredCrmData, tams, agentFilter]);
+  const destinations = useMemo(() => computeDestinationPerformance(filteredCrmData, tams, agentFilter), [filteredCrmData, tams, agentFilter]);
+  const leaderboard = useMemo(() => computeTamLeaderboard(filteredCrmData, tams, agentFilter), [filteredCrmData, tams, agentFilter]);
+  const velocity = useMemo(() => computeVelocityData(filteredCrmData, tams, agentFilter), [filteredCrmData, tams, agentFilter]);
+  const partnerIntel = useMemo(() => computePartnerIntelligence(filteredCrmData, tams, agentFilter), [filteredCrmData, tams, agentFilter]);
 
   // Sorted leaderboard
   const sortedLeaderboard = useMemo(() => {
@@ -68,6 +136,37 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
     });
     return sorted;
   }, [destinations, destSort]);
+
+  // Unique TAM agent names for the partner filter dropdown
+  const uniqueTamNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of partnerIntel.partners) {
+      if (p.assignedTam) names.add(p.assignedTam);
+    }
+    return Array.from(names).sort();
+  }, [partnerIntel.partners]);
+
+  // Sorted & filtered partners
+  const sortedPartners = useMemo(() => {
+    const filtered = partnerTamFilter === 'all'
+      ? partnerIntel.partners
+      : partnerIntel.partners.filter(p => p.assignedTam === partnerTamFilter);
+    return [...filtered].sort((a, b) => {
+      const aVal = a[partnerSort.key as keyof PartnerStats];
+      const bVal = b[partnerSort.key as keyof PartnerStats];
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return partnerSort.desc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+      }
+      return partnerSort.desc ? (bVal as number) - (aVal as number) : (aVal as number) - (bVal as number);
+    });
+  }, [partnerIntel.partners, partnerSort, partnerTamFilter]);
+
+  const handlePartnerSort = (key: PartnerSortKey) => {
+    setPartnerSort(prev => ({
+      key,
+      desc: prev.key === key ? !prev.desc : true,
+    }));
+  };
 
   const handleLeaderboardSort = (key: SortKey) => {
     setLeaderboardSort(prev => ({
@@ -177,6 +276,10 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
           <p className={`text-sm mt-1 ${labelClass}`}>
             B2B trade account performance and revenue analytics
           </p>
+          <p className={`text-[10px] mt-0.5 ${labelClass}`}>
+            GBP → USD @ {gbpToUsd.toFixed(4)}{' '}
+            {rateSource === 'live' ? '(ECB live rate)' : rateSource === 'fallback' ? '(fallback rate)' : '(loading...)'}
+          </p>
         </div>
         {/* Scope toggle */}
         <div className={`flex items-center rounded-lg border ${isAudley ? 'border-[#ede8e0]' : 'border-slate-600'}`}>
@@ -209,6 +312,36 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
             All B2B
           </button>
         </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className={`flex flex-wrap items-center gap-3 ${isAudley ? 'bg-white border border-[#ede8e0]' : 'bg-slate-800/50 border border-slate-700/50'} rounded-xl px-4 py-3`}>
+        <DateRangeFilter
+          startDate={pendingStartDate}
+          endDate={pendingEndDate}
+          onStartDateChange={setPendingStartDate}
+          onEndDateChange={setPendingEndDate}
+          onClear={handleClearDateRange}
+          minDate={dateExtent.min ?? undefined}
+          maxDate={dateExtent.max ?? undefined}
+        />
+        <button
+          onClick={handleApplyDateRange}
+          className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            isAudley
+              ? 'bg-[#4d726d] text-white hover:bg-[#3d5c58] shadow-sm'
+              : 'bg-indigo-600 text-white hover:bg-indigo-700'
+          }`}
+        >
+          Update
+        </button>
+        {hasDateFilter && (
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            isAudley ? 'bg-[#4d726d]/10 text-[#4d726d]' : 'bg-indigo-500/20 text-indigo-300'
+          }`}>
+            Date filter active
+          </span>
+        )}
       </div>
 
       {/* 1. TAM Scorecard */}
@@ -380,7 +513,7 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
                 </tr>
               </thead>
               <tbody>
-                {sortedDestinations.slice(0, 20).map(d => (
+                {(showAllDestinations ? sortedDestinations : sortedDestinations.slice(0, 10)).map(d => (
                   <tr key={d.destination} className={`border-b ${isAudley ? 'border-[#ede8e0]/50' : 'border-slate-700/50'} hover:${isAudley ? 'bg-[#faf8f5]' : 'bg-slate-700/20'}`}>
                     <td className={`py-2 px-2 font-medium ${valueClass}`}>{d.destination}</td>
                     <td className={`py-2 px-2 ${valueClass}`}>{d.enquiries}</td>
@@ -395,6 +528,14 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
               </tbody>
             </table>
           </div>
+          {sortedDestinations.length > 10 && (
+            <button
+              onClick={() => setShowAllDestinations(!showAllDestinations)}
+              className={`mt-3 text-xs font-medium transition-colors ${accentClass} hover:opacity-80`}
+            >
+              {showAllDestinations ? `Show top 10 only` : `Show all ${sortedDestinations.length} destinations`}
+            </button>
+          )}
         </div>
       )}
 
@@ -506,6 +647,166 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
                     <div className={`text-xs truncate ${labelClass}`}>{d.destination}</div>
                     <div className={`text-sm font-bold ${valueClass}`}>{formatDays(d.avgCycleTime)}</div>
                     <div className={`text-[10px] ${labelClass}`}>{d.dealCount} deals</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 7. Partner Intelligence */}
+      {partnerIntel.totalPartners > 0 && (
+        <div className={cardClass}>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h3 className={`text-lg font-semibold flex items-center gap-2 ${valueClass}`}>
+              <svg className={`w-5 h-5 ${isAudley ? 'text-violet-600' : 'text-violet-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Partner Intelligence
+            </h3>
+            {uniqueTamNames.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <label className={`text-xs font-medium ${labelClass}`}>TAM:</label>
+                <select
+                  value={partnerTamFilter}
+                  onChange={(e) => setPartnerTamFilter(e.target.value)}
+                  className={`px-2 py-1.5 text-sm rounded-lg border transition-colors ${
+                    isAudley
+                      ? 'border-[#ede8e0] bg-white text-[#0a1628] focus:border-[#4d726d] focus:ring-1 focus:ring-[#4d726d]'
+                      : 'border-slate-600 bg-slate-700/50 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
+                >
+                  <option value="all">All TAMs</option>
+                  {uniqueTamNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* a) Summary cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <div className={highlightCardClass}>
+              <div className={`text-xs ${labelClass}`}>Total Partners</div>
+              <div className={`text-2xl font-bold ${accentClass}`}>{partnerIntel.totalPartners}</div>
+            </div>
+            <div className={statCardClass}>
+              <div className={`text-xs ${labelClass}`}>Active Partners</div>
+              <div className={`text-2xl font-bold ${valueClass}`}>{partnerIntel.activePartners}</div>
+            </div>
+            <div className={statCardClass}>
+              <div className={`text-xs ${labelClass}`}>Stalled Partners</div>
+              <div className={`text-2xl font-bold ${isAudley ? 'text-red-600' : 'text-red-400'}`}>{partnerIntel.stalledPartners}</div>
+            </div>
+            <div className={statCardClass}>
+              <div className={`text-xs ${labelClass}`}>Partners with Bookings</div>
+              <div className={`text-2xl font-bold ${isAudley ? 'text-emerald-600' : 'text-emerald-400'}`}>{partnerIntel.bookedPartners}</div>
+            </div>
+          </div>
+
+          {/* b) Top Partners table */}
+          <div className="mb-6">
+            <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${labelClass}`}>Top Partners</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className={`border-b ${isAudley ? 'border-[#ede8e0]' : 'border-slate-700'}`}>
+                    {[
+                      { key: 'partnerName' as PartnerSortKey, label: 'Partner Name' },
+                      { key: 'assignedTam' as PartnerSortKey, label: 'TAM' },
+                      { key: 'enquiries' as PartnerSortKey, label: 'Enq' },
+                      { key: 'passthroughs' as PartnerSortKey, label: 'PT' },
+                      { key: 'quotes' as PartnerSortKey, label: 'Qt' },
+                      { key: 'bookings' as PartnerSortKey, label: 'Bk' },
+                      { key: 'revenue' as PartnerSortKey, label: 'Revenue' },
+                    ].map(col => (
+                      <th
+                        key={col.key}
+                        onClick={() => handlePartnerSort(col.key)}
+                        className={`py-2 px-2 text-xs font-semibold uppercase tracking-wider cursor-pointer text-left ${labelClass} hover:opacity-80`}
+                      >
+                        {col.label}{sortArrow(col.key, partnerSort)}
+                      </th>
+                    ))}
+                    <th className={`py-2 px-2 text-xs font-semibold uppercase tracking-wider text-left ${labelClass}`}>Destinations</th>
+                    <th className={`py-2 px-2 text-xs font-semibold uppercase tracking-wider text-left ${labelClass}`}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedPartners.slice(0, 20).map(p => {
+                    const statusColors: Record<PartnerStats['funnelStatus'], string> = {
+                      booked: isAudley ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400',
+                      quoting: isAudley ? 'bg-blue-100 text-blue-700' : 'bg-blue-500/20 text-blue-400',
+                      progressing: isAudley ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/20 text-amber-400',
+                      stalled: isAudley ? 'bg-red-100 text-red-700' : 'bg-red-500/20 text-red-400',
+                    };
+                    return (
+                      <tr key={p.partnerName} className={`border-b ${isAudley ? 'border-[#ede8e0]/50' : 'border-slate-700/50'}`}>
+                        <td className={`py-2 px-2 font-medium ${valueClass}`}>{p.partnerName}</td>
+                        <td className={`py-2 px-2 ${labelClass}`}>{p.assignedTam}</td>
+                        <td className={`py-2 px-2 ${valueClass}`}>{p.enquiries}</td>
+                        <td className={`py-2 px-2 ${valueClass}`}>{p.passthroughs}</td>
+                        <td className={`py-2 px-2 ${valueClass}`}>{p.quotes}</td>
+                        <td className={`py-2 px-2 font-semibold ${valueClass}`}>{p.bookings}</td>
+                        <td className={`py-2 px-2 ${valueClass}`}>{formatCurrency(p.revenue)}</td>
+                        <td className={`py-2 px-2 ${labelClass} text-xs`}>{p.destinations.join(', ')}</td>
+                        <td className="py-2 px-2">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${statusColors[p.funnelStatus]}`}>
+                            {p.funnelStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* c) Stalled Partners (collapsible) */}
+          {partnerIntel.stalledList.length > 0 && (
+            <div className="mb-6">
+              <button
+                onClick={() => setShowStalled(!showStalled)}
+                className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-3 ${accentClass} hover:opacity-80`}
+              >
+                <svg className={`w-4 h-4 transition-transform ${showStalled ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                Stalled Partners ({partnerIntel.stalledList.length})
+              </button>
+              {showStalled && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                  {partnerIntel.stalledList.map(p => (
+                    <div key={p.partnerName} className={`flex items-center justify-between ${statCardClass}`}>
+                      <div>
+                        <div className={`text-sm font-medium ${valueClass}`}>{p.partnerName}</div>
+                        <div className={`text-[10px] ${labelClass}`}>{p.assignedTam} · {p.destinations.join(', ') || 'No destination'}</div>
+                      </div>
+                      <div className={`text-sm font-bold ${isAudley ? 'text-red-600' : 'text-red-400'}`}>
+                        {p.enquiries} enq
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* d) TAM Portfolio Concentration */}
+          {partnerIntel.concentration.length > 0 && (
+            <div>
+              <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${labelClass}`}>TAM Portfolio Concentration</div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {partnerIntel.concentration.map(c => (
+                  <div key={c.tamName} className={statCardClass}>
+                    <div className={`text-xs font-medium truncate ${valueClass}`}>{c.tamName}</div>
+                    <div className={`text-sm font-bold ${accentClass}`}>{c.partnerCount} partners</div>
+                    <div className={`text-[10px] ${labelClass}`}>
+                      {c.totalEnquiries} enq · {c.totalBookings} bk · {formatCurrency(c.totalRevenue)}
+                    </div>
                   </div>
                 ))}
               </div>

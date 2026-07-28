@@ -7,6 +7,8 @@ interface DateRangeFilterProps {
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   onClear: () => void;
+  minDate?: string;
+  maxDate?: string;
 }
 
 export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
@@ -15,6 +17,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   onStartDateChange,
   onEndDateChange,
   onClear,
+  minDate,
+  maxDate,
 }) => {
   const hasFilter = startDate || endDate;
   const { isAudley } = useTheme();
@@ -33,6 +37,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           type="date"
           value={startDate}
           onChange={(e) => onStartDateChange(e.target.value)}
+          min={minDate}
+          max={maxDate}
           className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
             isAudley
               ? 'bg-white border-[#ede8e0] text-[#0a1628] focus:ring-2 focus:ring-[#c4956a]/50 focus:border-[#c4956a]'
@@ -45,6 +51,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           type="date"
           value={endDate}
           onChange={(e) => onEndDateChange(e.target.value)}
+          min={minDate}
+          max={maxDate}
           className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
             isAudley
               ? 'bg-white border-[#ede8e0] text-[#0a1628] focus:ring-2 focus:ring-[#c4956a]/50 focus:border-[#c4956a]'

@@ -3,6 +3,7 @@ import type { Team, Metrics, TimeSeriesData, ChartConfig, AgentAnalysis } from '
 const TEAMS_STORAGE_KEY = 'kpi-report-teams';
 const SENIORS_STORAGE_KEY = 'kpi-report-seniors';
 const NEW_HIRES_STORAGE_KEY = 'kpi-report-new-hires';
+const TAMS_STORAGE_KEY = 'kpi-report-tams';
 const METRICS_STORAGE_KEY = 'kpi-report-metrics';
 const TIMESERIES_STORAGE_KEY = 'kpi-report-timeseries';
 const CHART_CONFIG_STORAGE_KEY = 'kpi-report-chart-config';
@@ -66,6 +67,26 @@ export const saveNewHires = (newHires: string[]): void => {
     localStorage.setItem(NEW_HIRES_STORAGE_KEY, JSON.stringify(newHires));
   } catch (error) {
     console.error('Failed to save new hires to storage:', error);
+  }
+};
+
+export const loadTams = (): string[] => {
+  try {
+    const stored = localStorage.getItem(TAMS_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Failed to load TAMs from storage:', error);
+  }
+  return [];
+};
+
+export const saveTams = (tams: string[]): void => {
+  try {
+    localStorage.setItem(TAMS_STORAGE_KEY, JSON.stringify(tams));
+  } catch (error) {
+    console.error('Failed to save TAMs to storage:', error);
   }
 };
 

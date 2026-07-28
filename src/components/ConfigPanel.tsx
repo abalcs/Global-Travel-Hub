@@ -9,6 +9,8 @@ interface ConfigPanelProps {
   onSeniorsChange: (seniors: string[]) => void;
   newHires: string[];
   onNewHiresChange: (newHires: string[]) => void;
+  tams: string[];
+  onTamsChange: (tams: string[]) => void;
   availableAgents: string[];
 }
 
@@ -19,10 +21,12 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onSeniorsChange,
   newHires,
   onNewHiresChange,
+  tams,
+  onTamsChange,
   availableAgents,
 }) => {
   const { isAudley } = useTheme();
-  const [activeTab, setActiveTab] = useState<'teams' | 'seniors' | 'newHires'>('teams');
+  const [activeTab, setActiveTab] = useState<'teams' | 'seniors' | 'newHires' | 'tams'>('teams');
   const [newTeamName, setNewTeamName] = useState('');
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
 
@@ -32,6 +36,8 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const nonSeniorAgents = availableAgents.filter(a => !seniors.includes(a));
   const newHireAgents = availableAgents.filter(a => newHires.includes(a));
   const nonNewHireAgents = availableAgents.filter(a => !newHires.includes(a));
+  const tamAgents = availableAgents.filter(a => tams.includes(a));
+  const nonTamAgents = availableAgents.filter(a => !tams.includes(a));
 
   const handleCreateTeam = () => {
     if (!newTeamName.trim()) return;
@@ -85,6 +91,14 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
     }
   };
 
+  const toggleTam = (agentName: string) => {
+    if (tams.includes(agentName)) {
+      onTamsChange(tams.filter(t => t !== agentName));
+    } else {
+      onTamsChange([...tams, agentName]);
+    }
+  };
+
   if (availableAgents.length === 0) {
     return null;
   }
@@ -134,6 +148,20 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
               }`}
             >
               New Hires
+            </button>
+            <button
+              onClick={() => setActiveTab('tams')}
+              className={`flex-1 px-4 py-2 text-sm font-medium transition-all cursor-pointer active:scale-95 ${
+                activeTab === 'tams'
+                  ? isAudley
+                    ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
+                    : 'text-purple-400 border-b-2 border-purple-400 bg-purple-500/10'
+                  : isAudley
+                    ? 'text-[#7a7a7a] hover:text-[#0a1628] hover:bg-[#f5f0eb]'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+              }`}
+            >
+              TAMs
             </button>
           </div>
 
@@ -382,6 +410,62 @@ export const ConfigPanel: React.FC<ConfigPanelProps> = ({
                           isAudley
                             ? 'bg-[#faf8f5] text-[#4a4a4a] hover:bg-sky-100 hover:text-sky-700'
                             : 'bg-slate-700/50 text-slate-300 hover:bg-sky-500/20 hover:text-sky-400'
+                        }`}
+                      >
+                        {agent}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAMs Tab */}
+            {activeTab === 'tams' && (
+              <div className="space-y-4">
+                <p className={`text-xs ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`}>
+                  Click agents to toggle TAM designation. TAMs can be filtered separately in KPI results.
+                </p>
+
+                {tamAgents.length > 0 && (
+                  <div>
+                    <h4 className={`text-xs font-medium mb-2 flex items-center gap-1 ${isAudley ? 'text-purple-600' : 'text-purple-400'}`}>
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                      </svg>
+                      TAMs ({tamAgents.length})
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tamAgents.map(agent => (
+                        <button
+                          key={agent}
+                          onClick={() => toggleTam(agent)}
+                          className={`px-2 py-1 rounded text-xs transition-colors ${
+                            isAudley
+                              ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                              : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+                          }`}
+                        >
+                          {agent} ×
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className={`text-xs font-medium mb-2 ${isAudley ? 'text-[#4a4a4a]' : 'text-slate-400'}`}>
+                    Other Agents ({nonTamAgents.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                    {nonTamAgents.map(agent => (
+                      <button
+                        key={agent}
+                        onClick={() => toggleTam(agent)}
+                        className={`px-2 py-1 rounded text-xs transition-colors ${
+                          isAudley
+                            ? 'bg-[#faf8f5] text-[#4a4a4a] hover:bg-purple-100 hover:text-purple-700'
+                            : 'bg-slate-700/50 text-slate-300 hover:bg-purple-500/20 hover:text-purple-400'
                         }`}
                       >
                         {agent}

@@ -10,16 +10,9 @@ import { RegionalView } from './components/RegionalView';
 import { InsightsView } from './components/InsightsView';
 import { ChannelPerformanceView } from './components/ChannelPerformanceView';
 import { RecordsView } from './components/RecordsView';
-import { SlidingPillGroup } from './components/SlidingPillGroup';
-import type { PillOption } from './components/SlidingPillGroup';
-// RecordNotification import removed - notifications disabled
-
-// AgentAnalytics removed
 import { GlobeLoader } from './components/GlobeLoader';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useTheme } from './contexts/ThemeContext';
-// Auth disabled for now — uncomment when ready to re-enable
-// import { useAuthContext } from './contexts/AuthContext';
 import { getDb } from './firebase.config';
 import audleyLogo from './assets/audley-logo.png';
 import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
@@ -27,8 +20,6 @@ import type { CSVRow } from './utils/csvParser';
 import { saveTeams, saveSeniors, saveNewHires, saveTams } from './utils/storage';
 import { type RawParsedData, type CrmParsedData } from './utils/indexedDB';
 import { saveRawDataToFirestore, loadConfigFromFirestore, saveConfigToFirestore } from './utils/firestoreSync';
-// firestoreService save calls removed — metrics/timeseries/summary are recalculated
-// from raw data on every load, so caching them in Firestore is unnecessary.
 import { useFileProcessor } from './hooks/useFileProcessor';
 import {
   findAgentColumn,
@@ -55,7 +46,7 @@ import {
 } from './utils/recordsTracker';
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
-import { parseCrmExcel, buildMetrics } from './utils/excelParser';
+import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent } from './utils/excelParser';
 import { TamView } from './components/TamView';
 
 /** Tag each row with its origin file so data doesn't get mixed up after storage */
@@ -118,29 +109,6 @@ const enrichTripsWithDestination = (data: RawParsedData): RawParsedData => {
 
   return { ...data, trips: enrichedTrips };
 };
-
-// LogoutButton disabled — auth removed for now
-// Uncomment when ready to re-enable authentication
-/*
-function LogoutButton() {
-  const { user, logout } = useAuthContext();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { isAudley } = useTheme();
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try { await logout(); } catch (error) { console.error('Logout error:', error); setIsLoggingOut(false); }
-  };
-  if (!user) return null;
-  return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ borderColor: isAudley ? '#4d726d' : '#475569', backgroundColor: isAudley ? '#f0f7fc' : '#1e293b' }}>
-      <span className="text-sm" style={{ color: isAudley ? '#4d726d' : '#94a3b8' }}>{user.email}</span>
-      <button onClick={handleLogout} disabled={isLoggingOut} className="text-xs px-2 py-1 rounded transition-all cursor-pointer active:scale-95" style={{ color: isAudley ? '#dc2626' : '#f87171', backgroundColor: isAudley ? '#fee2e2' : '#7f1d1d', opacity: isLoggingOut ? 0.6 : 1, cursor: isLoggingOut ? 'not-allowed' : 'pointer' }}>
-        {isLoggingOut ? 'Logging out...' : 'Logout'}
-      </button>
-    </div>
-  );
-}
-*/
 
 function App() {
   const { isAudley } = useTheme();
@@ -377,14 +345,6 @@ function App() {
       console.warn('[App] Firestore config save failed (non-critical):', err)
     );
   }, []);
-
-  const handleFileSelect = useCallback(
-    (type: keyof FileUploadState) => (file: File | null) => {
-      setFiles((prev) => ({ ...prev, [type]: file }));
-      setError(null);
-    },
-    []
-  );
 
   const handleExcelFileSelect = useCallback(
     (type: keyof typeof excelFiles) => (file: File | null) => {
@@ -751,8 +711,22 @@ function App() {
     setStartDate(pendingStartDate);
     setEndDate(pendingEndDate);
     setTimeframe('all');
-    setDateRangeTrigger(prev => prev + 1);
-  }, [pendingStartDate, pendingEndDate]);
+
+    if (crmParsedData) {
+      // Filter CRM data by date range and rebuild metrics
+      const filtered = filterCrmDataByDate(crmParsedData, pendingStartDate, pendingEndDate);
+      const metricsData = buildMetrics(
+        { rows: filtered.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
+        { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
+        { rows: filtered.quotes, reportTitle: '', reportDate: '', dateRange: '' },
+        { rows: filtered.bookings, reportTitle: '', reportDate: '', dateRange: '' },
+      );
+      setMetrics(metricsData);
+    } else {
+      // Fall back to old CSV pipeline
+      setDateRangeTrigger(prev => prev + 1);
+    }
+  }, [pendingStartDate, pendingEndDate, crmParsedData]);
 
   const handleClearDateRange = useCallback(() => {
     setPendingStartDate('');
@@ -760,19 +734,29 @@ function App() {
     setStartDate('');
     setEndDate('');
     setTimeframe('all');
-    setDateRangeTrigger(prev => prev + 1);
-  }, []);
+
+    if (crmParsedData) {
+      // Rebuild metrics from unfiltered CRM data
+      const metricsData = buildMetrics(
+        { rows: crmParsedData.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
+        { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
+        { rows: crmParsedData.quotes, reportTitle: '', reportDate: '', dateRange: '' },
+        { rows: crmParsedData.bookings, reportTitle: '', reportDate: '', dateRange: '' },
+      );
+      setMetrics(metricsData);
+    } else {
+      setDateRangeTrigger(prev => prev + 1);
+    }
+  }, [crmParsedData]);
 
   const handleClearRecords = useCallback(() => {
     setRecords({ agents: {}, lastUpdated: new Date().toISOString() });
   }, []);
 
 
+  const crmDateExtent = useMemo(() => crmParsedData ? getCrmDateExtent(crmParsedData) : { min: null, max: null }, [crmParsedData]);
   const allAgentNames = useMemo(() => metrics.map((m) => m.agentName), [metrics]);
-  const allFilesUploaded = files.trips && files.quotes && files.passthroughs && files.hotPass && files.bookings && files.nonConverted && files.quotesStarted;
   const hasStoredData = rawParsedData !== null;
-  const canAnalyze = allFilesUploaded || hasStoredData;
-  const requiredFilesCount = [files.trips, files.quotes, files.passthroughs, files.hotPass, files.bookings, files.nonConverted, files.quotesStarted].filter(Boolean).length;
   const excelFilesCount = [excelFiles.enquiries, excelFiles.passthroughs, excelFiles.quotes, excelFiles.bookings].filter(Boolean).length;
 
   // Calculate date range from stored data
@@ -1128,12 +1112,12 @@ function App() {
           <nav className="flex gap-1 overflow-x-auto max-w-full scrollbar-hide" role="tablist">
             {[
               { value: 'summary', label: 'Summary', disabled: metrics.length === 0 },
+              { value: 'tam', label: 'TAM', disabled: !crmParsedData || tams.length === 0 },
               { value: 'regional', label: 'Regional', disabled: true },
               { value: 'channels', label: 'Channels', disabled: true },
               { value: 'trends', label: 'Trends', disabled: true },
               { value: 'insights', label: 'Insights', disabled: true },
               { value: 'records', label: 'Records', disabled: true },
-              { value: 'tam', label: 'TAM', disabled: !crmParsedData || tams.length === 0 },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -1189,6 +1173,8 @@ function App() {
                 records={records}
                 startDate={pendingStartDate}
                 endDate={pendingEndDate}
+                minDate={crmDateExtent.min ?? undefined}
+                maxDate={crmDateExtent.max ?? undefined}
                 onStartDateChange={setPendingStartDate}
                 onEndDateChange={setPendingEndDate}
                 onApplyDateRange={handleApplyDateRange}
@@ -1225,11 +1211,9 @@ function App() {
 
           {/* TAM View */}
           {activeView === 'tam' && crmParsedData && (
-            <TamView crmData={crmParsedData} tams={tams} metrics={metrics} />
+            <TamView crmData={crmParsedData} tams={tams} />
           )}
         </div>
-
-        {/* Record Notifications disabled - records shown in Records tab */}
 
         {/* Empty State — only when no data and not loading */}
         {metrics.length === 0 && !isProcessing && !dataLoadProgress.loading && !autoAnalyzePending && (

@@ -14,43 +14,56 @@ interface TeamComparisonProps {
   records?: AllRecords | null;
   startDate?: string;
   endDate?: string;
+  minDate?: string;
+  maxDate?: string;
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   onApplyDateRange: () => void;
   onClearDateRange: () => void;
 }
 
-type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'hotPass' | 'bookings' | 'nonConverted' | 'potentialTQ';
+type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'eb' | 'hotPass' | 'bookings' | 'nonConverted' | 'potentialTQ';
+type ClientFilter = 'all' | 'repeat' | 'prospect' | 'b2b';
 const formatPercent = (value: number): string => {
   if (isNaN(value) || !isFinite(value)) return '0.0%';
   return `${value.toFixed(1)}%`;
 };
 
 
-export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors, rawData, records, startDate = '', endDate = '', onStartDateChange, onEndDateChange, onApplyDateRange, onClearDateRange }) => {
+export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, seniors, rawData, records, startDate = '', endDate = '', minDate, maxDate, onStartDateChange, onEndDateChange, onApplyDateRange, onClearDateRange }) => {
   const { isAudley } = useTheme();
   const [isOpen, setIsOpen] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('trips');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
 
   // PERF: Memoize senior filtering - O(n) per filter, avoid recalc on sort/view changes
   const seniorMetrics = useMemo(() => metrics.filter(m => seniors.includes(m.agentName)), [metrics, seniors]);
   const nonSeniorMetrics = useMemo(() => metrics.filter(m => !seniors.includes(m.agentName)), [metrics, seniors]);
 
+  // Helper to pick the right field based on filter
+  const getFilteredField = useCallback((m: Metrics, field: 'trips' | 'passthroughs' | 'quotes' | 'quotesWithTripRef' | 'bookings', filter: ClientFilter) => {
+    const fieldMap = {
+      trips:            { all: m.trips, repeat: m.repeatTrips, prospect: m.prospectTrips, b2b: m.b2bTrips },
+      passthroughs:     { all: m.passthroughs, repeat: m.repeatPassthroughs, prospect: m.prospectPassthroughs, b2b: m.b2bPassthroughs },
+      quotes:           { all: m.quotes, repeat: m.repeatQuotesWithTripRef, prospect: m.prospectQuotesWithTripRef, b2b: m.b2bQuotesWithTripRef },
+      quotesWithTripRef:{ all: m.quotesWithTripRef, repeat: m.repeatQuotesWithTripRef, prospect: m.prospectQuotesWithTripRef, b2b: m.b2bQuotesWithTripRef },
+      bookings:         { all: m.bookings, repeat: m.repeatBookings, prospect: m.prospectBookings, b2b: m.b2bBookings },
+    };
+    return fieldMap[field][filter];
+  }, []);
+
   // PERF: Memoize with useCallback since it's used in useMemo dependencies
-  const calculateGroupTotals = useCallback((groupMetrics: Metrics[]) => {
+  const calculateGroupTotals = useCallback((groupMetrics: Metrics[], filter: ClientFilter = 'all') => {
     const totals = groupMetrics.reduce(
       (acc, m) => ({
-        trips: acc.trips + m.trips,
-        quotes: acc.quotes + m.quotes,
-        passthroughs: acc.passthroughs + m.passthroughs,
-        hotPasses: acc.hotPasses + m.hotPasses,
-        bookings: acc.bookings + m.bookings,
-        nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
-        totalLeads: acc.totalLeads + m.totalLeads,
-        quotesStarted: acc.quotesStarted + m.quotesStarted,
+        trips: acc.trips + getFilteredField(m, 'trips', filter),
+        quotes: acc.quotes + getFilteredField(m, 'quotes', filter),
+        quotesWithTripRef: acc.quotesWithTripRef + getFilteredField(m, 'quotesWithTripRef', filter),
+        passthroughs: acc.passthroughs + getFilteredField(m, 'passthroughs', filter),
+        bookings: acc.bookings + getFilteredField(m, 'bookings', filter),
       }),
-      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, quotesStarted: 0 }
+      { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, bookings: 0 }
     );
 
     return {
@@ -61,16 +74,17 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       bookings: totals.bookings,
       tq: totals.trips > 0 ? (totals.quotes / totals.trips) * 100 : 0,
       tp: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
-      pq: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
-      hotPass: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
-      nonConverted: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
-      potentialTQ: totals.trips > 0 ? ((totals.quotes + totals.quotesStarted) / totals.trips) * 100 : 0,
+      pq: totals.passthroughs > 0 ? (totals.quotesWithTripRef / totals.passthroughs) * 100 : 0,
+      eb: totals.trips > 0 ? (totals.bookings / totals.trips) * 100 : 0,
+      hotPass: 0,
+      nonConverted: 0,
+      potentialTQ: 0,
     };
-  }, []);
+  }, [getFilteredField]);
 
   // PERF: Memoize group totals - avoid recalculation on sort/view changes
-  const seniorData = useMemo(() => calculateGroupTotals(seniorMetrics), [calculateGroupTotals, seniorMetrics]);
-  const nonSeniorData = useMemo(() => calculateGroupTotals(nonSeniorMetrics), [calculateGroupTotals, nonSeniorMetrics]);
+  const seniorData = useMemo(() => calculateGroupTotals(seniorMetrics, clientFilter), [calculateGroupTotals, seniorMetrics, clientFilter]);
+  const nonSeniorData = useMemo(() => calculateGroupTotals(nonSeniorMetrics, clientFilter), [calculateGroupTotals, nonSeniorMetrics, clientFilter]);
 
   const hasSeniors = seniors.length > 0 && seniorMetrics.length > 0;
 
@@ -79,16 +93,13 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
     const teamMetrics = metrics.filter((m) => team.agentNames.includes(m.agentName));
     const totals = teamMetrics.reduce(
       (acc, m) => ({
-        trips: acc.trips + m.trips,
-        quotes: acc.quotes + m.quotes,
-        passthroughs: acc.passthroughs + m.passthroughs,
-        hotPasses: acc.hotPasses + m.hotPasses,
-        bookings: acc.bookings + m.bookings,
-        nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
-        totalLeads: acc.totalLeads + m.totalLeads,
-        quotesStarted: acc.quotesStarted + m.quotesStarted,
+        trips: acc.trips + getFilteredField(m, 'trips', clientFilter),
+        quotes: acc.quotes + getFilteredField(m, 'quotes', clientFilter),
+        quotesWithTripRef: acc.quotesWithTripRef + getFilteredField(m, 'quotesWithTripRef', clientFilter),
+        passthroughs: acc.passthroughs + getFilteredField(m, 'passthroughs', clientFilter),
+        bookings: acc.bookings + getFilteredField(m, 'bookings', clientFilter),
       }),
-      { trips: 0, quotes: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, quotesStarted: 0 }
+      { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, bookings: 0 }
     );
 
     return {
@@ -101,12 +112,13 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       bookings: totals.bookings,
       tq: totals.trips > 0 ? (totals.quotes / totals.trips) * 100 : 0,
       tp: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
-      pq: totals.passthroughs > 0 ? (totals.quotes / totals.passthroughs) * 100 : 0,
-      hotPass: totals.passthroughs > 0 ? (totals.hotPasses / totals.passthroughs) * 100 : 0,
-      nonConverted: totals.totalLeads > 0 ? (totals.nonConvertedLeads / totals.totalLeads) * 100 : 0,
-      potentialTQ: totals.trips > 0 ? ((totals.quotes + totals.quotesStarted) / totals.trips) * 100 : 0,
+      pq: totals.passthroughs > 0 ? (totals.quotesWithTripRef / totals.passthroughs) * 100 : 0,
+      eb: totals.trips > 0 ? (totals.bookings / totals.trips) * 100 : 0,
+      hotPass: 0,
+      nonConverted: 0,
+      potentialTQ: 0,
     };
-  }), [teams, metrics]);
+  }), [teams, metrics, clientFilter, getFilteredField]);
 
   // PERF: Memoize sorted teams - only recalculate when teamData or sort params change
   const sortedTeams = useMemo(() => [...teamData].sort((a, b) => {
@@ -153,16 +165,14 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
   // Table row data configuration
   const metricRows = [
     { label: 'Agents', key: 'agentCount' as const, format: (v: number) => v.toString(), color: 'gray' },
-    { label: 'Trips', key: 'trips' as const, format: (v: number) => v.toLocaleString(), color: 'gray' },
-    { label: 'Quotes', key: 'quotes' as const, format: (v: number) => v.toLocaleString(), color: 'blue' },
+    { label: 'Enquiries', key: 'trips' as const, format: (v: number) => v.toLocaleString(), color: 'gray' },
     { label: 'Passthroughs', key: 'passthroughs' as const, format: (v: number) => v.toLocaleString(), color: 'green' },
+    { label: 'Quotes', key: 'quotes' as const, format: (v: number) => v.toLocaleString(), color: 'blue' },
     { label: 'Bookings', key: 'bookings' as const, format: (v: number) => v.toLocaleString(), color: 'cyan' },
-    { label: 'T>Q Rate', key: 'tq' as const, format: formatPercent, color: 'blue' },
-    { label: 'Potential T>Q', key: 'potentialTQ' as const, format: formatPercent, color: 'amber' },
-    { label: 'T>P Rate', key: 'tp' as const, format: formatPercent, color: 'green' },
+    { label: 'E>P Rate', key: 'tp' as const, format: formatPercent, color: 'green' },
+    { label: 'E>Q Rate', key: 'tq' as const, format: formatPercent, color: 'blue' },
     { label: 'P>Q Rate', key: 'pq' as const, format: formatPercent, color: 'purple' },
-    { label: 'Hot Pass %', key: 'hotPass' as const, format: formatPercent, color: 'orange' },
-    { label: '% Non-Conv', key: 'nonConverted' as const, format: formatPercent, color: 'rose', lowerIsBetter: true },
+    { label: 'E>B Rate', key: 'eb' as const, format: formatPercent, color: 'cyan' },
   ];
 
   return (
@@ -183,6 +193,11 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
           <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm">
             {teams.length} teams
           </span>
+          {clientFilter !== 'all' && (
+            <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-medium">
+              {clientFilter === 'repeat' ? 'Repeat Clients' : clientFilter === 'prospect' ? 'Prospect Clients' : 'Travel Agents'}
+            </span>
+          )}
         </div>
         <svg
           className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -201,7 +216,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       >
         <div className="overflow-hidden">
           <div className="p-6">
-          {/* Date Range Filter + Update + Generate Slides */}
+          {/* Date Range Filter + Client Filter + Update + Generate Slides */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <DateRangeFilter
@@ -210,7 +225,26 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                 onStartDateChange={onStartDateChange}
                 onEndDateChange={onEndDateChange}
                 onClear={onClearDateRange}
+                minDate={minDate}
+                maxDate={maxDate}
               />
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-medium text-gray-500">Client:</label>
+                <select
+                  value={clientFilter}
+                  onChange={(e) => setClientFilter(e.target.value as ClientFilter)}
+                  className={`px-2 py-1.5 text-sm rounded-lg border transition-colors ${
+                    isAudley
+                      ? 'border-[#ede8e0] bg-white text-[#0a1628] focus:border-[#c4956a] focus:ring-1 focus:ring-[#c4956a]'
+                      : 'border-gray-300 bg-white text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                  }`}
+                >
+                  <option value="all">All Clients</option>
+                  <option value="repeat">Repeat</option>
+                  <option value="prospect">Prospect</option>
+                  <option value="b2b">Travel Agents</option>
+                </select>
+              </div>
               <button
                 onClick={onApplyDateRange}
                 className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
@@ -287,7 +321,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                             const value = team[row.key] as number;
                             const colorClass = row.key === 'agentCount'
                               ? 'text-gray-700'
-                              : getRelativeColor(value, allValues, row.lowerIsBetter);
+                              : getRelativeColor(value, allValues);
                             return (
                               <td
                                 key={team.id}
@@ -359,15 +393,13 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                   <tbody>
                     {[
                       { label: 'Agents', senior: seniorData.agentCount, nonSenior: nonSeniorData.agentCount, format: (v: number) => v.toString(), isPercent: false },
-                      { label: 'T>Q Rate', senior: seniorData.tq, nonSenior: nonSeniorData.tq, format: formatPercent, isPercent: true },
-                      { label: 'Potential T>Q', senior: seniorData.potentialTQ, nonSenior: nonSeniorData.potentialTQ, format: formatPercent, isPercent: true },
-                      { label: 'T>P Rate', senior: seniorData.tp, nonSenior: nonSeniorData.tp, format: formatPercent, isPercent: true },
+                      { label: 'E>P Rate', senior: seniorData.tp, nonSenior: nonSeniorData.tp, format: formatPercent, isPercent: true },
+                      { label: 'E>Q Rate', senior: seniorData.tq, nonSenior: nonSeniorData.tq, format: formatPercent, isPercent: true },
                       { label: 'P>Q Rate', senior: seniorData.pq, nonSenior: nonSeniorData.pq, format: formatPercent, isPercent: true },
-                      { label: 'Hot Pass %', senior: seniorData.hotPass, nonSenior: nonSeniorData.hotPass, format: formatPercent, isPercent: true },
-                      { label: '% Non-Conv', senior: seniorData.nonConverted, nonSenior: nonSeniorData.nonConverted, format: formatPercent, isPercent: true, lowerBetter: true },
+                      { label: 'E>B Rate', senior: seniorData.eb, nonSenior: nonSeniorData.eb, format: formatPercent, isPercent: true },
                     ].map((row, rowIdx) => {
                       const diff = row.senior - row.nonSenior;
-                      const diffPositive = row.lowerBetter ? diff < 0 : diff > 0;
+                      const diffPositive = diff > 0;
                       return (
                         <tr key={row.label} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
                           <td className="px-4 py-2.5 text-sm font-medium text-gray-700 border-b border-gray-100">
