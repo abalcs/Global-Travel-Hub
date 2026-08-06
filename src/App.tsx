@@ -19,7 +19,7 @@ import type { Team, Metrics, FileUploadState, TimeSeriesData } from './types';
 import type { CSVRow } from './utils/csvParser';
 import { saveTeams, saveSeniors, saveNewHires, saveTams } from './utils/storage';
 import { type RawParsedData, type CrmParsedData } from './utils/indexedDB';
-import { saveRawDataToFirestore, loadConfigFromFirestore, saveConfigToFirestore } from './utils/firestoreSync';
+import { saveRawDataToFirestore, loadConfigFromFirestore, saveConfigToFirestore, saveCrmDataToFirestore, loadCrmDataFromFirestore } from './utils/firestoreSync';
 import { useFileProcessor } from './hooks/useFileProcessor';
 import {
   findAgentColumn,
@@ -48,6 +48,7 @@ import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
 import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent } from './utils/excelParser';
 import { TamView } from './components/TamView';
+import { IncentiveView } from './components/IncentiveView';
 
 /** Tag each row with its origin file so data doesn't get mixed up after storage */
 const tagRows = (rows: CSVRow[], source: string): CSVRow[] =>
@@ -141,9 +142,9 @@ function App() {
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
   const [crmParsedData, setCrmParsedData] = useState<CrmParsedData | null>(null);
-  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam'>(() => {
+  const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam' | 'incentive'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
-    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam') {
+    if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam' || saved === 'incentive') {
       return saved;
     }
     return 'summary'; // Show Summary by default
@@ -299,13 +300,45 @@ function App() {
           setRawParsedData(enrichedData);
           setShowDataPanel(false);
           setAutoAnalyzePending(true);
+        }
+
+        // Load CRM data from Firestore (takes priority over CSV pipeline)
+        let hasCrmData = false;
+        console.log('[App] Starting CRM Firestore load...');
+        setDataLoadProgress({ loading: true, progress: 92, stage: 'Checking CRM data...' });
+        try {
+          const crmResult = await loadCrmDataFromFirestore();
+          console.log('[App] CRM Firestore load result:', crmResult ? 'data found' : 'null');
+          if (crmResult) {
+            hasCrmData = true;
+            setCrmParsedData(crmResult.data);
+            if (crmResult.dateRange) setExcelDateRange(crmResult.dateRange);
+
+            // Rebuild metrics from CRM data (overrides CSV metrics)
+            const metricsData = buildMetrics(
+              { rows: crmResult.data.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
+              { rows: crmResult.data.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
+              { rows: crmResult.data.quotes, reportTitle: '', reportDate: '', dateRange: '' },
+              { rows: crmResult.data.bookings, reportTitle: '', reportDate: '', dateRange: '' },
+            );
+            setMetrics(metricsData);
+            setShowDataPanel(false);
+            setAutoAnalyzePending(false); // CRM metrics are ready, skip CSV auto-analyze
+          }
+        } catch (err) {
+          console.warn('[App] CRM Firestore load failed (non-critical):', err);
+        }
+
+        if (hasData || hasCrmData) {
           finishLoading();
         } else {
           setDataLoadProgress({ loading: false, progress: 0, stage: '' });
+          setLoadTransition('idle');
         }
       } catch (error) {
         console.error('[App] Firestore load error:', error);
         setDataLoadProgress({ loading: false, progress: 0, stage: '' });
+        setLoadTransition('idle');
       }
   }, []);
 
@@ -384,17 +417,38 @@ function App() {
       if (dateRange) setExcelDateRange(dateRange);
 
       // Store raw CRM rows for TAM analytics
-      setCrmParsedData({
+      const crmData: CrmParsedData = {
         enquiries: enquiriesReport?.rows ?? [],
         passthroughs: ptReport?.rows ?? [],
         quotes: quotesReport?.rows ?? [],
         bookings: bookingsReport?.rows ?? [],
-      });
+      };
+      setCrmParsedData(crmData);
 
       // Build unified metrics from all available reports
       const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
       setMetrics(metricsData);
       setShowDataPanel(false);
+
+      // Persist CRM data to Firestore for cross-device sync
+      console.log('[App] Starting CRM Firestore save...', {
+        enquiries: crmData.enquiries.length,
+        passthroughs: crmData.passthroughs.length,
+        quotes: crmData.quotes.length,
+        bookings: crmData.bookings.length,
+        dateRange,
+      });
+      setFirestoreSyncStatus({ syncing: true, progress: 0, stage: 'Starting CRM sync...' });
+      try {
+        const saveResult = await saveCrmDataToFirestore(crmData, dateRange, (progress, stage) => {
+          setFirestoreSyncStatus({ syncing: true, progress, stage });
+        });
+        console.log('[App] CRM Firestore save result:', saveResult);
+        setFirestoreSyncStatus({ syncing: false, progress: 100, stage: '' });
+      } catch (err) {
+        console.warn('[App] CRM Firestore save failed (non-critical):', err);
+        setFirestoreSyncStatus({ syncing: false, progress: 0, stage: '' });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process Excel files');
     } finally {
@@ -690,6 +744,8 @@ function App() {
     setMetrics([]);
     setTimeSeriesData(null);
     setRawParsedData(null);
+    setCrmParsedData(null);
+    setExcelDateRange('');
     setFiles({
       passthroughs: null,
       trips: null,
@@ -714,13 +770,36 @@ function App() {
 
     if (crmParsedData) {
       // Filter CRM data by date range and rebuild metrics
+      console.log('[App] Date filter applied:', { startDate: pendingStartDate, endDate: pendingEndDate });
+      console.log('[App] Pre-filter counts:', {
+        enquiries: crmParsedData.enquiries.length,
+        passthroughs: crmParsedData.passthroughs.length,
+        quotes: crmParsedData.quotes.length,
+        bookings: crmParsedData.bookings.length,
+      });
       const filtered = filterCrmDataByDate(crmParsedData, pendingStartDate, pendingEndDate);
+      console.log('[App] Post-filter counts:', {
+        enquiries: filtered.enquiries.length,
+        passthroughs: filtered.passthroughs.length,
+        quotes: filtered.quotes.length,
+        bookings: filtered.bookings.length,
+      });
       const metricsData = buildMetrics(
         { rows: filtered.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.bookings, reportTitle: '', reportDate: '', dateRange: '' },
       );
+      console.log('[App] Metrics sample (first agent):', metricsData[0] ? {
+        agent: metricsData[0].agentName,
+        trips: metricsData[0].trips,
+        passthroughs: metricsData[0].passthroughs,
+        quotes: metricsData[0].quotes,
+        bookings: metricsData[0].bookings,
+        epRate: metricsData[0].passthroughsFromTrips,
+        eqRate: metricsData[0].quotesFromTrips,
+        ebRate: metricsData[0].bookingsFromEnquiries,
+      } : 'no metrics');
       setMetrics(metricsData);
     } else {
       // Fall back to old CSV pipeline
@@ -1118,6 +1197,7 @@ function App() {
               { value: 'trends', label: 'Trends', disabled: true },
               { value: 'insights', label: 'Insights', disabled: true },
               { value: 'records', label: 'Records', disabled: true },
+              { value: 'incentive', label: 'Incentive', disabled: !crmParsedData },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -1212,6 +1292,11 @@ function App() {
           {/* TAM View */}
           {activeView === 'tam' && crmParsedData && (
             <TamView crmData={crmParsedData} tams={tams} />
+          )}
+
+          {/* Incentive View */}
+          {activeView === 'incentive' && crmParsedData && (
+            <IncentiveView crmData={crmParsedData} teams={teams} />
           )}
         </div>
 
