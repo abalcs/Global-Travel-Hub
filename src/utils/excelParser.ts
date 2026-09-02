@@ -83,7 +83,7 @@ const COLUMN_MATCHERS: Record<keyof ColumnMap, string[]> = {
   channel: ['channel picklist', 'channel: name', 'channel'],
   media: ['enquiry: media', 'media'],
   clientType: ['client account: client type', 'client type'],
-  enquiryDate: ['enquiry created date', 'enquiry: created date'],
+  enquiryDate: ['last transfer date', 'enquiry created date', 'enquiry: created date'],
   passthroughDate: ['passthrough to sales date', 'passthrough date'],
   quoteCreatedDate: ['quote: created date'],
   bookingCreatedDate: ['booking created date'],

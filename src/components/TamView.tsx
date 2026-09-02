@@ -17,6 +17,7 @@ import {
 } from '../utils/tamAnalytics';
 import { filterCrmDataByDate, getCrmDateExtent } from '../utils/excelParser';
 import { DateRangeFilter } from './DateRangeFilter';
+import * as XLSX from 'xlsx';
 
 interface TamViewProps {
   crmData: CrmParsedData;
@@ -78,6 +79,7 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
   const [showStalled, setShowStalled] = useState(false);
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const [partnerTamFilter, setPartnerTamFilter] = useState<string>('all');
+  const [partnerStatusFilter, setPartnerStatusFilter] = useState<string>('all');
 
   // Independent date filter state
   const [pendingStartDate, setPendingStartDate] = useState('');
@@ -148,9 +150,9 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
 
   // Sorted & filtered partners
   const sortedPartners = useMemo(() => {
-    const filtered = partnerTamFilter === 'all'
-      ? partnerIntel.partners
-      : partnerIntel.partners.filter(p => p.assignedTam === partnerTamFilter);
+    const filtered = partnerIntel.partners
+      .filter(p => partnerTamFilter === 'all' || p.assignedTam === partnerTamFilter)
+      .filter(p => partnerStatusFilter === 'all' || p.funnelStatus === partnerStatusFilter);
     return [...filtered].sort((a, b) => {
       const aVal = a[partnerSort.key as keyof PartnerStats];
       const bVal = b[partnerSort.key as keyof PartnerStats];
@@ -159,7 +161,7 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
       }
       return partnerSort.desc ? (bVal as number) - (aVal as number) : (aVal as number) - (bVal as number);
     });
-  }, [partnerIntel.partners, partnerSort, partnerTamFilter]);
+  }, [partnerIntel.partners, partnerSort, partnerTamFilter, partnerStatusFilter]);
 
   const handlePartnerSort = (key: PartnerSortKey) => {
     setPartnerSort(prev => ({
@@ -181,6 +183,24 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
       desc: prev.key === key ? !prev.desc : true,
     }));
   };
+
+  const exportPartnersToExcel = useCallback(() => {
+    const rows = sortedPartners.map(p => ({
+      'Partner Name': p.partnerName,
+      'TAM': p.assignedTam,
+      'Enquiries': p.enquiries,
+      'PT': p.passthroughs,
+      'Quotes': p.quotes,
+      'Bookings': p.bookings,
+      'Revenue (USD)': Math.round(p.revenue * gbpToUsd),
+      'Destinations': p.destinations.join(', '),
+      'Status': p.funnelStatus,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Partner Intelligence');
+    XLSX.writeFile(wb, 'partner-intelligence.xlsx');
+  }, [sortedPartners, gbpToUsd]);
 
   // Empty state
   if (tams.length === 0) {
@@ -665,25 +685,74 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
               </svg>
               Partner Intelligence
             </h3>
-            {uniqueTamNames.length > 1 && (
+            <div className="flex items-center gap-3 flex-wrap">
+              {uniqueTamNames.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <label className={`text-xs font-medium ${labelClass}`}>TAM:</label>
+                  <select
+                    value={partnerTamFilter}
+                    onChange={(e) => setPartnerTamFilter(e.target.value)}
+                    className={`px-2 py-1.5 text-sm rounded-lg border transition-colors ${
+                      isAudley
+                        ? 'border-[#ede8e0] bg-white text-[#0a1628] focus:border-[#4d726d] focus:ring-1 focus:ring-[#4d726d]'
+                        : 'border-slate-600 bg-slate-700/50 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                    }`}
+                  >
+                    <option value="all">All TAMs</option>
+                    {uniqueTamNames.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
-                <label className={`text-xs font-medium ${labelClass}`}>TAM:</label>
+                <label className={`text-xs font-medium ${labelClass}`}>Status:</label>
+                <div className="relative group">
+                  <svg className={`w-3.5 h-3.5 cursor-help ${isAudley ? 'text-[#7a7a7a]' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 rounded-lg shadow-lg text-xs leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50 ${
+                    isAudley ? 'bg-white border border-[#ede8e0] text-[#0a1628]' : 'bg-slate-700 border border-slate-600 text-slate-200'
+                  }`}>
+                    <div className="font-semibold mb-1.5">Partner Status</div>
+                    <div className="space-y-1">
+                      <div><span className="font-medium text-emerald-500">Booked</span> — Has confirmed bookings</div>
+                      <div><span className="font-medium text-blue-500">Quoting</span> — Quotes sent, no bookings yet</div>
+                      <div><span className="font-medium text-amber-500">Progressing</span> — Passthroughs made, not yet quoting</div>
+                      <div><span className="font-medium text-red-500">Stalled</span> — Enquiries only, nothing progressed</div>
+                    </div>
+                  </div>
+                </div>
                 <select
-                  value={partnerTamFilter}
-                  onChange={(e) => setPartnerTamFilter(e.target.value)}
+                  value={partnerStatusFilter}
+                  onChange={(e) => setPartnerStatusFilter(e.target.value)}
                   className={`px-2 py-1.5 text-sm rounded-lg border transition-colors ${
                     isAudley
                       ? 'border-[#ede8e0] bg-white text-[#0a1628] focus:border-[#4d726d] focus:ring-1 focus:ring-[#4d726d]'
                       : 'border-slate-600 bg-slate-700/50 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
                   }`}
                 >
-                  <option value="all">All TAMs</option>
-                  {uniqueTamNames.map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
+                  <option value="all">All Statuses</option>
+                  <option value="booked">Booked</option>
+                  <option value="quoting">Quoting</option>
+                  <option value="progressing">Progressing</option>
+                  <option value="stalled">Stalled</option>
                 </select>
               </div>
-            )}
+              <button
+                onClick={exportPartnersToExcel}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                  isAudley
+                    ? 'border-[#4d726d] text-[#4d726d] hover:bg-[#4d726d] hover:text-white'
+                    : 'border-indigo-500 text-indigo-400 hover:bg-indigo-500 hover:text-white'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export
+              </button>
+            </div>
           </div>
 
           {/* a) Summary cards */}
@@ -708,7 +777,7 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
 
           {/* b) Top Partners table */}
           <div className="mb-6">
-            <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${labelClass}`}>Top Partners</div>
+            <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${labelClass}`}>Partners ({sortedPartners.length})</div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -735,7 +804,7 @@ export const TamView: React.FC<TamViewProps> = ({ crmData, tams }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedPartners.slice(0, 20).map(p => {
+                  {sortedPartners.map(p => {
                     const statusColors: Record<PartnerStats['funnelStatus'], string> = {
                       booked: isAudley ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400',
                       quoting: isAudley ? 'bg-blue-100 text-blue-700' : 'bg-blue-500/20 text-blue-400',

@@ -15,6 +15,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // CRM parsed data (enquiries, passthroughs, quotes, bookings)
+    match /gtt_crm_data/{document=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Default deny all other access
     match /{document=**} {
       allow read, write: if false;
