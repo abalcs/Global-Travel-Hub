@@ -37,15 +37,13 @@ const LeaderboardColumn: React.FC<{
   colors: SlideColors;
   columnDelay: number;
   compact?: boolean;
-  revealedPositions: Set<number>;
-  onReveal: (position: number) => void;
-}> = ({ title, entries, isRate, colors, columnDelay, compact, revealedPositions, onReveal }) => {
+}> = ({ title, entries, isRate, colors, columnDelay, compact: _compact }) => {
   const medals = ['🥇', '🥈', '🥉'];
 
   return (
     <div className="flex flex-col h-full min-w-0">
       <motion.h3
-        className={`${compact ? 'text-xs mb-2 pb-1.5' : 'text-xs mb-2 pb-1.5'} font-bold border-b`}
+        className="text-xs mb-2 pb-1.5 font-bold border-b"
         style={{ color: `#${colors.accent}`, borderColor: `#${colors.accent}40` }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -56,45 +54,6 @@ const LeaderboardColumn: React.FC<{
       <div className="flex-1 flex flex-col justify-start gap-0.5">
         {entries.slice(0, 5).map((entry, i) => {
           const isTop3 = i < 3;
-          const isRevealed = revealedPositions.has(i);
-          const shouldHide = isTop3 && entry.isOnSelectedTeam && !isRevealed;
-
-          // Hidden state - only for team members in top 3
-          if (shouldHide) {
-            return (
-              <motion.div
-                key={`hidden-${i}`}
-                className="flex items-center justify-between py-1 px-2 rounded cursor-pointer group"
-                style={{
-                  backgroundColor: `#${colors.myTeamHighlight}`,
-                  border: `1px dashed #${colors.accent}60`,
-                }}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: columnDelay + 0.1 + i * 0.04 }}
-                onClick={() => onReveal(i)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <span
-                  className="text-xs flex items-center gap-1"
-                  style={{ color: `#${colors.text}` }}
-                >
-                  <span className="text-sm">{medals[i]}</span>
-                  <span className="italic opacity-70">Click to reveal!</span>
-                </span>
-                <span
-                  className="text-sm group-hover:animate-pulse"
-                  style={{ color: `#${colors.accent}` }}
-                >
-                  ?
-                </span>
-              </motion.div>
-            );
-          }
-
-          // Normal display state
-          const wasJustRevealed = isTop3 && entry.isOnSelectedTeam && isRevealed;
 
           return (
             <motion.div
@@ -105,12 +64,9 @@ const LeaderboardColumn: React.FC<{
                   ? `#${colors.myTeamHighlight}`
                   : 'transparent',
               }}
-              initial={wasJustRevealed ? { opacity: 0, scale: 0.8, rotateX: -90 } : { opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0, scale: 1, rotateX: 0 }}
-              transition={wasJustRevealed
-                ? { duration: 0.5, type: 'spring', stiffness: 200, damping: 15 }
-                : { duration: 0.3, delay: columnDelay + 0.1 + i * 0.04 }
-              }
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: columnDelay + 0.1 + i * 0.04 }}
             >
               <span
                 className="text-xs truncate flex-1 flex items-center gap-0.5"
@@ -157,24 +113,6 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
   layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
-
-  // Track revealed positions for each column (top 3 are hidden by default)
-  const [revealedByColumn, setRevealedByColumn] = useState<Record<string, Set<number>>>({
-    passthroughs: new Set(),
-    quotes: new Set(),
-    bookings: new Set(),
-    hotPassRate: new Set(),
-    tpRate: new Set(),
-    pqRate: new Set(),
-    tqRate: new Set(),
-  });
-
-  const handleReveal = (column: string, position: number) => {
-    setRevealedByColumn(prev => ({
-      ...prev,
-      [column]: new Set([...prev[column], position]),
-    }));
-  };
 
   // Pick consistent image based on data
   const imageIndex = byQuotes.length % MOUNTAIN_IMAGES.length;
@@ -276,24 +214,18 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
             entries={byPassthroughs}
             colors={colors}
             columnDelay={0.3}
-            revealedPositions={revealedByColumn.passthroughs}
-            onReveal={(pos) => handleReveal('passthroughs', pos)}
           />
           <LeaderboardColumn
             title="Quotes"
             entries={byQuotes}
             colors={colors}
             columnDelay={0.35}
-            revealedPositions={revealedByColumn.quotes}
-            onReveal={(pos) => handleReveal('quotes', pos)}
           />
           <LeaderboardColumn
             title="Bookings"
             entries={byBookings}
             colors={colors}
             columnDelay={0.4}
-            revealedPositions={revealedByColumn.bookings}
-            onReveal={(pos) => handleReveal('bookings', pos)}
           />
           <LeaderboardColumn
             title="Hot Pass %"
@@ -301,8 +233,6 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
             isRate
             colors={colors}
             columnDelay={0.45}
-            revealedPositions={revealedByColumn.hotPassRate}
-            onReveal={(pos) => handleReveal('hotPassRate', pos)}
           />
         </div>
 
@@ -318,34 +248,28 @@ export const WebLeaderboardSlide: React.FC<WebLeaderboardSlideProps> = ({
         {/* Bottom row: Rate metrics (3 columns, centered) */}
         <div className="flex-1 grid grid-cols-3 gap-3 min-h-0 px-8">
           <LeaderboardColumn
-            title="T→P %"
+            title="E>P %"
             entries={byTPRate}
             isRate
             compact
             colors={colors}
             columnDelay={0.5}
-            revealedPositions={revealedByColumn.tpRate}
-            onReveal={(pos) => handleReveal('tpRate', pos)}
           />
           <LeaderboardColumn
-            title="P→Q %"
+            title="E>Q %"
             entries={byPQRate}
             isRate
             compact
             colors={colors}
             columnDelay={0.55}
-            revealedPositions={revealedByColumn.pqRate}
-            onReveal={(pos) => handleReveal('pqRate', pos)}
           />
           <LeaderboardColumn
-            title="T→Q %"
+            title="E>B %"
             entries={byTQRate}
             isRate
             compact
             colors={colors}
             columnDelay={0.6}
-            revealedPositions={revealedByColumn.tqRate}
-            onReveal={(pos) => handleReveal('tqRate', pos)}
           />
         </div>
       </div>

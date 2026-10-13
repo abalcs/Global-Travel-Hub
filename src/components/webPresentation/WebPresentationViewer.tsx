@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, t
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Metrics, Team } from '../../types';
 import type { PresentationConfig, TopDestination } from '../../utils/presentationGenerator';
-import type { RecentAchievement, DestinationStats, ForecastDestinations } from '../PresentationGenerator';
+import type { DestinationStats, ForecastDestinations } from '../PresentationGenerator';
 import { useSlideNavigation } from './hooks/useSlideNavigation';
 import { WebPresentationControls } from './WebPresentationControls';
 import { downloadHtmlPresentation } from './exportHtml';
@@ -12,6 +12,7 @@ import {
   getLayoutStyles,
   type WebPresentationStyle,
 } from './webPresentationConfig';
+import type { SegmentData } from './slides/WebKeyMetricsSlide';
 
 // Error boundary to catch slide rendering errors without breaking navigation
 class SlideErrorBoundary extends Component<
@@ -49,7 +50,6 @@ class SlideErrorBoundary extends Component<
 }
 import { WebTitleSlide } from './slides/WebTitleSlide';
 import { WebProgressSlide } from './slides/WebProgressSlide';
-import { WebTopPerformersSlide } from './slides/WebTopPerformersSlide';
 import { WebHotPassRateSlide } from './slides/WebHotPassRateSlide';
 import { WebKeyMetricsSlide } from './slides/WebKeyMetricsSlide';
 import { WebTopDestinationsSlide } from './slides/WebTopDestinationsSlide';
@@ -66,7 +66,7 @@ interface WebPresentationViewerProps {
   teams: Team[];
   config: PresentationConfig;
   webStyle?: WebPresentationStyle;
-  recentAchievements?: RecentAchievement[];
+  recentAchievements?: never[];
   hotPassDestinations?: TopDestination[];
   repeatStats?: DestinationStats;
   b2bStats?: DestinationStats;
@@ -80,10 +80,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   teams,
   config,
   webStyle,
-  recentAchievements = [],
   hotPassDestinations = [],
-  repeatStats = emptyDestinationStats,
-  b2bStats = emptyDestinationStats,
+  repeatStats: _repeatStats = emptyDestinationStats,
+  b2bStats: _b2bStats = emptyDestinationStats,
   forecastDestinations = null,
   onClose,
 }) => {
@@ -97,7 +96,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   const layoutStyle = webStyle?.layout || 'default';
   const layout = getLayoutStyles(layoutStyle);
 
-  const TOTAL_SLIDES = 10;
+  const TOTAL_SLIDES = 9;
 
   const {
     currentSlide,
@@ -152,37 +151,15 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
     const totalHotPasses = selectedTeamMetrics.reduce((sum, m) => sum + m.hotPasses, 0);
     const totalBookings = selectedTeamMetrics.reduce((sum, m) => sum + m.bookings, 0);
 
-    // Goals are now team totals, not per-person (monthly goals)
-    const monthlyGoalPassthroughs = config.monthlyGoalPassthroughs;
-    const monthlyGoalQuotes = config.monthlyGoalQuotes;
-
     // Calculate rates
     const avgHotPassRate = totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0;
-    const avgTQRate = totalTrips > 0 ? (totalQuotes / totalTrips) * 100 : 0;
-    const avgTPRate = totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0;
 
     // Calculate department-wide hot pass rate (all agents)
     const deptTotalPassthroughs = metrics.reduce((sum, m) => sum + m.passthroughs, 0);
     const deptTotalHotPasses = metrics.reduce((sum, m) => sum + m.hotPasses, 0);
     const deptAvgHotPassRate = deptTotalPassthroughs > 0 ? (deptTotalHotPasses / deptTotalPassthroughs) * 100 : 0;
 
-    // Sort for top performers (team only)
-    const byPassthroughs = [...selectedTeamMetrics]
-      .sort((a, b) => b.passthroughs - a.passthroughs)
-      .map(m => ({
-        agentName: m.agentName,
-        value: m.passthroughs,
-        isSenior: isSenior(m.agentName),
-      }));
-
-    const byQuotes = [...selectedTeamMetrics]
-      .sort((a, b) => b.quotes - a.quotes)
-      .map(m => ({
-        agentName: m.agentName,
-        value: m.quotes,
-        isSenior: isSenior(m.agentName),
-      }));
-
+    // Sort for hot pass rate (team only)
     const byHotPassRate = [...selectedTeamMetrics]
       .sort((a, b) => b.hotPassRate - a.hotPassRate)
       .map(m => ({
@@ -229,7 +206,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         isSenior: isSenior(m.agentName),
       }));
 
-    // T>Q rate (Trips to Quotes)
+    // T>Q rate (Trips to Quotes) — now labeled E>B in the UI
     const allByTQRate = [...metrics]
       .filter(m => m.trips >= 5)
       .map(m => ({
@@ -240,7 +217,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       }))
       .sort((a, b) => b.value - a.value);
 
-    // T>P rate (Trips to Passthroughs)
+    // T>P rate (Trips to Passthroughs) — now labeled E>P in the UI
     const allByTPRate = [...metrics]
       .filter(m => m.trips >= 5)
       .map(m => ({
@@ -251,7 +228,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       }))
       .sort((a, b) => b.value - a.value);
 
-    // P>Q rate (Passthroughs to Quotes)
+    // P>Q rate (Passthroughs to Quotes) — now labeled E>Q in the UI
     const allByPQRate = [...metrics]
       .filter(m => m.passthroughs >= 5)
       .map(m => ({
@@ -262,6 +239,49 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       }))
       .sort((a, b) => b.value - a.value);
 
+    // Compute segment data for Key Metrics slide
+    const computeSegment = (
+      getEnquiries: (m: Metrics) => number,
+      getPTs: (m: Metrics) => number,
+      getQuotes: (m: Metrics) => number,
+      getBookings: (m: Metrics) => number,
+    ): SegmentData => {
+      const enquiries = selectedTeamMetrics.reduce((s, m) => s + getEnquiries(m), 0);
+      const passthroughs = selectedTeamMetrics.reduce((s, m) => s + getPTs(m), 0);
+      const quotes = selectedTeamMetrics.reduce((s, m) => s + getQuotes(m), 0);
+      const bookings = selectedTeamMetrics.reduce((s, m) => s + getBookings(m), 0);
+      return {
+        enquiries,
+        passthroughs,
+        quotes,
+        bookings,
+        epRate: enquiries > 0 ? (passthroughs / enquiries) * 100 : 0,
+        eqRate: enquiries > 0 ? (quotes / enquiries) * 100 : 0,
+        ebRate: enquiries > 0 ? (bookings / enquiries) * 100 : 0,
+      };
+    };
+
+    const prospectData = computeSegment(
+      m => m.prospectTrips,
+      m => m.prospectPassthroughs,
+      m => m.prospectQuotes,
+      m => m.prospectBookings,
+    );
+
+    const taData = computeSegment(
+      m => m.b2bTrips,
+      m => m.b2bPassthroughs,
+      m => m.b2bQuotes,
+      m => m.b2bBookings,
+    );
+
+    const repeatSegmentData = computeSegment(
+      m => m.repeatTrips,
+      m => m.repeatPassthroughs,
+      m => m.repeatQuotes,
+      m => m.repeatBookings,
+    );
+
     return {
       selectedTeamName,
       selectedTeamCount,
@@ -270,14 +290,8 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       totalTrips,
       totalHotPasses,
       totalBookings,
-      monthlyGoalPassthroughs,
-      monthlyGoalQuotes,
       avgHotPassRate,
       deptAvgHotPassRate,
-      avgTQRate,
-      avgTPRate,
-      byPassthroughs,
-      byQuotes,
       byHotPassRate,
       allByPassthroughs,
       allByQuotes,
@@ -286,6 +300,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       allByTQRate,
       allByTPRate,
       allByPQRate,
+      prospectData,
+      taData,
+      repeatSegmentData,
     };
   }, [metrics, seniors, teams, config]);
 
@@ -333,7 +350,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
 
   // Render current slide with error boundary
   const renderSlide = () => {
-    const slideNames = ['Title', 'Progress', 'Key Metrics', 'Hot Pass Rate', 'Top Performers',
+    const slideNames = ['Title', 'Team Comparison', 'Key Metrics', 'Hot Pass Rate',
       'Top Destinations', 'Leaderboard', 'Cascades', 'Forecast', 'Closing'];
     const slideName = slideNames[currentSlide] || `Slide ${currentSlide}`;
 
@@ -353,11 +370,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       case 1:
         slideContent = (
           <WebProgressSlide
-            totalPassthroughs={slideData.totalPassthroughs}
-            totalQuotes={slideData.totalQuotes}
-            monthlyGoalPassthroughs={slideData.monthlyGoalPassthroughs}
-            monthlyGoalQuotes={slideData.monthlyGoalQuotes}
-            teamCount={slideData.selectedTeamCount}
+            teams={teams}
+            metrics={metrics}
+            seniors={seniors}
             teamName={config.teamName}
             colors={colors}
             layout={layout}
@@ -368,15 +383,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         slideContent = (
           <WebKeyMetricsSlide
             teamName={slideData.selectedTeamName}
-            totalTrips={slideData.totalTrips}
-            totalPassthroughs={slideData.totalPassthroughs}
-            totalQuotes={slideData.totalQuotes}
-            totalHotPasses={slideData.totalHotPasses}
-            totalBookings={slideData.totalBookings}
-            avgTQRate={slideData.avgTQRate}
-            avgTPRate={slideData.avgTPRate}
-            repeatStats={repeatStats}
-            b2bStats={b2bStats}
+            prospectData={slideData.prospectData}
+            taData={slideData.taData}
+            repeatData={slideData.repeatSegmentData}
             colors={colors}
             layout={layout}
           />
@@ -396,18 +405,6 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         break;
       case 4:
         slideContent = (
-          <WebTopPerformersSlide
-            topPassthroughs={slideData.byPassthroughs}
-            topQuotes={slideData.byQuotes}
-            teamName={slideData.selectedTeamName}
-            recentAchievements={recentAchievements}
-            colors={colors}
-            layout={layout}
-          />
-        );
-        break;
-      case 5:
-        slideContent = (
           <WebTopDestinationsSlide
             destinations={config.topDestinations || []}
             agentDestinations={config.agentTopDestinations}
@@ -416,7 +413,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
           />
         );
         break;
-      case 6:
+      case 5:
         slideContent = (
           <WebLeaderboardSlide
             byPassthroughs={slideData.allByPassthroughs}
@@ -432,7 +429,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
           />
         );
         break;
-      case 7:
+      case 6:
         slideContent = (
           <WebCascadesSlide
             cascades={config.cascades}
@@ -441,7 +438,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
           />
         );
         break;
-      case 8:
+      case 7:
         slideContent = (
           <WebForecastDestinationsSlide
             destinations={forecastDestinations?.destinations || []}
@@ -452,7 +449,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
           />
         );
         break;
-      case 9:
+      case 8:
         slideContent = (
           <WebClosingSlide
             teamName={config.teamName}

@@ -16,11 +16,22 @@ import type { RawParsedData } from '../utils/indexedDB';
 import { findColumn } from '../utils/columnDetection';
 import { findAgentColumn, findDateColumn } from '../utils/metricsCalculator';
 import { formatDateString } from '../utils/dateParser';
-import type { AllRecords, VolumeMetric, RateMetric, TimePeriod, RecordEntry } from '../utils/recordsTracker';
-import { formatMetricName, formatPeriodName, formatRecordValue, formatDateRange } from '../utils/recordsTracker';
+import type { AllRecords } from '../utils/recordsTracker';
 import { loadConfigFromFirestore, saveConfigToFirestore } from '../utils/firestoreSync';
 
 type PresentationMode = 'pptx' | 'web';
+
+// Interface for recent achievements (used by WebTopPerformersSlide)
+export interface RecentAchievement {
+  agentName: string;
+  metric: string;
+  period: string;
+  value: number;
+  dateRange: string;
+  formattedMetric: string;
+  formattedPeriod: string;
+  formattedValue: string;
+}
 
 // Interface for destination stats with T>P rate
 export interface DestinationStats {
@@ -30,110 +41,7 @@ export interface DestinationStats {
   tpRate: number;
 }
 
-// Interface for recent achievements to show on Top Performers slide
-export interface RecentAchievement {
-  agentName: string;
-  metric: VolumeMetric | RateMetric;
-  period: TimePeriod;
-  value: number;
-  dateRange: string;
-  formattedMetric: string;
-  formattedPeriod: string;
-  formattedValue: string;
-}
-
 const CASCADES_STORAGE_KEY = 'gtt_kpi_cascades';
-
-// Extract recent record achievements for team members (performance period ended within last 7 days)
-const extractRecentAchievements = (
-  records: AllRecords | null | undefined,
-  teamMembers: string[],
-  daysBack: number = 7
-): RecentAchievement[] => {
-  if (!records?.agents) return [];
-
-  const achievements: RecentAchievement[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Normalize to start of day
-  const cutoffDate = new Date(today);
-  cutoffDate.setDate(cutoffDate.getDate() - daysBack);
-
-  // Normalize team member names for comparison
-  const teamMembersLower = new Set(teamMembers.map(m => m.toLowerCase()));
-
-  const volumeMetrics: VolumeMetric[] = ['trips', 'quotes', 'passthroughs'];
-  const rateMetrics: RateMetric[] = ['tq', 'tp', 'pq'];
-  const volumePeriods: TimePeriod[] = ['day', 'week', 'month', 'quarter'];
-  const ratePeriods: TimePeriod[] = ['month', 'quarter'];
-
-  // Helper to parse YYYY-MM-DD date string
-  const parseDate = (dateStr: string): Date => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  };
-
-  for (const [agentName, agentRecords] of Object.entries(records.agents)) {
-    // Check if agent is on the team
-    if (!teamMembersLower.has(agentName.toLowerCase())) continue;
-
-    // Check volume records
-    for (const metric of volumeMetrics) {
-      const metricRecords = agentRecords[metric] as Record<TimePeriod, RecordEntry | null>;
-      for (const period of volumePeriods) {
-        const record = metricRecords[period];
-        if (record?.periodEnd) {
-          // Use periodEnd to determine if the record is recent (when the performance actually happened)
-          const periodEndDate = parseDate(record.periodEnd);
-          if (periodEndDate >= cutoffDate && periodEndDate <= today) {
-            achievements.push({
-              agentName,
-              metric,
-              period,
-              value: record.value,
-              dateRange: formatDateRange(record.periodStart, record.periodEnd),
-              formattedMetric: formatMetricName(metric),
-              formattedPeriod: formatPeriodName(period),
-              formattedValue: formatRecordValue(metric, record.value),
-            });
-          }
-        }
-      }
-    }
-
-    // Check rate records
-    for (const metric of rateMetrics) {
-      const metricRecords = agentRecords[metric] as Record<TimePeriod, RecordEntry | null>;
-      for (const period of ratePeriods) {
-        const record = metricRecords[period];
-        if (record?.periodEnd) {
-          // Use periodEnd to determine if the record is recent
-          const periodEndDate = parseDate(record.periodEnd);
-          if (periodEndDate >= cutoffDate && periodEndDate <= today) {
-            achievements.push({
-              agentName,
-              metric,
-              period,
-              value: record.value,
-              dateRange: formatDateRange(record.periodStart, record.periodEnd),
-              formattedMetric: formatMetricName(metric),
-              formattedPeriod: formatPeriodName(period),
-              formattedValue: formatRecordValue(metric, record.value),
-            });
-          }
-        }
-      }
-    }
-  }
-
-  // Sort by most recent first, then by value descending
-  return achievements.sort((a, b) => {
-    // Prefer more significant periods (quarter > month > week > day)
-    const periodOrder = { quarter: 4, month: 3, week: 2, day: 1 };
-    const periodDiff = periodOrder[b.period] - periodOrder[a.period];
-    if (periodDiff !== 0) return periodDiff;
-    return b.value - a.value;
-  });
-};
 
 // Helper to convert date string to integer for comparison (YYYYMMDD format)
 const dateToInt = (dateStr: string): number => {
@@ -733,7 +641,7 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
   seniors,
   teams,
   rawData,
-  records,
+  records: _records,
   startDate = '',
   endDate = '',
 }) => {
@@ -803,12 +711,6 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
   const b2bDestinations = useMemo(
     () => extractB2bDestinations(rawData || null, selectedTeamMembers, startDate, endDate, 5),
     [rawData, selectedTeamMembers, startDate, endDate]
-  );
-
-  // Extract recent achievements (records set in last 7 days) for team members
-  const recentAchievements = useMemo(
-    () => extractRecentAchievements(records, selectedTeamMembers, 7),
-    [records, selectedTeamMembers]
   );
 
   // Extract forecast destinations from previous year's same 60-day period (department-wide)
@@ -1348,7 +1250,6 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
             teams={teams}
             config={{ ...config, topDestinations, agentTopDestinations }}
             webStyle={webStyle}
-            recentAchievements={recentAchievements}
             hotPassDestinations={hotPassDestinations}
             repeatStats={repeatDestinations}
             b2bStats={b2bDestinations}

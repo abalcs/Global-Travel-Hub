@@ -1,96 +1,149 @@
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useMemo, useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
 import type { LayoutStyles } from '../webPresentationConfig';
+import type { Team, Metrics } from '../../../types';
 
 // Scenic travel images for progress background
 const PROGRESS_IMAGES = [
-  'https://images.pexels.com/photos/1271619/pexels-photo-1271619.jpeg?auto=compress&cs=tinysrgb&w=1600', // Mountain climber
-  'https://images.pexels.com/photos/2387418/pexels-photo-2387418.jpeg?auto=compress&cs=tinysrgb&w=1600', // Hiking trail
-  'https://images.pexels.com/photos/1658967/pexels-photo-1658967.jpeg?auto=compress&cs=tinysrgb&w=1600', // Road through mountains
+  'https://images.pexels.com/photos/1271619/pexels-photo-1271619.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  'https://images.pexels.com/photos/2387418/pexels-photo-2387418.jpeg?auto=compress&cs=tinysrgb&w=1600',
+  'https://images.pexels.com/photos/1658967/pexels-photo-1658967.jpeg?auto=compress&cs=tinysrgb&w=1600',
 ];
 
 interface WebProgressSlideProps {
-  totalPassthroughs: number;
-  totalQuotes: number;
-  monthlyGoalPassthroughs: number;
-  monthlyGoalQuotes: number;
-  teamCount: number;
+  teams: Team[];
+  metrics: Metrics[];
+  seniors: string[];
   teamName: string;
   colors: SlideColors;
   layout?: LayoutStyles;
 }
 
-const CountUp: React.FC<{ end: number; delay?: number; color: string }> = ({
-  end,
-  delay = 0,
-  color,
-}) => {
-  const [displayValue, setDisplayValue] = useState(0);
-  const motionValue = useMotionValue(0);
-  const rounded = useTransform(motionValue, (v) => Math.round(v));
+interface TeamStats {
+  name: string;
+  enquiries: number;
+  passthroughs: number;
+  quotes: number;
+  bookings: number;
+  epRate: number;
+  eqRate: number;
+  pqRate: number;
+  ebRate: number;
+}
 
-  useEffect(() => {
-    const unsubscribe = rounded.on('change', (v) => setDisplayValue(v));
-    const controls = animate(motionValue, end, {
-      duration: 1.5,
-      delay,
-      ease: 'easeOut',
-    });
-    return () => {
-      unsubscribe();
-      controls.stop();
-    };
-  }, [end, delay, motionValue, rounded]);
-
-  return <span style={{ color }}>{displayValue}</span>;
-};
-
-const ProgressBar: React.FC<{
-  current: number;
-  goal: number;
-  color: string;
-  delay?: number;
-}> = ({ current, goal, color, delay = 0 }) => {
-  const percentage = Math.min((current / goal) * 100, 100);
-
-  return (
-    <div className="h-3 bg-black/20 rounded-full overflow-hidden mt-3">
-      <motion.div
-        className="h-full rounded-full"
-        style={{ backgroundColor: color }}
-        initial={{ width: 0 }}
-        animate={{ width: `${percentage}%` }}
-        transition={{ duration: 1, delay: delay + 0.5, ease: 'easeOut' }}
-      />
-    </div>
-  );
-};
+const METRIC_ROWS: { key: keyof Omit<TeamStats, 'name'>; label: string; isRate: boolean }[] = [
+  { key: 'enquiries', label: 'Enquiries', isRate: false },
+  { key: 'passthroughs', label: 'Passthroughs', isRate: false },
+  { key: 'quotes', label: 'Quotes', isRate: false },
+  { key: 'bookings', label: 'Bookings', isRate: false },
+  { key: 'epRate', label: 'E>P', isRate: true },
+  { key: 'eqRate', label: 'E>Q', isRate: true },
+  { key: 'pqRate', label: 'P>Q', isRate: true },
+  { key: 'ebRate', label: 'E>B', isRate: true },
+];
 
 export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
-  totalPassthroughs,
-  totalQuotes,
-  monthlyGoalPassthroughs,
-  monthlyGoalQuotes,
-  teamCount,
+  teams,
+  metrics,
+  seniors: _seniors,
   teamName,
   colors,
   layout,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const passthroughsMet = totalPassthroughs >= monthlyGoalPassthroughs;
-  const quotesMet = totalQuotes >= monthlyGoalQuotes;
-  const passthroughsPercent = Math.round((totalPassthroughs / monthlyGoalPassthroughs) * 100);
-  const quotesPercent = Math.round((totalQuotes / monthlyGoalQuotes) * 100);
-
-  // Pick consistent image based on progress
-  const imageIndex = (passthroughsPercent + quotesPercent) % PROGRESS_IMAGES.length;
+  const imageIndex = teamName.length % PROGRESS_IMAGES.length;
   const backgroundImage = PROGRESS_IMAGES[imageIndex];
+
+  // Compute per-team stats + department average
+  const { teamStats, deptAvg } = useMemo(() => {
+    const stats: TeamStats[] = teams.map(team => {
+      const memberSet = new Set(team.agentNames.map(n => n.trim().toLowerCase()));
+      const teamMetrics = metrics.filter(m => memberSet.has(m.agentName.trim().toLowerCase()));
+
+      const enquiries = teamMetrics.reduce((s, m) => s + m.trips, 0);
+      const passthroughs = teamMetrics.reduce((s, m) => s + m.passthroughs, 0);
+      const quotes = teamMetrics.reduce((s, m) => s + m.quotes, 0);
+      const bookings = teamMetrics.reduce((s, m) => s + m.bookings, 0);
+
+      return {
+        name: team.name,
+        enquiries,
+        passthroughs,
+        quotes,
+        bookings,
+        epRate: enquiries > 0 ? (passthroughs / enquiries) * 100 : 0,
+        eqRate: enquiries > 0 ? (quotes / enquiries) * 100 : 0,
+        pqRate: passthroughs > 0 ? (quotes / passthroughs) * 100 : 0,
+        ebRate: enquiries > 0 ? (bookings / enquiries) * 100 : 0,
+      };
+    });
+
+    // Department average
+    const totalEnquiries = metrics.reduce((s, m) => s + m.trips, 0);
+    const totalPTs = metrics.reduce((s, m) => s + m.passthroughs, 0);
+    const totalQuotes = metrics.reduce((s, m) => s + m.quotes, 0);
+    const totalBookings = metrics.reduce((s, m) => s + m.bookings, 0);
+
+    const avg: TeamStats = {
+      name: 'Dept Avg',
+      enquiries: totalEnquiries,
+      passthroughs: totalPTs,
+      quotes: totalQuotes,
+      bookings: totalBookings,
+      epRate: totalEnquiries > 0 ? (totalPTs / totalEnquiries) * 100 : 0,
+      eqRate: totalEnquiries > 0 ? (totalQuotes / totalEnquiries) * 100 : 0,
+      pqRate: totalPTs > 0 ? (totalQuotes / totalPTs) * 100 : 0,
+      ebRate: totalEnquiries > 0 ? (totalBookings / totalEnquiries) * 100 : 0,
+    };
+
+    return { teamStats: stats, deptAvg: avg };
+  }, [teams, metrics]);
+
+  // All columns including dept average
+  const allColumns = [...teamStats, deptAvg];
+
+  // Find best/worst per metric row (excluding dept avg)
+  const bestWorst = useMemo(() => {
+    const result: Record<string, { bestIdx: number; worstIdx: number }> = {};
+    for (const row of METRIC_ROWS) {
+      let bestVal = -Infinity;
+      let worstVal = Infinity;
+      let bestIdx = -1;
+      let worstIdx = -1;
+      teamStats.forEach((ts, i) => {
+        const val = ts[row.key] as number;
+        if (val > bestVal) { bestVal = val; bestIdx = i; }
+        if (val < worstVal) { worstVal = val; worstIdx = i; }
+      });
+      // Only color-code if there's actually a difference
+      if (bestVal === worstVal) {
+        result[row.key] = { bestIdx: -1, worstIdx: -1 };
+      } else {
+        result[row.key] = { bestIdx, worstIdx };
+      }
+    }
+    return result;
+  }, [teamStats]);
+
+  const formatValue = (val: number, isRate: boolean) => {
+    if (isRate) return `${val.toFixed(1)}%`;
+    return val.toLocaleString();
+  };
+
+  const getCellColor = (rowKey: string, colIdx: number, isDeptAvg: boolean) => {
+    if (isDeptAvg) return `#${colors.accent}`;
+    const bw = bestWorst[rowKey];
+    if (!bw) return `#${colors.text}`;
+    if (colIdx === bw.bestIdx) return '#22c55e'; // green
+    if (colIdx === bw.worstIdx) return '#ef4444'; // red
+    return `#${colors.text}`;
+  };
 
   return (
     <div
-      className="w-full h-full flex flex-col px-12 py-8 relative overflow-hidden"
+      className="w-full h-full flex flex-col px-10 py-6 relative overflow-hidden"
       style={{ backgroundColor: `#${colors.background}` }}
     >
       {/* Background Image */}
@@ -117,27 +170,16 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
         transition={{ duration: 0.5 }}
       />
 
-      {/* Bottom right decorative circle */}
-      {layout?.showDecorations !== false && (
-        <motion.div
-          className="absolute -bottom-12 -right-12 w-24 h-24 rounded-full z-10"
-          style={{ backgroundColor: `#${colors.secondary}`, opacity: 0.5 }}
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        />
-      )}
-
       {/* Header */}
       <div className={`${layout?.headerMargin || 'mb-4'} relative z-10`}>
         <motion.h2
-          className={`${layout?.titleSize || 'text-4xl'} font-bold`}
+          className={`${layout?.titleSize || 'text-3xl'} font-bold`}
           style={{ color: `#${colors.text}` }}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          TEAM PROGRESS
+          TEAM COMPARISON
         </motion.h2>
         <motion.div
           className="h-1 w-40 mt-2"
@@ -147,98 +189,115 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
           transition={{ duration: 0.5, delay: 0.2 }}
         />
         <motion.p
-          className="mt-2"
+          className="mt-1 text-sm"
           style={{ color: `#${colors.textLight}` }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          {teamName} ({teamCount} members) - Monthly Goals
+          All Teams — Key Metrics Overview
         </motion.p>
       </div>
 
-      {/* Cards */}
-      <div className={`flex-1 flex ${layout?.spacing || 'gap-6'} items-center mt-4 relative z-10`}>
-        {/* Passthroughs Card */}
-        <motion.div
-          className={`flex-1 rounded-2xl ${layout?.cardPadding || 'p-6'} border-2`}
-          style={{
-            backgroundColor: `#${colors.cardBg}`,
-            borderColor: `#${colors.primary}`,
-          }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <p
-            className="text-sm font-bold tracking-wide mb-4"
-            style={{ color: `#${colors.textLight}` }}
-          >
-            PASSTHROUGHS
-          </p>
-          <div className="flex items-baseline gap-4 mb-2">
-            <p className={`${layout?.valueSize || 'text-6xl'} font-bold`}>
-              <CountUp
-                end={totalPassthroughs}
-                delay={0.5}
-                color={passthroughsMet ? `#${colors.success}` : `#${colors.text}`}
-              />
-            </p>
-            <p className="text-2xl" style={{ color: `#${colors.textLight}` }}>
-              / {monthlyGoalPassthroughs}
-            </p>
-          </div>
-          <p className="text-xl font-semibold" style={{ color: passthroughsMet ? `#${colors.success}` : `#${colors.accent}` }}>
-            {passthroughsPercent}% of goal
-          </p>
-          <ProgressBar
-            current={totalPassthroughs}
-            goal={monthlyGoalPassthroughs}
-            color={passthroughsMet ? `#${colors.success}` : `#${colors.primary}`}
-            delay={0.3}
-          />
-        </motion.div>
+      {/* Table */}
+      <motion.div
+        className="flex-1 relative z-10 overflow-auto"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th
+                className="text-left py-2 px-3 border-b font-bold text-xs tracking-wider"
+                style={{ color: `#${colors.textLight}`, borderColor: `#${colors.accent}40` }}
+              >
+                METRIC
+              </th>
+              {allColumns.map((col, i) => {
+                const isDeptAvg = i === allColumns.length - 1;
+                return (
+                  <motion.th
+                    key={col.name}
+                    className="text-center py-2 px-2 border-b font-bold text-xs tracking-wider"
+                    style={{
+                      color: isDeptAvg ? `#${colors.accent}` : `#${colors.text}`,
+                      borderColor: `#${colors.accent}40`,
+                      backgroundColor: isDeptAvg ? `#${colors.accent}15` : 'transparent',
+                    }}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + i * 0.05 }}
+                  >
+                    {col.name}
+                  </motion.th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {METRIC_ROWS.map((row, rowIdx) => (
+              <motion.tr
+                key={row.key}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + rowIdx * 0.05 }}
+                style={{
+                  backgroundColor: rowIdx >= 4 ? `#${colors.cardBg}` : 'transparent',
+                }}
+              >
+                <td
+                  className="py-2 px-3 border-b font-semibold text-xs"
+                  style={{
+                    color: `#${colors.textLight}`,
+                    borderColor: `#${colors.accent}20`,
+                  }}
+                >
+                  {row.label}
+                </td>
+                {allColumns.map((col, colIdx) => {
+                  const isDeptAvg = colIdx === allColumns.length - 1;
+                  const val = col[row.key] as number;
+                  const cellColor = getCellColor(row.key, colIdx, isDeptAvg);
 
-        {/* Quotes Card */}
+                  return (
+                    <td
+                      key={col.name}
+                      className="text-center py-2 px-2 border-b font-semibold tabular-nums"
+                      style={{
+                        color: cellColor,
+                        borderColor: `#${colors.accent}20`,
+                        backgroundColor: isDeptAvg ? `#${colors.accent}10` : 'transparent',
+                        fontWeight: isDeptAvg ? 700 : (cellColor !== `#${colors.text}` ? 700 : 500),
+                      }}
+                    >
+                      {formatValue(val, row.isRate)}
+                    </td>
+                  );
+                })}
+              </motion.tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Legend */}
         <motion.div
-          className={`flex-1 rounded-2xl ${layout?.cardPadding || 'p-6'} border-2`}
-          style={{
-            backgroundColor: `#${colors.cardBg}`,
-            borderColor: `#${colors.secondary}`,
-          }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.35 }}
+          className="flex items-center gap-4 mt-3 justify-end"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
         >
-          <p
-            className="text-sm font-bold tracking-wide mb-4"
-            style={{ color: `#${colors.textLight}` }}
-          >
-            QUOTES
-          </p>
-          <div className="flex items-baseline gap-4 mb-2">
-            <p className={`${layout?.valueSize || 'text-6xl'} font-bold`}>
-              <CountUp
-                end={totalQuotes}
-                delay={0.65}
-                color={quotesMet ? `#${colors.success}` : `#${colors.text}`}
-              />
-            </p>
-            <p className="text-2xl" style={{ color: `#${colors.textLight}` }}>
-              / {monthlyGoalQuotes}
-            </p>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#22c55e' }} />
+            <span className="text-xs" style={{ color: `#${colors.textLight}` }}>Best</span>
           </div>
-          <p className="text-xl font-semibold" style={{ color: quotesMet ? `#${colors.success}` : `#${colors.accent}` }}>
-            {quotesPercent}% of goal
-          </p>
-          <ProgressBar
-            current={totalQuotes}
-            goal={monthlyGoalQuotes}
-            color={quotesMet ? `#${colors.success}` : `#${colors.secondary}`}
-            delay={0.45}
-          />
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#ef4444' }} />
+            <span className="text-xs" style={{ color: `#${colors.textLight}` }}>Needs Focus</span>
+          </div>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 };

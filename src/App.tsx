@@ -46,7 +46,7 @@ import {
 } from './utils/recordsTracker';
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
-import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent } from './utils/excelParser';
+import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, type CrmRow } from './utils/excelParser';
 import { TamView } from './components/TamView';
 import { IncentiveView } from './components/IncentiveView';
 
@@ -57,6 +57,42 @@ const tagRows = (rows: CSVRow[], source: string): CSVRow[] =>
 /** Strip rows whose _source tag doesn't match (cross-contamination guard) */
 const filterBySource = (rows: CSVRow[], source: string): CSVRow[] =>
   rows.filter(row => !row._source || row._source === source);
+
+/**
+ * Convert CrmParsedData into RawParsedData so downstream consumers
+ * (PresentationGenerator destinations, RegionalView, etc.) can work with CRM data.
+ * CrmRow fields are spread as string keys; numeric fields are stringified.
+ */
+const crmToRawParsedData = (crm: CrmParsedData): RawParsedData => {
+  const toCSVRows = (rows: CrmRow[], source: string): CSVRow[] =>
+    rows.map(r => ({
+      destination: r.destination,
+      'original interest': r.interest,
+      'gtt owner': r.agentName,
+      'owner name': r.agentName,
+      'quote: quote name': r.quoteName,
+      'trip reference': r.tripRef,
+      channel: r.channel,
+      media: r.media,
+      'repeat/new': r.clientType,
+      'enquiry date': r.enquiryDate || '',
+      'passthrough to sales date': r.passthroughDate || '',
+      'created date': r.enquiryDate || r.passthroughDate || r.quoteCreatedDate || '',
+      'quote first sent': r.quoteCreatedDate || '',
+      'deposit acquired date': r.depositAcquiredDate || '',
+      stage: r.stage || '',
+      _source: source,
+    }));
+
+  return {
+    trips: toCSVRows(crm.enquiries, 'trips'),
+    passthroughs: toCSVRows(crm.passthroughs, 'passthroughs'),
+    quotes: toCSVRows(crm.quotes, 'quotes'),
+    hotPass: [], // CRM data doesn't have a separate hot-pass report
+    bookings: toCSVRows(crm.bookings, 'bookings'),
+    nonConverted: [],
+  };
+};
 
 /**
  * Enrich trips rows with destination/original-interest from passthroughs data.
@@ -312,6 +348,7 @@ function App() {
           if (crmResult) {
             hasCrmData = true;
             setCrmParsedData(crmResult.data);
+            setRawParsedData(crmToRawParsedData(crmResult.data));
             if (crmResult.dateRange) setExcelDateRange(crmResult.dateRange);
 
             // Rebuild metrics from CRM data (overrides CSV metrics)
@@ -424,6 +461,9 @@ function App() {
         bookings: bookingsReport?.rows ?? [],
       };
       setCrmParsedData(crmData);
+
+      // Build RawParsedData from CRM data for downstream consumers (destinations, etc.)
+      setRawParsedData(crmToRawParsedData(crmData));
 
       // Build unified metrics from all available reports
       const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
@@ -784,6 +824,8 @@ function App() {
         quotes: filtered.quotes.length,
         bookings: filtered.bookings.length,
       });
+      // Update rawParsedData with filtered CRM data for destinations etc.
+      setRawParsedData(crmToRawParsedData(filtered));
       const metricsData = buildMetrics(
         { rows: filtered.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
@@ -816,6 +858,7 @@ function App() {
 
     if (crmParsedData) {
       // Rebuild metrics from unfiltered CRM data
+      setRawParsedData(crmToRawParsedData(crmParsedData));
       const metricsData = buildMetrics(
         { rows: crmParsedData.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
