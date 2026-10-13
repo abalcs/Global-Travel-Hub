@@ -12,6 +12,7 @@ import {
   type LayoutStyle,
   type WebPresentationStyle,
 } from './webPresentation/webPresentationConfig';
+import type { CSVRow } from '../utils/csvParser';
 import type { RawParsedData } from '../utils/indexedDB';
 import { findColumn } from '../utils/columnDetection';
 import { findAgentColumn, findDateColumn } from '../utils/metricsCalculator';
@@ -444,7 +445,12 @@ export interface DropoutData {
   deptEnquiries: number;
 }
 
-// Extract dropout data from raw trips, grouped by reason
+// Broad patterns matching how insightsAnalytics finds reason columns
+const REASON_PATTERNS = ['non validated reason', 'reason', 'non-validated reason', 'status reason', 'dropout reason'];
+const REASON_DATE_PATTERNS = ['enquiry date', 'created date', 'date'];
+
+// Extract dropout/non-validated data from raw data, grouped by reason.
+// Checks both trips (CRM dropout reasons) and nonConverted (raw CSV path).
 const extractDropoutData = (
   rawData: RawParsedData | null,
   teamMembers: string[],
@@ -452,19 +458,13 @@ const extractDropoutData = (
   endDate: string,
 ): DropoutData => {
   const empty: DropoutData = { teamDropouts: [], deptDropouts: [], teamTotal: 0, deptTotal: 0, teamEnquiries: 0, deptEnquiries: 0 };
-  if (!rawData?.trips || rawData.trips.length === 0) return empty;
-
-  const reasonCol = findColumn(rawData.trips[0], ['dropout reason']);
-  const agentCol = findAgentColumn(rawData.trips[0]);
-  const dateCol = findDateColumn(rawData.trips[0], ['enquiry date', 'created date']);
-
-  if (!reasonCol) return empty;
+  if (!rawData) return empty;
 
   const hasDateFilter = !!(startDate || endDate);
   const startInt = startDate ? dateToInt(startDate) : null;
   const endInt = endDate ? dateToInt(endDate) : null;
-
   const teamNorm = teamMembers.map(n => n.trim().toLowerCase());
+
   const teamCounts: Record<string, number> = {};
   const deptCounts: Record<string, number> = {};
   let teamTotal = 0;
@@ -472,33 +472,78 @@ const extractDropoutData = (
   let teamEnquiries = 0;
   let deptEnquiries = 0;
 
-  for (const row of rawData.trips) {
-    // Date filter
-    if (hasDateFilter && dateCol) {
-      const dateStr = formatDateString(row[dateCol]);
-      if (!dateStr) continue;
-      const rowInt = dateToInt(dateStr);
-      if (startInt && rowInt < startInt) continue;
-      if (endInt && rowInt > endInt) continue;
+  // Helper: process a set of rows for dropout reasons
+  const processRows = (rows: CSVRow[], countAsEnquiries: boolean) => {
+    if (!rows || rows.length === 0) return;
+
+    const reasonCol = findColumn(rows[0], REASON_PATTERNS);
+    if (!reasonCol) return;
+
+    const agentCol = findAgentColumn(rows[0]);
+    const dateCol = findDateColumn(rows[0], REASON_DATE_PATTERNS);
+
+    // For nonConverted rows, also try lead owner column
+    const altAgentCol = !agentCol
+      ? Object.keys(rows[0]).find(k => k.toLowerCase().includes('lead owner') || k.includes('_agent'))
+      : null;
+    const effectiveAgentCol = agentCol || altAgentCol || null;
+
+    for (const row of rows) {
+      // Date filter
+      if (hasDateFilter && dateCol) {
+        const dateStr = formatDateString(row[dateCol]);
+        if (!dateStr) continue;
+        const rowInt = dateToInt(dateStr);
+        if (startInt && rowInt < startInt) continue;
+        if (endInt && rowInt > endInt) continue;
+      }
+
+      const agent = effectiveAgentCol ? (row[effectiveAgentCol] || '').trim().toLowerCase() : '';
+      const isTeam = teamNorm.includes(agent);
+      const reason = (row[reasonCol] || '').trim();
+
+      // Count enquiries only from trips source (not from nonConverted file)
+      if (countAsEnquiries) {
+        if (isTeam) teamEnquiries++;
+        deptEnquiries++;
+      }
+
+      // Skip rows without a meaningful reason
+      if (!reason || reason.toLowerCase() === 'n/a' || reason.toLowerCase() === 'na' || /^\d+$/.test(reason) || reason.length <= 1) continue;
+
+      if (isTeam) {
+        teamCounts[reason] = (teamCounts[reason] || 0) + 1;
+        teamTotal++;
+      }
+      deptCounts[reason] = (deptCounts[reason] || 0) + 1;
+      deptTotal++;
     }
+  };
 
-    const agent = agentCol ? (row[agentCol] || '').trim().toLowerCase() : '';
-    const isTeam = teamNorm.includes(agent);
-    const reason = (row[reasonCol] || '').trim();
+  // Source 1: CRM dropout reasons embedded in trips/enquiries rows
+  processRows(rawData.trips, true);
 
-    // Count all enquiries for rate calculation
-    if (isTeam) teamEnquiries++;
-    deptEnquiries++;
-
-    // Skip rows without a meaningful dropout reason
-    if (!reason || reason.toLowerCase() === 'n/a' || reason.toLowerCase() === 'na') continue;
-
-    if (isTeam) {
-      teamCounts[reason] = (teamCounts[reason] || 0) + 1;
-      teamTotal++;
+  // Source 2: Separate non-converted file (raw CSV upload path)
+  // Only use if we didn't find reasons in trips
+  if (teamTotal === 0 && deptTotal === 0) {
+    processRows(rawData.nonConverted, false);
+    // For rate calculation when using nonConverted, count trips as enquiries
+    if (rawData.trips?.length) {
+      const tripAgentCol = findAgentColumn(rawData.trips[0]);
+      const tripDateCol = findDateColumn(rawData.trips[0], REASON_DATE_PATTERNS);
+      for (const row of rawData.trips) {
+        if (hasDateFilter && tripDateCol) {
+          const dateStr = formatDateString(row[tripDateCol]);
+          if (!dateStr) continue;
+          const rowInt = dateToInt(dateStr);
+          if (startInt && rowInt < startInt) continue;
+          if (endInt && rowInt > endInt) continue;
+        }
+        const agent = tripAgentCol ? (row[tripAgentCol] || '').trim().toLowerCase() : '';
+        if (teamNorm.includes(agent)) teamEnquiries++;
+        deptEnquiries++;
+      }
     }
-    deptCounts[reason] = (deptCounts[reason] || 0) + 1;
-    deptTotal++;
   }
 
   const toSorted = (counts: Record<string, number>) =>
