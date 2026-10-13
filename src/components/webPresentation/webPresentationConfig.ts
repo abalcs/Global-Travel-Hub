@@ -1,6 +1,16 @@
 import type { SlideColors, ThemeStyle } from '../../utils/presentationGenerator';
 import { THEMES as BASE_THEMES } from '../../utils/presentationGenerator';
 
+export interface SegmentData {
+  enquiries: number;
+  passthroughs: number;
+  quotes: number;
+  bookings: number;
+  epRate: number;
+  eqRate: number;
+  ebRate: number;
+}
+
 // Extended themes for web presentation (audley-brand is now in base ThemeStyle)
 export type WebThemeStyle = ThemeStyle | 'midnight-purple' | 'ocean-breeze' | 'forest-green' | 'rose-gold' | 'neon-nights' | 'minimalist-gray';
 

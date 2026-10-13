@@ -34,9 +34,7 @@ export const generateHtmlPresentation = (data: ExportData): string => {
   // Calculate totals
   const totalPassthroughs = selectedTeamMetrics.reduce((sum, m) => sum + m.passthroughs, 0);
   const totalQuotes = selectedTeamMetrics.reduce((sum, m) => sum + m.quotes, 0);
-  const totalTrips = selectedTeamMetrics.reduce((sum, m) => sum + m.trips, 0);
   const totalHotPasses = selectedTeamMetrics.reduce((sum, m) => sum + m.hotPasses, 0);
-  const totalBookings = selectedTeamMetrics.reduce((sum, m) => sum + m.bookings, 0);
 
   // Goals are now team totals (monthly goals)
   const monthlyGoalPassthroughs = config.monthlyGoalPassthroughs;
@@ -44,8 +42,6 @@ export const generateHtmlPresentation = (data: ExportData): string => {
 
   // Calculate rates
   const avgHotPassRate = totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0;
-  const avgTQRate = totalTrips > 0 ? (totalQuotes / totalTrips) * 100 : 0;
-  const avgTPRate = totalTrips > 0 ? (totalPassthroughs / totalTrips) * 100 : 0;
 
   // Sort for top performers
   const byPassthroughs = [...selectedTeamMetrics].sort((a, b) => b.passthroughs - a.passthroughs);
@@ -250,27 +246,8 @@ export const generateHtmlPresentation = (data: ExportData): string => {
       </div>
     </div>
 
-    <!-- Slide 5: Key Metrics -->
+    <!-- Slide 5: Leaderboard -->
     <div class="slide" id="slide5">
-      <div class="section-title">KEY METRICS</div>
-      <div class="section-line"></div>
-      <div class="section-meta">${selectedTeamName}</div>
-      <div class="metrics-grid">
-        <div class="metrics-row">
-          <div class="metric-card" style="border-color: #${colors.primary};"><div class="metric-label">TRIPS</div><div class="metric-value" style="color: #${colors.primary};">${totalTrips}</div></div>
-          <div class="metric-card" style="border-color: #${colors.secondary};"><div class="metric-label">PASSTHROUGHS</div><div class="metric-value" style="color: #${colors.secondary};">${totalPassthroughs}</div></div>
-          <div class="metric-card" style="border-color: #${colors.success};"><div class="metric-label">QUOTES</div><div class="metric-value" style="color: #${colors.success};">${totalQuotes}</div></div>
-        </div>
-        <div class="metrics-row">
-          <div class="metric-card" style="border-color: #${colors.warning};"><div class="metric-label">HOT PASSES</div><div class="metric-value" style="color: #${colors.warning};">${totalHotPasses}</div></div>
-          <div class="metric-card" style="border-color: #${colors.accent};"><div class="metric-label">BOOKINGS</div><div class="metric-value" style="color: #${colors.accent};">${totalBookings}</div></div>
-        </div>
-        <div class="rates-bar">T&gt;Q: ${avgTQRate.toFixed(1)}% &nbsp;&nbsp;|&nbsp;&nbsp; T&gt;P: ${avgTPRate.toFixed(1)}% &nbsp;&nbsp;|&nbsp;&nbsp; Hot Pass: ${avgHotPassRate.toFixed(1)}%</div>
-      </div>
-    </div>
-
-    <!-- Slide 6: Leaderboard -->
-    <div class="slide" id="slide6">
       <div class="leaderboard-header">
         <div>
           <div class="section-title">LEADERBOARD</div>
@@ -316,8 +293,8 @@ export const generateHtmlPresentation = (data: ExportData): string => {
       </div>
     </div>
 
-    <!-- Slide 7: Cascades -->
-    <div class="slide" id="slide7">
+    <!-- Slide 6: Cascades -->
+    <div class="slide" id="slide6">
       <div class="section-title">CASCADES & UPDATES</div>
       <div class="section-line"></div>
       <div class="cascades-list">
@@ -327,8 +304,8 @@ export const generateHtmlPresentation = (data: ExportData): string => {
       </div>
     </div>
 
-    <!-- Slide 8: Closing -->
-    <div class="slide closing" id="slide8">
+    <!-- Slide 7: Closing -->
+    <div class="slide closing" id="slide7">
       <div class="decor" style="width: 192px; height: 192px; top: -96px; left: -96px; background: #${colors.primary};"></div>
       <div class="decor" style="width: 192px; height: 192px; top: -96px; right: -96px; background: #${colors.primary};"></div>
       <div class="decor" style="width: 160px; height: 160px; bottom: -80px; left: -80px; background: #${colors.secondary};"></div>
@@ -344,18 +321,18 @@ export const generateHtmlPresentation = (data: ExportData): string => {
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
       </button>
       <div class="dots">
-        ${Array.from({ length: 8 }, (_, i) => `<div class="dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>`).join('')}
+        ${Array.from({ length: 7 }, (_, i) => `<div class="dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>`).join('')}
       </div>
       <button onclick="nextSlide()" id="nextBtn">
         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </button>
-      <span class="counter"><span id="currentSlide">1</span> / 8</span>
+      <span class="counter"><span id="currentSlide">1</span> / 7</span>
     </div>
   </div>
 
   <script>
     let current = 0;
-    const total = 8;
+    const total = 7;
 
     function updateSlide() {
       document.querySelectorAll('.slide').forEach((s, i) => {
@@ -387,7 +364,7 @@ export const generateHtmlPresentation = (data: ExportData): string => {
       else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prevSlide(); }
       else if (e.key === 'Home') { e.preventDefault(); goToSlide(0); }
       else if (e.key === 'End') { e.preventDefault(); goToSlide(total - 1); }
-      else if (e.key >= '1' && e.key <= '8') { e.preventDefault(); goToSlide(parseInt(e.key) - 1); }
+      else if (e.key >= '1' && e.key <= '7') { e.preventDefault(); goToSlide(parseInt(e.key) - 1); }
     });
   </script>
 </body>

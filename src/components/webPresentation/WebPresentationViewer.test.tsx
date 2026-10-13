@@ -205,7 +205,7 @@ describe('WebPresentationViewer', () => {
     fireEvent.keyDown(window, { key: '3' });
     expect(screen.getByText('3 / 8')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText('KEY METRICS BY SEGMENT')).toBeInTheDocument();
+      expect(screen.getByText('HOT PASS RATE')).toBeInTheDocument();
     });
   });
 

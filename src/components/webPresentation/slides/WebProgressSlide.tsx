@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
 import type { LayoutStyles } from '../webPresentationConfig';
 import type { Team, Metrics } from '../../../types';
-import type { SegmentData } from './WebKeyMetricsSlide';
+import type { SegmentData } from '../webPresentationConfig';
 
 // Scenic travel images for progress background
 const PROGRESS_IMAGES = [

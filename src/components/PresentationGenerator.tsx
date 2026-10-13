@@ -434,23 +434,87 @@ const extractAgentTopDestinations = (
   return agentTopDests.sort((a, b) => b.count - a.count);
 };
 
-// Interface for destination with T>P stats
-export interface ForecastDestination {
-  destination: string;
-  historicalCount: number;  // Passthroughs from previous year
-  teamTrips: number;        // Team's trips to this destination (last 90 days)
-  teamPassthroughs: number; // Team's passthroughs to this destination (last 90 days)
-  teamTpRate: number;       // Team's T>P rate for this destination
+// Interface for dropout analysis data
+export interface DropoutData {
+  teamDropouts: { reason: string; count: number }[];
+  deptDropouts: { reason: string; count: number }[];
+  teamTotal: number;
+  deptTotal: number;
+  teamEnquiries: number;
+  deptEnquiries: number;
 }
 
-// Interface for forecast destinations data
-export interface ForecastDestinations {
-  destinations: ForecastDestination[];
-  periodStart: string;
-  periodEnd: string;
-  periodLabel: string;
-  teamPeriodLabel: string;  // Label for team's 90-day period
-}
+// Extract dropout data from raw trips, grouped by reason
+const extractDropoutData = (
+  rawData: RawParsedData | null,
+  teamMembers: string[],
+  startDate: string,
+  endDate: string,
+): DropoutData => {
+  const empty: DropoutData = { teamDropouts: [], deptDropouts: [], teamTotal: 0, deptTotal: 0, teamEnquiries: 0, deptEnquiries: 0 };
+  if (!rawData?.trips || rawData.trips.length === 0) return empty;
+
+  const reasonCol = findColumn(rawData.trips[0], ['dropout reason']);
+  const agentCol = findAgentColumn(rawData.trips[0]);
+  const dateCol = findDateColumn(rawData.trips[0], ['enquiry date', 'created date']);
+
+  if (!reasonCol) return empty;
+
+  const hasDateFilter = !!(startDate || endDate);
+  const startInt = startDate ? dateToInt(startDate) : null;
+  const endInt = endDate ? dateToInt(endDate) : null;
+
+  const teamNorm = teamMembers.map(n => n.trim().toLowerCase());
+  const teamCounts: Record<string, number> = {};
+  const deptCounts: Record<string, number> = {};
+  let teamTotal = 0;
+  let deptTotal = 0;
+  let teamEnquiries = 0;
+  let deptEnquiries = 0;
+
+  for (const row of rawData.trips) {
+    // Date filter
+    if (hasDateFilter && dateCol) {
+      const dateStr = formatDateString(row[dateCol]);
+      if (!dateStr) continue;
+      const rowInt = dateToInt(dateStr);
+      if (startInt && rowInt < startInt) continue;
+      if (endInt && rowInt > endInt) continue;
+    }
+
+    const agent = agentCol ? (row[agentCol] || '').trim().toLowerCase() : '';
+    const isTeam = teamNorm.includes(agent);
+    const reason = (row[reasonCol] || '').trim();
+
+    // Count all enquiries for rate calculation
+    if (isTeam) teamEnquiries++;
+    deptEnquiries++;
+
+    // Skip rows without a meaningful dropout reason
+    if (!reason || reason.toLowerCase() === 'n/a' || reason.toLowerCase() === 'na') continue;
+
+    if (isTeam) {
+      teamCounts[reason] = (teamCounts[reason] || 0) + 1;
+      teamTotal++;
+    }
+    deptCounts[reason] = (deptCounts[reason] || 0) + 1;
+    deptTotal++;
+  }
+
+  const toSorted = (counts: Record<string, number>) =>
+    Object.entries(counts)
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count);
+
+  return {
+    teamDropouts: toSorted(teamCounts),
+    deptDropouts: toSorted(deptCounts),
+    teamTotal,
+    deptTotal,
+    teamEnquiries,
+    deptEnquiries,
+  };
+};
 
 interface PresentationGeneratorProps {
   metrics: Metrics[];
@@ -536,6 +600,12 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
   // Extract B2B T>P destinations, filtered by date range
   const b2bDestinations = useMemo(
     () => extractB2bDestinations(rawData || null, selectedTeamMembers, startDate, endDate, 5),
+    [rawData, selectedTeamMembers, startDate, endDate]
+  );
+
+  // Extract dropout analysis data, filtered by date range
+  const dropoutData = useMemo(
+    () => extractDropoutData(rawData || null, selectedTeamMembers, startDate, endDate),
     [rawData, selectedTeamMembers, startDate, endDate]
   );
 
@@ -1072,6 +1142,7 @@ export const PresentationGenerator: React.FC<PresentationGeneratorProps> = ({
             hotPassDestinations={hotPassDestinations}
             repeatStats={repeatDestinations}
             b2bStats={b2bDestinations}
+            dropoutData={dropoutData}
             onClose={() => setShowWebPresentation(false)}
           />
         </div>,

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, t
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Metrics, Team } from '../../types';
 import type { PresentationConfig, TopDestination } from '../../utils/presentationGenerator';
-import type { DestinationStats } from '../PresentationGenerator';
+import type { DestinationStats, DropoutData } from '../PresentationGenerator';
 import { useSlideNavigation } from './hooks/useSlideNavigation';
 import { WebPresentationControls } from './WebPresentationControls';
 import { downloadHtmlPresentation } from './exportHtml';
@@ -11,8 +11,8 @@ import {
   getSlideTransition,
   getLayoutStyles,
   type WebPresentationStyle,
+  type SegmentData,
 } from './webPresentationConfig';
-import type { SegmentData } from './slides/WebKeyMetricsSlide';
 
 // Error boundary to catch slide rendering errors without breaking navigation
 class SlideErrorBoundary extends Component<
@@ -51,7 +51,7 @@ class SlideErrorBoundary extends Component<
 import { WebTitleSlide } from './slides/WebTitleSlide';
 import { WebProgressSlide } from './slides/WebProgressSlide';
 import { WebHotPassRateSlide } from './slides/WebHotPassRateSlide';
-import { WebKeyMetricsSlide } from './slides/WebKeyMetricsSlide';
+import { WebDropoutAnalysisSlide } from './slides/WebDropoutAnalysisSlide';
 import { WebTopDestinationsSlide } from './slides/WebTopDestinationsSlide';
 import { WebLeaderboardSlide } from './slides/WebLeaderboardSlide';
 import { WebCascadesSlide } from './slides/WebCascadesSlide';
@@ -69,6 +69,7 @@ interface WebPresentationViewerProps {
   hotPassDestinations?: TopDestination[];
   repeatStats?: DestinationStats;
   b2bStats?: DestinationStats;
+  dropoutData?: DropoutData;
   onClose: () => void;
 }
 
@@ -81,6 +82,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   hotPassDestinations = [],
   repeatStats: _repeatStats = emptyDestinationStats,
   b2bStats: _b2bStats = emptyDestinationStats,
+  dropoutData,
   onClose,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -405,7 +407,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
 
   // Render current slide with error boundary
   const renderSlide = () => {
-    const slideNames = ['Title', 'Team Comparison', 'Key Metrics', 'Hot Pass Rate',
+    const slideNames = ['Title', 'Team Comparison', 'Hot Pass Rate', 'Dropout Analysis',
       'Top Destinations', 'Leaderboard', 'Cascades', 'Closing'];
     const slideName = slideNames[currentSlide] || `Slide ${currentSlide}`;
 
@@ -442,11 +444,11 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         break;
       case 2:
         slideContent = (
-          <WebKeyMetricsSlide
-            teamName={slideData.selectedTeamName}
-            prospectData={slideData.prospectData}
-            taData={slideData.taData}
-            repeatData={slideData.repeatSegmentData}
+          <WebHotPassRateSlide
+            avgHotPassRate={slideData.avgHotPassRate}
+            deptAvgHotPassRate={slideData.deptAvgHotPassRate}
+            topPerformers={slideData.byHotPassRate}
+            hotPassDestinations={hotPassDestinations}
             colors={colors}
             layout={layout}
           />
@@ -454,11 +456,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         break;
       case 3:
         slideContent = (
-          <WebHotPassRateSlide
-            avgHotPassRate={slideData.avgHotPassRate}
-            deptAvgHotPassRate={slideData.deptAvgHotPassRate}
-            topPerformers={slideData.byHotPassRate}
-            hotPassDestinations={hotPassDestinations}
+          <WebDropoutAnalysisSlide
+            dropoutData={dropoutData}
+            teamName={slideData.selectedTeamName}
             colors={colors}
             layout={layout}
           />

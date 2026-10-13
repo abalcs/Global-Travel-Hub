@@ -81,6 +81,8 @@ const crmToRawParsedData = (crm: CrmParsedData): RawParsedData => {
       'quote first sent': r.quoteCreatedDate || '',
       'deposit acquired date': r.depositAcquiredDate || '',
       stage: r.stage || '',
+      'dropout reason': r.dropoutReason || '',
+      'dropout stage': r.dropoutStage || '',
       _source: source,
     }));
 

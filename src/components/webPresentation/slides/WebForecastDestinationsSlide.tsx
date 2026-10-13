@@ -1,8 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useMemo, useEffect } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
-import type { ForecastDestination } from '../../PresentationGenerator';
 import type { LayoutStyles } from '../webPresentationConfig';
+
+interface ForecastDestination {
+  destination: string;
+  historicalCount: number;
+  teamTrips: number;
+  teamPassthroughs: number;
+  teamTpRate: number;
+}
 import { findCuratedImage, getFallbackImage } from '../../../utils/destinationImages';
 
 // Crystal ball / future-looking travel images for forecast background
