@@ -63,7 +63,7 @@ const filterBySource = (rows: CSVRow[], source: string): CSVRow[] =>
  * (PresentationGenerator destinations, RegionalView, etc.) can work with CRM data.
  * CrmRow fields are spread as string keys; numeric fields are stringified.
  */
-const crmToRawParsedData = (crm: CrmParsedData): RawParsedData => {
+const crmToRawParsedData = (crm: CrmParsedData, existingRawData?: RawParsedData | null): RawParsedData => {
   const toCSVRows = (rows: CrmRow[], source: string): CSVRow[] =>
     rows.map(r => ({
       destination: r.destination,
@@ -92,7 +92,7 @@ const crmToRawParsedData = (crm: CrmParsedData): RawParsedData => {
     quotes: toCSVRows(crm.quotes, 'quotes'),
     hotPass: [], // CRM data doesn't have a separate hot-pass report
     bookings: toCSVRows(crm.bookings, 'bookings'),
-    nonConverted: [],
+    nonConverted: existingRawData?.nonConverted || [],
   };
 };
 
@@ -322,6 +322,7 @@ function App() {
 
         setDataLoadProgress({ loading: true, progress: 90, stage: 'Making memories...' });
 
+        let loadedRawData: RawParsedData | null = null;
         const hasData = Object.values(datasets).some((arr: any) => Array.isArray(arr) && arr.length > 0);
         if (hasData) {
           const parsedData: RawParsedData = {
@@ -335,6 +336,7 @@ function App() {
           };
 
           const enrichedData = enrichTripsWithDestination(parsedData);
+          loadedRawData = enrichedData;
           setRawParsedData(enrichedData);
           setShowDataPanel(false);
           setAutoAnalyzePending(true);
@@ -350,7 +352,7 @@ function App() {
           if (crmResult) {
             hasCrmData = true;
             setCrmParsedData(crmResult.data);
-            setRawParsedData(crmToRawParsedData(crmResult.data));
+            setRawParsedData(crmToRawParsedData(crmResult.data, loadedRawData));
             if (crmResult.dateRange) setExcelDateRange(crmResult.dateRange);
 
             // Rebuild metrics from CRM data (overrides CSV metrics)
@@ -465,7 +467,7 @@ function App() {
       setCrmParsedData(crmData);
 
       // Build RawParsedData from CRM data for downstream consumers (destinations, etc.)
-      setRawParsedData(crmToRawParsedData(crmData));
+      setRawParsedData(prev => crmToRawParsedData(crmData, prev));
 
       // Build unified metrics from all available reports
       const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
@@ -827,7 +829,7 @@ function App() {
         bookings: filtered.bookings.length,
       });
       // Update rawParsedData with filtered CRM data for destinations etc.
-      setRawParsedData(crmToRawParsedData(filtered));
+      setRawParsedData(prev => crmToRawParsedData(filtered, prev));
       const metricsData = buildMetrics(
         { rows: filtered.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
@@ -860,7 +862,7 @@ function App() {
 
     if (crmParsedData) {
       // Rebuild metrics from unfiltered CRM data
-      setRawParsedData(crmToRawParsedData(crmParsedData));
+      setRawParsedData(prev => crmToRawParsedData(crmParsedData, prev));
       const metricsData = buildMetrics(
         { rows: crmParsedData.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
