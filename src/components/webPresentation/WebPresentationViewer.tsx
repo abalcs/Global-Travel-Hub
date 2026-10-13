@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, t
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Metrics, Team } from '../../types';
 import type { PresentationConfig, TopDestination } from '../../utils/presentationGenerator';
-import type { DestinationStats, ForecastDestinations } from '../PresentationGenerator';
+import type { DestinationStats } from '../PresentationGenerator';
 import { useSlideNavigation } from './hooks/useSlideNavigation';
 import { WebPresentationControls } from './WebPresentationControls';
 import { downloadHtmlPresentation } from './exportHtml';
@@ -55,7 +55,6 @@ import { WebKeyMetricsSlide } from './slides/WebKeyMetricsSlide';
 import { WebTopDestinationsSlide } from './slides/WebTopDestinationsSlide';
 import { WebLeaderboardSlide } from './slides/WebLeaderboardSlide';
 import { WebCascadesSlide } from './slides/WebCascadesSlide';
-import { WebForecastDestinationsSlide } from './slides/WebForecastDestinationsSlide';
 import { WebClosingSlide } from './slides/WebClosingSlide';
 
 const emptyDestinationStats: DestinationStats = { destinations: [], totalTrips: 0, totalPassthroughs: 0, tpRate: 0 };
@@ -70,7 +69,6 @@ interface WebPresentationViewerProps {
   hotPassDestinations?: TopDestination[];
   repeatStats?: DestinationStats;
   b2bStats?: DestinationStats;
-  forecastDestinations?: ForecastDestinations | null;
   onClose: () => void;
 }
 
@@ -83,7 +81,6 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   hotPassDestinations = [],
   repeatStats: _repeatStats = emptyDestinationStats,
   b2bStats: _b2bStats = emptyDestinationStats,
-  forecastDestinations = null,
   onClose,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -96,7 +93,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   const layoutStyle = webStyle?.layout || 'default';
   const layout = getLayoutStyles(layoutStyle);
 
-  const TOTAL_SLIDES = 9;
+  const TOTAL_SLIDES = 8;
 
   const {
     currentSlide,
@@ -206,37 +203,49 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         isSenior: isSenior(m.agentName),
       }));
 
-    // T>Q rate (Trips to Quotes) — now labeled E>B in the UI
+    // T>Q rate — prospect+repeat only (labeled E>B in the UI)
     const allByTQRate = [...metrics]
-      .filter(m => m.trips >= 5)
-      .map(m => ({
-        agentName: m.agentName,
-        value: m.trips > 0 ? (m.quotes / m.trips) * 100 : 0,
-        isOnSelectedTeam: isOnSelectedTeam(m.agentName),
-        isSenior: isSenior(m.agentName),
-      }))
+      .filter(m => (m.prospectTrips + m.repeatTrips) >= 5)
+      .map(m => {
+        const trips = m.prospectTrips + m.repeatTrips;
+        const bookings = m.prospectBookings + m.repeatBookings;
+        return {
+          agentName: m.agentName,
+          value: trips > 0 ? (bookings / trips) * 100 : 0,
+          isOnSelectedTeam: isOnSelectedTeam(m.agentName),
+          isSenior: isSenior(m.agentName),
+        };
+      })
       .sort((a, b) => b.value - a.value);
 
-    // T>P rate (Trips to Passthroughs) — now labeled E>P in the UI
+    // T>P rate — prospect+repeat only (labeled E>P in the UI)
     const allByTPRate = [...metrics]
-      .filter(m => m.trips >= 5)
-      .map(m => ({
-        agentName: m.agentName,
-        value: m.trips > 0 ? (m.passthroughs / m.trips) * 100 : 0,
-        isOnSelectedTeam: isOnSelectedTeam(m.agentName),
-        isSenior: isSenior(m.agentName),
-      }))
+      .filter(m => (m.prospectTrips + m.repeatTrips) >= 5)
+      .map(m => {
+        const trips = m.prospectTrips + m.repeatTrips;
+        const pts = m.prospectPassthroughs + m.repeatPassthroughs;
+        return {
+          agentName: m.agentName,
+          value: trips > 0 ? (pts / trips) * 100 : 0,
+          isOnSelectedTeam: isOnSelectedTeam(m.agentName),
+          isSenior: isSenior(m.agentName),
+        };
+      })
       .sort((a, b) => b.value - a.value);
 
-    // P>Q rate (Passthroughs to Quotes) — now labeled E>Q in the UI
+    // P>Q rate — prospect+repeat only (labeled E>Q in the UI)
     const allByPQRate = [...metrics]
-      .filter(m => m.passthroughs >= 5)
-      .map(m => ({
-        agentName: m.agentName,
-        value: m.passthroughs > 0 ? (m.quotes / m.passthroughs) * 100 : 0,
-        isOnSelectedTeam: isOnSelectedTeam(m.agentName),
-        isSenior: isSenior(m.agentName),
-      }))
+      .filter(m => (m.prospectPassthroughs + m.repeatPassthroughs) >= 5)
+      .map(m => {
+        const pts = m.prospectPassthroughs + m.repeatPassthroughs;
+        const quotes = m.prospectQuotes + m.repeatQuotes;
+        return {
+          agentName: m.agentName,
+          value: pts > 0 ? (quotes / pts) * 100 : 0,
+          isOnSelectedTeam: isOnSelectedTeam(m.agentName),
+          isSenior: isSenior(m.agentName),
+        };
+      })
       .sort((a, b) => b.value - a.value);
 
     // Compute segment data for Key Metrics slide
@@ -282,6 +291,49 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       m => m.repeatBookings,
     );
 
+    // Dept-wide segment averages (all agents, not just selected team)
+    const computeDeptSegment = (
+      getEnquiries: (m: Metrics) => number,
+      getPTs: (m: Metrics) => number,
+      getQuotes: (m: Metrics) => number,
+      getBookings: (m: Metrics) => number,
+    ): SegmentData => {
+      const enquiries = metrics.reduce((s, m) => s + getEnquiries(m), 0);
+      const passthroughs = metrics.reduce((s, m) => s + getPTs(m), 0);
+      const quotes = metrics.reduce((s, m) => s + getQuotes(m), 0);
+      const bookings = metrics.reduce((s, m) => s + getBookings(m), 0);
+      return {
+        enquiries,
+        passthroughs,
+        quotes,
+        bookings,
+        epRate: enquiries > 0 ? (passthroughs / enquiries) * 100 : 0,
+        eqRate: enquiries > 0 ? (quotes / enquiries) * 100 : 0,
+        ebRate: enquiries > 0 ? (bookings / enquiries) * 100 : 0,
+      };
+    };
+
+    const deptProspectData = computeDeptSegment(
+      m => m.prospectTrips,
+      m => m.prospectPassthroughs,
+      m => m.prospectQuotes,
+      m => m.prospectBookings,
+    );
+
+    const deptTaData = computeDeptSegment(
+      m => m.b2bTrips,
+      m => m.b2bPassthroughs,
+      m => m.b2bQuotes,
+      m => m.b2bBookings,
+    );
+
+    const deptRepeatData = computeDeptSegment(
+      m => m.repeatTrips,
+      m => m.repeatPassthroughs,
+      m => m.repeatQuotes,
+      m => m.repeatBookings,
+    );
+
     return {
       selectedTeamName,
       selectedTeamCount,
@@ -303,6 +355,9 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
       prospectData,
       taData,
       repeatSegmentData,
+      deptProspectData,
+      deptTaData,
+      deptRepeatData,
     };
   }, [metrics, seniors, teams, config]);
 
@@ -351,7 +406,7 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
   // Render current slide with error boundary
   const renderSlide = () => {
     const slideNames = ['Title', 'Team Comparison', 'Key Metrics', 'Hot Pass Rate',
-      'Top Destinations', 'Leaderboard', 'Cascades', 'Forecast', 'Closing'];
+      'Top Destinations', 'Leaderboard', 'Cascades', 'Closing'];
     const slideName = slideNames[currentSlide] || `Slide ${currentSlide}`;
 
     let slideContent: ReactNode;
@@ -376,6 +431,12 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
             teamName={config.teamName}
             colors={colors}
             layout={layout}
+            prospectData={slideData.prospectData}
+            taData={slideData.taData}
+            repeatData={slideData.repeatSegmentData}
+            deptProspectData={slideData.deptProspectData}
+            deptTaData={slideData.deptTaData}
+            deptRepeatData={slideData.deptRepeatData}
           />
         );
         break;
@@ -439,17 +500,6 @@ export const WebPresentationViewer: React.FC<WebPresentationViewerProps> = ({
         );
         break;
       case 7:
-        slideContent = (
-          <WebForecastDestinationsSlide
-            destinations={forecastDestinations?.destinations || []}
-            periodLabel={forecastDestinations?.periodLabel || 'Previous year data unavailable'}
-            teamPeriodLabel={forecastDestinations?.teamPeriodLabel}
-            colors={colors}
-            layout={layout}
-          />
-        );
-        break;
-      case 8:
         slideContent = (
           <WebClosingSlide
             teamName={config.teamName}

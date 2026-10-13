@@ -135,7 +135,7 @@ describe('WebPresentationViewer', () => {
     expect(screen.getByText('TEAM HUDDLE')).toBeInTheDocument();
   });
 
-  it('displays slide counter showing 1 / 9', () => {
+  it('displays slide counter showing 1 / 8', () => {
     render(
       <WebPresentationViewer
         metrics={mockMetrics}
@@ -146,7 +146,7 @@ describe('WebPresentationViewer', () => {
       />
     );
 
-    expect(screen.getByText('1 / 9')).toBeInTheDocument();
+    expect(screen.getByText('1 / 8')).toBeInTheDocument();
   });
 
   it('navigates to next slide when next button is clicked', async () => {
@@ -163,7 +163,7 @@ describe('WebPresentationViewer', () => {
     const nextButton = screen.getByTitle('Next (Right Arrow)');
     fireEvent.click(nextButton);
 
-    expect(screen.getByText('2 / 9')).toBeInTheDocument();
+    expect(screen.getByText('2 / 8')).toBeInTheDocument();
     // Check for TEAM COMPARISON text with waitFor since it may be animated
     await waitFor(() => {
       expect(screen.getByText('TEAM COMPARISON')).toBeInTheDocument();
@@ -183,11 +183,11 @@ describe('WebPresentationViewer', () => {
 
     // Go to next slide with right arrow
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(screen.getByText('2 / 9')).toBeInTheDocument();
+    expect(screen.getByText('2 / 8')).toBeInTheDocument();
 
     // Go back with left arrow
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(screen.getByText('1 / 9')).toBeInTheDocument();
+    expect(screen.getByText('1 / 8')).toBeInTheDocument();
   });
 
   it('navigates to specific slide using number keys', async () => {
@@ -203,7 +203,7 @@ describe('WebPresentationViewer', () => {
 
     // Press '3' to go to slide 3
     fireEvent.keyDown(window, { key: '3' });
-    expect(screen.getByText('3 / 9')).toBeInTheDocument();
+    expect(screen.getByText('3 / 8')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('KEY METRICS BY SEGMENT')).toBeInTheDocument();
     });
@@ -240,7 +240,7 @@ describe('WebPresentationViewer', () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('renders 9 progress dots', () => {
+  it('renders 8 progress dots', () => {
     render(
       <WebPresentationViewer
         metrics={mockMetrics}
@@ -252,7 +252,7 @@ describe('WebPresentationViewer', () => {
     );
 
     // Each dot has a title like "Slide X"
-    for (let i = 1; i <= 9; i++) {
+    for (let i = 1; i <= 8; i++) {
       expect(screen.getByTitle(`Slide ${i}`)).toBeInTheDocument();
     }
   });
@@ -271,7 +271,7 @@ describe('WebPresentationViewer', () => {
     const dot5 = screen.getByTitle('Slide 5');
     fireEvent.click(dot5);
 
-    expect(screen.getByText('5 / 9')).toBeInTheDocument();
+    expect(screen.getByText('5 / 8')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('TOP DESTINATIONS')).toBeInTheDocument();
     });

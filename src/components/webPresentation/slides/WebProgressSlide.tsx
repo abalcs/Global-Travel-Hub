@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { SlideColors } from '../../../utils/presentationGenerator';
 import type { LayoutStyles } from '../webPresentationConfig';
 import type { Team, Metrics } from '../../../types';
+import type { SegmentData } from './WebKeyMetricsSlide';
 
 // Scenic travel images for progress background
 const PROGRESS_IMAGES = [
@@ -18,6 +19,12 @@ interface WebProgressSlideProps {
   teamName: string;
   colors: SlideColors;
   layout?: LayoutStyles;
+  prospectData?: SegmentData;
+  taData?: SegmentData;
+  repeatData?: SegmentData;
+  deptProspectData?: SegmentData;
+  deptTaData?: SegmentData;
+  deptRepeatData?: SegmentData;
 }
 
 interface TeamStats {
@@ -50,6 +57,12 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
   teamName,
   colors,
   layout,
+  prospectData,
+  taData,
+  repeatData,
+  deptProspectData,
+  deptTaData,
+  deptRepeatData,
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -283,7 +296,7 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
 
         {/* Legend */}
         <motion.div
-          className="flex items-center gap-4 mt-3 justify-end"
+          className="flex items-center gap-4 mt-2 justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9 }}
@@ -297,6 +310,115 @@ export const WebProgressSlide: React.FC<WebProgressSlideProps> = ({
             <span className="text-xs" style={{ color: `#${colors.textLight}` }}>Needs Focus</span>
           </div>
         </motion.div>
+
+        {/* Segment Rate Comparison: Team vs Dept */}
+        {prospectData && deptProspectData && taData && deptTaData && repeatData && deptRepeatData && (
+          <motion.div
+            className="mt-4"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+          >
+            <h3
+              className="text-xs font-bold tracking-wider mb-2"
+              style={{ color: `#${colors.accent}` }}
+            >
+              {teamName.toUpperCase()} — SEGMENT RATE COMPARISON VS DEPT
+            </h3>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th
+                    className="text-left py-1.5 px-2 border-b font-bold tracking-wider"
+                    style={{ color: `#${colors.textLight}`, borderColor: `#${colors.accent}40` }}
+                  >
+                    SEGMENT
+                  </th>
+                  {['E>P', 'E>Q', 'E>B'].map(label => (
+                    <th
+                      key={label}
+                      colSpan={2}
+                      className="text-center py-1.5 px-1 border-b font-bold tracking-wider"
+                      style={{ color: `#${colors.text}`, borderColor: `#${colors.accent}40` }}
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+                <tr>
+                  <th
+                    className="py-1 px-2 border-b"
+                    style={{ borderColor: `#${colors.accent}20` }}
+                  />
+                  {['E>P', 'E>Q', 'E>B'].map(label => (
+                    <React.Fragment key={label}>
+                      <th
+                        className="text-center py-1 px-1 border-b text-[10px] font-semibold"
+                        style={{ color: `#${colors.textLight}`, borderColor: `#${colors.accent}20` }}
+                      >
+                        Team
+                      </th>
+                      <th
+                        className="text-center py-1 px-1 border-b text-[10px] font-semibold"
+                        style={{ color: `#${colors.accent}`, borderColor: `#${colors.accent}20`, backgroundColor: `#${colors.accent}10` }}
+                      >
+                        Dept
+                      </th>
+                    </React.Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  { label: 'Prospects', team: prospectData, dept: deptProspectData },
+                  { label: 'Travel Agents', team: taData, dept: deptTaData },
+                  { label: 'Repeat', team: repeatData, dept: deptRepeatData },
+                ] as const).map((seg, idx) => (
+                  <motion.tr
+                    key={seg.label}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.8 + idx * 0.05 }}
+                  >
+                    <td
+                      className="py-1.5 px-2 border-b font-semibold"
+                      style={{ color: `#${colors.textLight}`, borderColor: `#${colors.accent}20` }}
+                    >
+                      {seg.label}
+                    </td>
+                    {([
+                      { teamVal: seg.team.epRate, deptVal: seg.dept.epRate },
+                      { teamVal: seg.team.eqRate, deptVal: seg.dept.eqRate },
+                      { teamVal: seg.team.ebRate, deptVal: seg.dept.ebRate },
+                    ]).map((pair, pi) => (
+                      <React.Fragment key={`${seg.label}-${pi}`}>
+                        <td
+                          className="text-center py-1.5 px-1 border-b font-semibold tabular-nums"
+                          style={{
+                            color: pair.teamVal >= pair.deptVal ? '#22c55e' : '#ef4444',
+                            borderColor: `#${colors.accent}20`,
+                          }}
+                        >
+                          {pair.teamVal.toFixed(1)}%
+                        </td>
+                        <td
+                          className="text-center py-1.5 px-1 border-b font-semibold tabular-nums"
+                          style={{
+                            color: `#${colors.accent}`,
+                            borderColor: `#${colors.accent}20`,
+                            backgroundColor: `#${colors.accent}10`,
+                          }}
+                        >
+                          {pair.deptVal.toFixed(1)}%
+                        </td>
+                      </React.Fragment>
+                    ))}
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
