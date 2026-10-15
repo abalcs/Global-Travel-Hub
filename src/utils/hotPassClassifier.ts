@@ -48,8 +48,9 @@ export function classifyHotPasses(
 
   for (const row of passthroughRows) {
     const agent = row.agentName;
-    // Get trip identifier — prefer tripNumber, fall back to tripRef
-    const tripId = (row.tripNumber || row.tripRef || '').trim();
+    // Join on tripRef (numeric format like "2840205") which matches the owner
+    // changes file. tripNumber ("Trip-XXXXXXX") is a different identifier system.
+    const tripId = (row.tripRef || '').trim();
 
     // Ensure agent totals exist
     if (!totalByAgent.has(agent)) {
