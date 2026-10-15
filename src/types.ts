@@ -22,6 +22,7 @@ export interface Metrics {
   quotesWithTripRef: number;
   passthroughs: number;
   hotPasses: number;
+  totalTripsAudited: number;
   bookings: number;
   nonConvertedLeads: number;
   totalLeads: number;

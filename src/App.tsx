@@ -47,7 +47,7 @@ import {
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
 import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, parseOwnerChanges, type CrmRow, type OwnerChangeRecord } from './utils/excelParser';
-import { classifyHotPasses, type ClassifiedTrip } from './utils/hotPassClassifier';
+import { classifyHotPasses } from './utils/hotPassClassifier';
 import { TamView } from './components/TamView';
 import { IncentiveView } from './components/IncentiveView';
 
@@ -183,7 +183,6 @@ function App() {
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
   const [crmParsedData, setCrmParsedData] = useState<CrmParsedData | null>(null);
   const [ownerChangeRecords, setOwnerChangeRecords] = useState<OwnerChangeRecord[]>([]);
-  const [hotPassAudit, setHotPassAudit] = useState<ClassifiedTrip[]>([]);
   const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam' | 'incentive'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
     if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam' || saved === 'incentive') {
@@ -476,17 +475,16 @@ function App() {
         : [];
       setOwnerChangeRecords(ocRecords);
 
-      // Classify hot passes
-      const hotPassResults = ptReport
-        ? classifyHotPasses(ptReport.rows, ocRecords)
+      // Classify hot passes from owner changes
+      const hotPassResults = ocRecords.length > 0
+        ? classifyHotPasses(ocRecords)
         : null;
-      setHotPassAudit(hotPassResults?.auditRows ?? []);
 
       // Build RawParsedData from CRM data for downstream consumers (destinations, etc.)
       setRawParsedData(prev => crmToRawParsedData(crmData, prev));
 
       // Build unified metrics from all available reports
-      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport, hotPassResults?.hotPassCounts);
+      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport, hotPassResults?.queueStoppedCounts);
       setMetrics(metricsData);
       setShowDataPanel(false);
 
@@ -846,11 +844,10 @@ function App() {
         quotes: filtered.quotes.length,
         bookings: filtered.bookings.length,
       });
-      // Re-classify hot passes with filtered passthroughs
-      const hotPassResults = filtered.passthroughs.length > 0
-        ? classifyHotPasses(filtered.passthroughs, ownerChangeRecords)
+      // Re-classify hot passes (OC data is not date-filtered)
+      const hotPassResults = ownerChangeRecords.length > 0
+        ? classifyHotPasses(ownerChangeRecords)
         : null;
-      setHotPassAudit(hotPassResults?.auditRows ?? []);
       // Update rawParsedData with filtered CRM data for destinations etc.
       setRawParsedData(prev => crmToRawParsedData(filtered, prev));
       const metricsData = buildMetrics(
@@ -858,7 +855,8 @@ function App() {
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.bookings, reportTitle: '', reportDate: '', dateRange: '' },
-        hotPassResults?.hotPassCounts,
+        hotPassResults?.queueStoppedCounts,
+        hotPassResults?.totalTripsAudited,
       );
       console.log('[App] Metrics sample (first agent):', metricsData[0] ? {
         agent: metricsData[0].agentName,
@@ -885,11 +883,10 @@ function App() {
     setTimeframe('all');
 
     if (crmParsedData) {
-      // Re-classify hot passes with unfiltered passthroughs
-      const hotPassResults = crmParsedData.passthroughs.length > 0
-        ? classifyHotPasses(crmParsedData.passthroughs, ownerChangeRecords)
+      // Re-classify hot passes
+      const hotPassResults = ownerChangeRecords.length > 0
+        ? classifyHotPasses(ownerChangeRecords)
         : null;
-      setHotPassAudit(hotPassResults?.auditRows ?? []);
       // Rebuild metrics from unfiltered CRM data
       setRawParsedData(prev => crmToRawParsedData(crmParsedData, prev));
       const metricsData = buildMetrics(
@@ -897,7 +894,8 @@ function App() {
         { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.bookings, reportTitle: '', reportDate: '', dateRange: '' },
-        hotPassResults?.hotPassCounts,
+        hotPassResults?.queueStoppedCounts,
+        hotPassResults?.totalTripsAudited,
       );
       setMetrics(metricsData);
     } else {

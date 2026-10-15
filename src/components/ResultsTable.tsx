@@ -263,6 +263,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       quotesWithTripRef: acc.quotesWithTripRef + m.quotesWithTripRef,
       passthroughs: acc.passthroughs + m.passthroughs,
       hotPasses: acc.hotPasses + m.hotPasses,
+      totalTripsAudited: acc.totalTripsAudited + m.totalTripsAudited,
       bookings: acc.bookings + m.bookings,
       nonConvertedLeads: acc.nonConvertedLeads + m.nonConvertedLeads,
       totalLeads: acc.totalLeads + m.totalLeads,
@@ -278,7 +279,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       taPassthroughs: acc.taPassthroughs + m.taPassthroughs,
       quotesStarted: acc.quotesStarted + m.quotesStarted,
     }),
-    { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, hotPasses: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, prospectTrips: 0, prospectPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, partnerTrips: 0, partnerPassthroughs: 0, taTrips: 0, taPassthroughs: 0, quotesStarted: 0 }
+    { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, hotPasses: 0, totalTripsAudited: 0, bookings: 0, nonConvertedLeads: 0, totalLeads: 0, repeatTrips: 0, repeatPassthroughs: 0, prospectTrips: 0, prospectPassthroughs: 0, b2bTrips: 0, b2bPassthroughs: 0, partnerTrips: 0, partnerPassthroughs: 0, taTrips: 0, taPassthroughs: 0, quotesStarted: 0 }
   ), [sortedMetrics]);
 
   const totalMetrics = useMemo(() => ({

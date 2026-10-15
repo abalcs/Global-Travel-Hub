@@ -756,6 +756,7 @@ export const calculateMetrics = (
       quotesWithTripRef: quotes, // Legacy parser: assume all quotes have trip refs
       passthroughs,
       hotPasses,
+      totalTripsAudited: 0,
       bookings,
       nonConvertedLeads: nonConvertedCount,
       totalLeads: trips, // Use filtered trips count for the date range

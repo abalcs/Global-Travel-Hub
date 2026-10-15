@@ -1,105 +1,74 @@
 /**
  * Hot Pass Classifier
  *
- * Classifies each passthrough as HOT_PASS or QUEUE_STOPPED by examining
- * the owner change history for the trip. If any owner in the chain contains
- * "Opportunity" (the Salesforce queue name), the passthrough went through
- * the queue and is NOT a hot pass.
+ * Counts queue-stopped trips per agent from the Owner Changes (hot pass audit) file.
+ *
+ * Each named trip group in the OC file is 1 trip. If any change involves
+ * an "Opportunity" queue → queue-stopped.
+ *
+ * The blank group (trips without trip reference numbers) may contain multiple
+ * trips. Each "→ Opportunity" transition represents a distinct queue-stopped trip.
+ *
+ * Hot passes = total passthroughs − queue-stopped trips.
+ * Hot pass rate = hot passes / total passthroughs.
  */
-import type { CrmRow, OwnerChangeRecord } from './excelParser';
-
-export type TripClassification = 'HOT_PASS' | 'QUEUE_STOPPED' | 'FLAGGED';
-
-export interface ClassifiedTrip {
-  agentName: string;
-  tripRecordName: string;
-  tripRefNumber: string;
-  classification: TripClassification;
-  ownerChain: string[];
-  flag?: string;
-}
+import type { OwnerChangeRecord } from './excelParser';
 
 export interface HotPassResults {
-  hotPassCounts: Map<string, number>;
-  totalByAgent: Map<string, { hotPass: number; queueStopped: number; flagged: number; total: number }>;
-  auditRows: ClassifiedTrip[];
+  /** Queue-stopped trip count per agent */
+  queueStoppedCounts: Map<string, number>;
 }
 
 /**
- * Classify passthroughs as hot passes vs queue-stopped based on owner change history.
+ * Count queue-stopped trips from owner change records.
+ *
+ * Two sources:
+ * 1. Named groups (non-empty tripRecordName): 1 trip per group, queue-stopped
+ *    if any change has "Opportunity" in old/new value.
+ * 2. Blank group (empty tripRecordName): each "→ Opportunity" transition
+ *    (newValue contains "opportunity") = 1 additional queue-stopped trip.
  */
 export function classifyHotPasses(
-  passthroughRows: CrmRow[],
   ownerChanges: OwnerChangeRecord[],
 ): HotPassResults {
-  // Build map: tripRecordName → OwnerChangeRecord[]
-  const changesByTrip = new Map<string, OwnerChangeRecord[]>();
+  // Group by agent → tripRecordName → changes
+  const agentTrips = new Map<string, Map<string, OwnerChangeRecord[]>>();
+
   for (const oc of ownerChanges) {
-    const key = oc.tripRecordName.trim();
-    if (!key) continue;
-    const list = changesByTrip.get(key) || [];
-    list.push(oc);
-    changesByTrip.set(key, list);
+    if (!agentTrips.has(oc.agentName)) {
+      agentTrips.set(oc.agentName, new Map());
+    }
+    const tripMap = agentTrips.get(oc.agentName)!;
+    const key = oc.tripRecordName.trim() || '__blank__';
+    if (!tripMap.has(key)) tripMap.set(key, []);
+    tripMap.get(key)!.push(oc);
   }
 
-  const hotPassCounts = new Map<string, number>();
-  const totalByAgent = new Map<string, { hotPass: number; queueStopped: number; flagged: number; total: number }>();
-  const auditRows: ClassifiedTrip[] = [];
+  const queueStoppedCounts = new Map<string, number>();
 
-  for (const row of passthroughRows) {
-    const agent = row.agentName;
-    // Join on tripRef (numeric format like "2840205") which matches the owner
-    // changes file. tripNumber ("Trip-XXXXXXX") is a different identifier system.
-    const tripId = (row.tripRef || '').trim();
+  for (const [agent, tripMap] of agentTrips) {
+    let queueStopped = 0;
 
-    // Ensure agent totals exist
-    if (!totalByAgent.has(agent)) {
-      totalByAgent.set(agent, { hotPass: 0, queueStopped: 0, flagged: 0, total: 0 });
-    }
-    const agentTotals = totalByAgent.get(agent)!;
-    agentTotals.total++;
-
-    // Look up owner changes for this trip
-    const changes = tripId ? changesByTrip.get(tripId) : undefined;
-
-    let classification: TripClassification;
-    let ownerChain: string[] = [];
-    let flag: string | undefined;
-
-    if (changes && changes.length > 0) {
-      // Has history — collect owner chain
-      for (const c of changes) {
-        if (c.oldValue && !ownerChain.includes(c.oldValue)) ownerChain.push(c.oldValue);
-        if (c.newValue && !ownerChain.includes(c.newValue)) ownerChain.push(c.newValue);
+    for (const [key, changes] of tripMap) {
+      if (key === '__blank__') {
+        // Blank group: count each "→ Opportunity" transition as 1 queue-stopped trip
+        for (const c of changes) {
+          if (c.newValue.toLowerCase().includes('opportunity')) {
+            queueStopped++;
+          }
+        }
+      } else {
+        // Named group: 1 trip, queue-stopped if any change has "Opportunity"
+        const hasQueue = changes.some(c =>
+          c.oldValue.toLowerCase().includes('opportunity') ||
+          c.newValue.toLowerCase().includes('opportunity'),
+        );
+        if (hasQueue) queueStopped++;
       }
-
-      // Check if any value in the chain contains "opportunity" (queue name)
-      const hasQueueStop = ownerChain.some(v => v.toLowerCase().includes('opportunity'));
-      classification = hasQueueStop ? 'QUEUE_STOPPED' : 'HOT_PASS';
-    } else {
-      // No history — classify as HOT_PASS (no evidence of queue stop)
-      classification = 'HOT_PASS';
     }
 
-    // Count hot passes
-    if (classification === 'HOT_PASS') {
-      hotPassCounts.set(agent, (hotPassCounts.get(agent) || 0) + 1);
-      agentTotals.hotPass++;
-    } else if (classification === 'QUEUE_STOPPED') {
-      agentTotals.queueStopped++;
-    } else {
-      agentTotals.flagged++;
-    }
-
-    auditRows.push({
-      agentName: agent,
-      tripRecordName: tripId,
-      tripRefNumber: row.tripRef || '',
-      classification,
-      ownerChain,
-      flag,
-    });
+    queueStoppedCounts.set(agent, queueStopped);
   }
 
-  return { hotPassCounts, totalByAgent, auditRows };
+  return { queueStoppedCounts };
 }

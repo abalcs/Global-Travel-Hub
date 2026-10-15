@@ -315,7 +315,7 @@ export function buildMetrics(
   ptReport: ParsedReport | null,
   quotesReport: ParsedReport | null,
   bookingsReport: ParsedReport | null,
-  hotPassCounts?: Map<string, number>,
+  queueStoppedCounts?: Map<string, number>,
 ): Metrics[] {
   const agentMap = new Map<string, AgentStats>();
 
@@ -391,7 +391,8 @@ export function buildMetrics(
     // E>B rate: bookings / enquiries
     const ebRate = s.enquiries > 0 ? (s.bookings / s.enquiries) * 100 : 0;
 
-    const agentHotPasses = hotPassCounts?.get(agentName) || 0;
+    const agentQueueStopped = queueStoppedCounts?.get(agentName) || 0;
+    const agentHotPasses = Math.max(0, s.passthroughs - agentQueueStopped);
 
     metrics.push({
       agentName,
@@ -401,6 +402,7 @@ export function buildMetrics(
       quotesWithTripRef: s.quotesWithTripRef,
       passthroughs: s.passthroughs,
       hotPasses: agentHotPasses,
+      totalTripsAudited: 0,
       bookings: s.bookings,
       nonConvertedLeads: 0,
       totalLeads: 0,
@@ -591,13 +593,14 @@ export function parseOwnerChanges(file: ArrayBuffer): OwnerChangeRecord[] {
     // Fill-down agent name (level 1 grouping)
     if (col1 && col1 !== currentAgent && !/^(count|avg|sum)$/i.test(col1)) {
       currentAgent = col1;
+      currentTrip = ''; // Reset trip ref when agent changes
     }
     // Fill-down trip record name (level 2 grouping)
     if (col2 && col2 !== currentTrip && !/^(count|avg|sum)$/i.test(col2)) {
       currentTrip = col2;
     }
 
-    if (!currentAgent || !currentTrip) continue;
+    if (!currentAgent) continue;
 
     // Must have old value or new value to be a real data row
     const oldVal = safeStr(row, oldValueCol);
