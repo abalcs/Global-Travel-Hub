@@ -16,6 +16,7 @@ type SortColumn = 'trips' | 'quotes' | 'passthroughs' | 'repeatTrips' | 'repeatP
 
 // Columns that can be toggled on/off
 interface ColumnVisibility {
+  hotPassRate: boolean;
   repeatTrips: boolean;
   repeatPassthroughs: boolean;
   repeatTpRate: boolean;
@@ -75,6 +76,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
   const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
   const [showColumnSettings, setShowColumnSettings] = useState<boolean>(false);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    hotPassRate: false,
     repeatTrips: false,
     repeatPassthroughs: false,
     repeatTpRate: false,
@@ -99,6 +101,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
 
   const selectAllColumns = () => {
     setColumnVisibility({
+      hotPassRate: true,
       repeatTrips: true,
       repeatPassthroughs: true,
       repeatTpRate: true,
@@ -121,6 +124,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
 
   const deselectAllColumns = () => {
     setColumnVisibility({
+      hotPassRate: false,
       repeatTrips: false,
       repeatPassthroughs: false,
       repeatTpRate: false,
@@ -470,6 +474,16 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
+                  checked={columnVisibility.hotPassRate}
+                  onChange={() => toggleColumn('hotPassRate')}
+                  className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">Hot Pass Rate</span>
+              </label>
+              <div className="h-4 w-px bg-gray-300" />
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
                   checked={columnVisibility.repeatTrips}
                   onChange={() => toggleColumn('repeatTrips')}
                   className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 cursor-pointer"
@@ -711,6 +725,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <SortIcon column="bookingsFromEnquiries" sortColumn={sortColumn} sortDirection={sortDirection} />
                 </div>
               </th>
+              {columnVisibility.hotPassRate && (
+                <th
+                  className="px-6 py-3 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider cursor-pointer hover:bg-amber-50 transition-colors"
+                  onClick={() => handleSort('hotPassRate')}
+                >
+                  <div className="flex items-center justify-center">
+                    HP Rate
+                    <SortIcon column="hotPassRate" sortColumn={sortColumn} sortDirection={sortDirection} />
+                  </div>
+                </th>
+              )}
               {/* Toggle columns */}
               {columnVisibility.repeatTrips && (
                 <th className="px-6 py-3 text-center text-xs font-semibold text-violet-600 uppercase tracking-wider cursor-pointer hover:bg-violet-50 transition-colors" onClick={() => handleSort('repeatTrips')}>
@@ -845,6 +870,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 text-center">{formatPercent(m.quotesFromTrips)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-purple-600 text-center">{formatPercent(m.quotesFromPassthroughs)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-cyan-600 text-center">{formatPercent(m.bookingsFromEnquiries)}</td>
+                  {columnVisibility.hotPassRate && (<td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-amber-600 text-center">{formatPercent(m.hotPassRate)}</td>)}
                   {/* Toggle columns */}
                   {columnVisibility.repeatTrips && (<td className="px-6 py-4 whitespace-nowrap text-sm text-violet-600 text-center">{m.repeatTrips}</td>)}
                   {columnVisibility.repeatPassthroughs && (<td className="px-6 py-4 whitespace-nowrap text-sm text-violet-600 text-center">{m.repeatPassthroughs}</td>)}
@@ -882,6 +908,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-300 text-center">{formatPercent(totalMetrics.quotesFromTrips)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-purple-300 text-center">{formatPercent(totalMetrics.quotesFromPassthroughs)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-cyan-300 text-center">{formatPercent(totalMetrics.bookingsFromEnquiries)}</td>
+              {columnVisibility.hotPassRate && (<td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-300 text-center">{formatPercent(totalMetrics.hotPassRate)}</td>)}
               {/* Toggle columns */}
               {columnVisibility.repeatTrips && (<td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-violet-300 text-center">{totals.repeatTrips}</td>)}
               {columnVisibility.repeatPassthroughs && (<td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-violet-300 text-center">{totals.repeatPassthroughs}</td>)}

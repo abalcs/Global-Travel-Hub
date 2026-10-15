@@ -22,7 +22,7 @@ interface TeamComparisonProps {
   onClearDateRange: () => void;
 }
 
-type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'eb' | 'hotPass' | 'bookings' | 'nonConverted' | 'potentialTQ';
+type SortKey = 'name' | 'trips' | 'quotes' | 'passthroughs' | 'tq' | 'tp' | 'pq' | 'eb' | 'hotPass' | 'hotPassRate' | 'bookings' | 'nonConverted' | 'potentialTQ';
 type ClientFilter = 'all' | 'repeat' | 'prospect' | 'b2b';
 const formatPercent = (value: number): string => {
   if (isNaN(value) || !isFinite(value)) return '0.0%';
@@ -66,6 +66,9 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, bookings: 0 }
     );
 
+    const totalHotPasses = groupMetrics.reduce((sum, m) => sum + m.hotPasses, 0);
+    const totalPassthroughs = totals.passthroughs;
+
     return {
       agentCount: groupMetrics.length,
       trips: totals.trips,
@@ -76,7 +79,8 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       tp: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
       pq: totals.passthroughs > 0 ? (totals.quotesWithTripRef / totals.passthroughs) * 100 : 0,
       eb: totals.trips > 0 ? (totals.bookings / totals.trips) * 100 : 0,
-      hotPass: 0,
+      hotPass: totalHotPasses,
+      hotPassRate: totalPassthroughs > 0 ? (totalHotPasses / totalPassthroughs) * 100 : 0,
       nonConverted: 0,
       potentialTQ: 0,
     };
@@ -102,6 +106,8 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, bookings: 0 }
     );
 
+    const teamHotPasses = teamMetrics.reduce((sum, m) => sum + m.hotPasses, 0);
+
     return {
       id: team.id,
       name: team.name,
@@ -114,7 +120,8 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       tp: totals.trips > 0 ? (totals.passthroughs / totals.trips) * 100 : 0,
       pq: totals.passthroughs > 0 ? (totals.quotesWithTripRef / totals.passthroughs) * 100 : 0,
       eb: totals.trips > 0 ? (totals.bookings / totals.trips) * 100 : 0,
-      hotPass: 0,
+      hotPass: teamHotPasses,
+      hotPassRate: totals.passthroughs > 0 ? (teamHotPasses / totals.passthroughs) * 100 : 0,
       nonConverted: 0,
       potentialTQ: 0,
     };
@@ -173,6 +180,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
     { label: 'E>Q Rate', key: 'tq' as const, format: formatPercent, color: 'blue' },
     { label: 'P>Q Rate', key: 'pq' as const, format: formatPercent, color: 'purple' },
     { label: 'E>B Rate', key: 'eb' as const, format: formatPercent, color: 'cyan' },
+    { label: 'Hot Pass Rate', key: 'hotPassRate' as const, format: formatPercent, color: 'amber' },
   ];
 
   return (
@@ -397,6 +405,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
                       { label: 'E>Q Rate', senior: seniorData.tq, nonSenior: nonSeniorData.tq, format: formatPercent, isPercent: true },
                       { label: 'P>Q Rate', senior: seniorData.pq, nonSenior: nonSeniorData.pq, format: formatPercent, isPercent: true },
                       { label: 'E>B Rate', senior: seniorData.eb, nonSenior: nonSeniorData.eb, format: formatPercent, isPercent: true },
+                      { label: 'Hot Pass Rate', senior: seniorData.hotPassRate, nonSenior: nonSeniorData.hotPassRate, format: formatPercent, isPercent: true },
                     ].map((row, rowIdx) => {
                       const diff = row.senior - row.nonSenior;
                       const diffPositive = diff > 0;

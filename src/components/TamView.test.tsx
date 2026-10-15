@@ -21,6 +21,7 @@ function makeCrmRow(overrides: Partial<CrmRow> = {}): CrmRow {
     agentName: 'Test Agent',
     quoteName: '',
     tripRef: '',
+    tripNumber: '',
     destination: 'Italy',
     interest: '',
     channel: 'Partner B2B',

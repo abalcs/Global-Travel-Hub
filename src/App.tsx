@@ -46,7 +46,8 @@ import {
 } from './utils/recordsTracker';
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
-import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, type CrmRow } from './utils/excelParser';
+import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, parseOwnerChanges, type CrmRow, type OwnerChangeRecord } from './utils/excelParser';
+import { classifyHotPasses, type ClassifiedTrip } from './utils/hotPassClassifier';
 import { TamView } from './components/TamView';
 import { IncentiveView } from './components/IncentiveView';
 
@@ -168,7 +169,8 @@ function App() {
     passthroughs: File | null;
     quotes: File | null;
     bookings: File | null;
-  }>({ enquiries: null, passthroughs: null, quotes: null, bookings: null });
+    ownerChanges: File | null;
+  }>({ enquiries: null, passthroughs: null, quotes: null, bookings: null, ownerChanges: null });
   const [excelProcessing, setExcelProcessing] = useState(false);
   const [excelDateRange, setExcelDateRange] = useState<string>('');
 
@@ -180,6 +182,8 @@ function App() {
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
   const [crmParsedData, setCrmParsedData] = useState<CrmParsedData | null>(null);
+  const [ownerChangeRecords, setOwnerChangeRecords] = useState<OwnerChangeRecord[]>([]);
+  const [hotPassAudit, setHotPassAudit] = useState<ClassifiedTrip[]>([]);
   const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam' | 'incentive'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
     if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam' || saved === 'incentive') {
@@ -466,11 +470,23 @@ function App() {
       };
       setCrmParsedData(crmData);
 
+      // Parse owner changes file if uploaded
+      const ocRecords = excelFiles.ownerChanges
+        ? parseOwnerChanges(await excelFiles.ownerChanges.arrayBuffer())
+        : [];
+      setOwnerChangeRecords(ocRecords);
+
+      // Classify hot passes
+      const hotPassResults = ptReport
+        ? classifyHotPasses(ptReport.rows, ocRecords)
+        : null;
+      setHotPassAudit(hotPassResults?.auditRows ?? []);
+
       // Build RawParsedData from CRM data for downstream consumers (destinations, etc.)
       setRawParsedData(prev => crmToRawParsedData(crmData, prev));
 
       // Build unified metrics from all available reports
-      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
+      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport, hotPassResults?.hotPassCounts);
       setMetrics(metricsData);
       setShowDataPanel(false);
 
@@ -789,6 +805,8 @@ function App() {
     setTimeSeriesData(null);
     setRawParsedData(null);
     setCrmParsedData(null);
+    setOwnerChangeRecords([]);
+    setHotPassAudit([]);
     setExcelDateRange('');
     setFiles({
       passthroughs: null,
@@ -828,6 +846,11 @@ function App() {
         quotes: filtered.quotes.length,
         bookings: filtered.bookings.length,
       });
+      // Re-classify hot passes with filtered passthroughs
+      const hotPassResults = filtered.passthroughs.length > 0
+        ? classifyHotPasses(filtered.passthroughs, ownerChangeRecords)
+        : null;
+      setHotPassAudit(hotPassResults?.auditRows ?? []);
       // Update rawParsedData with filtered CRM data for destinations etc.
       setRawParsedData(prev => crmToRawParsedData(filtered, prev));
       const metricsData = buildMetrics(
@@ -835,6 +858,7 @@ function App() {
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.bookings, reportTitle: '', reportDate: '', dateRange: '' },
+        hotPassResults?.hotPassCounts,
       );
       console.log('[App] Metrics sample (first agent):', metricsData[0] ? {
         agent: metricsData[0].agentName,
@@ -851,7 +875,7 @@ function App() {
       // Fall back to old CSV pipeline
       setDateRangeTrigger(prev => prev + 1);
     }
-  }, [pendingStartDate, pendingEndDate, crmParsedData]);
+  }, [pendingStartDate, pendingEndDate, crmParsedData, ownerChangeRecords]);
 
   const handleClearDateRange = useCallback(() => {
     setPendingStartDate('');
@@ -861,6 +885,11 @@ function App() {
     setTimeframe('all');
 
     if (crmParsedData) {
+      // Re-classify hot passes with unfiltered passthroughs
+      const hotPassResults = crmParsedData.passthroughs.length > 0
+        ? classifyHotPasses(crmParsedData.passthroughs, ownerChangeRecords)
+        : null;
+      setHotPassAudit(hotPassResults?.auditRows ?? []);
       // Rebuild metrics from unfiltered CRM data
       setRawParsedData(prev => crmToRawParsedData(crmParsedData, prev));
       const metricsData = buildMetrics(
@@ -868,12 +897,13 @@ function App() {
         { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.bookings, reportTitle: '', reportDate: '', dateRange: '' },
+        hotPassResults?.hotPassCounts,
       );
       setMetrics(metricsData);
     } else {
       setDateRangeTrigger(prev => prev + 1);
     }
-  }, [crmParsedData]);
+  }, [crmParsedData, ownerChangeRecords]);
 
   const handleClearRecords = useCallback(() => {
     setRecords({ agents: {}, lastUpdated: new Date().toISOString() });
@@ -883,7 +913,7 @@ function App() {
   const crmDateExtent = useMemo(() => crmParsedData ? getCrmDateExtent(crmParsedData) : { min: null, max: null }, [crmParsedData]);
   const allAgentNames = useMemo(() => metrics.map((m) => m.agentName), [metrics]);
   const hasStoredData = rawParsedData !== null;
-  const excelFilesCount = [excelFiles.enquiries, excelFiles.passthroughs, excelFiles.quotes, excelFiles.bookings].filter(Boolean).length;
+  const excelFilesCount = [excelFiles.enquiries, excelFiles.passthroughs, excelFiles.quotes, excelFiles.bookings, excelFiles.ownerChanges].filter(Boolean).length;
 
   // Calculate date range from stored data
   const dataDateRange = useMemo(() => {
@@ -1103,7 +1133,7 @@ function App() {
                   <span className={`px-2 py-0.5 rounded text-xs ${
                     isAudley ? 'bg-[#c4956a]/10 text-[#c4956a]' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {excelFilesCount}/4 files
+                    {excelFilesCount}/5 files
                   </span>
                 )}
               </div>
@@ -1129,7 +1159,7 @@ function App() {
                   isAudley ? 'border-[#ede8e0]' : 'border-[#2a3c5a]'
                 }`}>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <FileUpload
                     label="Enquiries"
                     file={excelFiles.enquiries}
@@ -1157,6 +1187,13 @@ function App() {
                     onFileSelect={handleExcelFileSelect('bookings')}
                     color="cyan"
                     icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
+                  />
+                  <FileUpload
+                    label="Owner Changes"
+                    file={excelFiles.ownerChanges}
+                    onFileSelect={handleExcelFileSelect('ownerChanges')}
+                    color="amber"
+                    icon={<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>}
                   />
                 </div>
 

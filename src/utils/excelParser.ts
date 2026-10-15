@@ -19,6 +19,7 @@ export interface CrmRow {
   agentName: string;
   quoteName: string;
   tripRef: string;
+  tripNumber: string;
   destination: string;
   interest: string;
   channel: string;
@@ -53,6 +54,7 @@ interface ColumnMap {
   agent: number;
   quoteName: number;
   tripRef: number;
+  tripNumber: number;
   destination: number;
   interest: number;
   channel: number;
@@ -78,6 +80,7 @@ const COLUMN_MATCHERS: Record<keyof ColumnMap, string[]> = {
   agent: ['last gtt action by', 'enquiry owner', 'full name'],
   quoteName: ['quote: quote name', 'quote name'],
   tripRef: ['trip reference', 'trip ref'],
+  tripNumber: ['trip number', 'trip record name'],
   destination: ['destination: name', 'enquiry: destination'],
   interest: ['interest: interest name', 'interest name', 'sales programme'],
   channel: ['channel picklist', 'channel: name', 'channel'],
@@ -117,7 +120,7 @@ function detectColumns(headerRow: unknown[]): ColumnMap {
 
   // Return with -1 defaults for any missing columns
   const defaults: ColumnMap = {
-    agent: 1, quoteName: -1, tripRef: -1, destination: -1,
+    agent: 1, quoteName: -1, tripRef: -1, tripNumber: -1, destination: -1,
     interest: -1, channel: -1, media: -1, clientType: -1,
     enquiryDate: -1, passthroughDate: -1, quoteCreatedDate: -1,
     bookingCreatedDate: -1, depositAcquiredDate: -1,
@@ -222,6 +225,7 @@ export function parseCrmExcel(file: ArrayBuffer): ParsedReport {
       agentName: currentAgent,
       quoteName: safeStr(row, cols.quoteName),
       tripRef: safeStr(row, cols.tripRef),
+      tripNumber: safeStr(row, cols.tripNumber),
       destination: safeStr(row, cols.destination),
       interest: safeStr(row, cols.interest),
       channel: safeStr(row, cols.channel),
@@ -311,6 +315,7 @@ export function buildMetrics(
   ptReport: ParsedReport | null,
   quotesReport: ParsedReport | null,
   bookingsReport: ParsedReport | null,
+  hotPassCounts?: Map<string, number>,
 ): Metrics[] {
   const agentMap = new Map<string, AgentStats>();
 
@@ -386,6 +391,8 @@ export function buildMetrics(
     // E>B rate: bookings / enquiries
     const ebRate = s.enquiries > 0 ? (s.bookings / s.enquiries) * 100 : 0;
 
+    const agentHotPasses = hotPassCounts?.get(agentName) || 0;
+
     metrics.push({
       agentName,
       // "trips" field = enquiries (backward compat with TeamComparison/ResultsTable)
@@ -393,7 +400,7 @@ export function buildMetrics(
       quotes: s.quotesWithTripRef,
       quotesWithTripRef: s.quotesWithTripRef,
       passthroughs: s.passthroughs,
-      hotPasses: 0,
+      hotPasses: agentHotPasses,
       bookings: s.bookings,
       nonConvertedLeads: 0,
       totalLeads: 0,
@@ -402,7 +409,7 @@ export function buildMetrics(
       passthroughsFromTrips: epRate,  // E>P %
       quotesFromPassthroughs: pqRate,  // P>Q %
       bookingsFromEnquiries: ebRate,   // E>B %
-      hotPassRate: 0,
+      hotPassRate: s.passthroughs > 0 ? (agentHotPasses / s.passthroughs) * 100 : 0,
       nonConvertedRate: 0,
       // Repeat client metrics
       repeatTrips: s.repeatEnquiries,
@@ -448,7 +455,7 @@ const DATE_FIELD_MAP: Record<keyof CrmParsedData, keyof CrmRow> = {
   enquiries: 'enquiryDate',
   passthroughs: 'passthroughDate',
   quotes: 'quoteCreatedDate',
-  bookings: 'bookingCreatedDate',
+  bookings: 'depositAcquiredDate',
 };
 
 /**
@@ -501,4 +508,111 @@ export function getCrmDateExtent(data: CrmParsedData): { min: string | null; max
   }
 
   return { min, max };
+}
+
+// ── Owner Changes Parser ─────────────────────────────────────────────
+
+export interface OwnerChangeRecord {
+  agentName: string;
+  tripRecordName: string;
+  oldValue: string;
+  newValue: string;
+  editedBy: string;
+  editDate: string;
+}
+
+/**
+ * Parse an "Owner Changes" Salesforce grouped report.
+ *
+ * The file has two-level grouping: agent name → trip record name → change rows.
+ * We detect the header row, then fill-down on both the agent and trip columns.
+ */
+export function parseOwnerChanges(file: ArrayBuffer): OwnerChangeRecord[] {
+  const wb = XLSX.read(file, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
+
+  // Find header row by looking for "Old Value" or "New Value"
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(25, data.length); i++) {
+    const row = data[i];
+    if (!row) continue;
+    const joined = row.map(c => String(c ?? '').toLowerCase()).join(' ');
+    if (joined.includes('old value') || joined.includes('new value')) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) return [];
+
+  const headerRow = data[headerIdx];
+  // Detect column indices
+  let agentCol = -1;
+  let tripRefCol = -1;
+  let oldValueCol = -1;
+  let newValueCol = -1;
+  let editedByCol = -1;
+  let editDateCol = -1;
+
+  for (let i = 0; i < headerRow.length; i++) {
+    const h = String(headerRow[i] ?? '').toLowerCase().trim()
+      .replace(/\s*↑\s*$/, '').replace(/\s*↓\s*$/, '');
+    if (!h) continue;
+    if (agentCol === -1 && (h.includes('full name') || h.includes('last gtt action by') || h.includes('enquiry owner'))) agentCol = i;
+    if (tripRefCol === -1 && (h.includes('trip record name') || h.includes('trip number'))) tripRefCol = i;
+    if (oldValueCol === -1 && h.includes('old value')) oldValueCol = i;
+    if (newValueCol === -1 && h.includes('new value')) newValueCol = i;
+    if (editedByCol === -1 && (h.includes('edited by') || h.includes('modified by'))) editedByCol = i;
+    if (editDateCol === -1 && (h.includes('edit date') || h.includes('modified date') || h.includes('date'))) editDateCol = i;
+  }
+
+  // Agent column often is col 1 (grouped), trip ref col 2
+  if (agentCol === -1) agentCol = 1;
+  if (tripRefCol === -1) tripRefCol = 2;
+
+  const records: OwnerChangeRecord[] = [];
+  let currentAgent = '';
+  let currentTrip = '';
+
+  for (let i = headerIdx + 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length === 0) continue;
+
+    const col1 = String(row[agentCol] ?? '').trim();
+    const col2 = String(row[tripRefCol] ?? '').trim();
+
+    // Skip subtotal/total/count rows
+    if (/^(Subtotal|Total|Grand Total)/i.test(col1) || /^(Subtotal|Total|Grand Total)/i.test(col2)) continue;
+    const checkStr = String(row[Math.min(agentCol + 1, row.length - 1)] ?? '').trim();
+    if (['Count', 'Avg', 'Sum'].includes(checkStr)) continue;
+    // Also skip rows where col1 itself is Count/Avg/Sum (some report formats)
+    if (['Count', 'Avg', 'Sum'].includes(col1) || ['Count', 'Avg', 'Sum'].includes(col2)) continue;
+
+    // Fill-down agent name (level 1 grouping)
+    if (col1 && col1 !== currentAgent && !/^(count|avg|sum)$/i.test(col1)) {
+      currentAgent = col1;
+    }
+    // Fill-down trip record name (level 2 grouping)
+    if (col2 && col2 !== currentTrip && !/^(count|avg|sum)$/i.test(col2)) {
+      currentTrip = col2;
+    }
+
+    if (!currentAgent || !currentTrip) continue;
+
+    // Must have old value or new value to be a real data row
+    const oldVal = safeStr(row, oldValueCol);
+    const newVal = safeStr(row, newValueCol);
+    if (!oldVal && !newVal) continue;
+
+    records.push({
+      agentName: currentAgent,
+      tripRecordName: currentTrip,
+      oldValue: oldVal,
+      newValue: newVal,
+      editedBy: safeStr(row, editedByCol),
+      editDate: safeStr(row, editDateCol),
+    });
+  }
+
+  return records;
 }
