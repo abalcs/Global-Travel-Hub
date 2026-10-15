@@ -76,14 +76,8 @@ export function classifyHotPasses(
       const hasQueueStop = ownerChain.some(v => v.toLowerCase().includes('opportunity'));
       classification = hasQueueStop ? 'QUEUE_STOPPED' : 'HOT_PASS';
     } else {
-      // No history — check owner field on the passthrough row
-      const owner = (row.owner || '').trim();
-      if (!owner || owner.toLowerCase().includes('opportunity')) {
-        classification = 'FLAGGED';
-        flag = 'No owner change history; owner is queue-like';
-      } else {
-        classification = 'HOT_PASS';
-      }
+      // No history — classify as HOT_PASS (no evidence of queue stop)
+      classification = 'HOT_PASS';
     }
 
     // Count hot passes
