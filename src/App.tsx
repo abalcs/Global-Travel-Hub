@@ -46,7 +46,7 @@ import {
 } from './utils/recordsTracker';
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
-import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, parseOwnerChanges, type CrmRow, type OwnerChangeRecord } from './utils/excelParser';
+import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, parseOwnerChanges, type CrmRow } from './utils/excelParser';
 import { classifyHotPasses } from './utils/hotPassClassifier';
 import { TamView } from './components/TamView';
 import { IncentiveView } from './components/IncentiveView';
@@ -182,7 +182,8 @@ function App() {
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
   const [crmParsedData, setCrmParsedData] = useState<CrmParsedData | null>(null);
-  const [ownerChangeRecords, setOwnerChangeRecords] = useState<OwnerChangeRecord[]>([]);
+  // ownerChangeRecords state removed — hot pass rates are now stored in hotPassRateMap
+  const [hotPassRateMap, setHotPassRateMap] = useState<Map<string, number>>(new Map());
   const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam' | 'incentive'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
     if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam' || saved === 'incentive') {
@@ -473,18 +474,27 @@ function App() {
       const ocRecords = excelFiles.ownerChanges
         ? parseOwnerChanges(await excelFiles.ownerChanges.arrayBuffer())
         : [];
-      setOwnerChangeRecords(ocRecords);
-
-      // Classify hot passes from owner changes
-      const hotPassResults = ocRecords.length > 0
-        ? classifyHotPasses(ocRecords)
-        : null;
+      // Classify hot passes: compute rate per agent from full data
+      const rateMap = new Map<string, number>();
+      if (ocRecords.length > 0 && ptReport) {
+        const { queueStoppedCounts } = classifyHotPasses(ocRecords);
+        // Count passthroughs per agent from full (unfiltered) data
+        const ptByAgent = new Map<string, number>();
+        for (const row of ptReport.rows) {
+          ptByAgent.set(row.agentName, (ptByAgent.get(row.agentName) || 0) + 1);
+        }
+        for (const [agent, qs] of queueStoppedCounts) {
+          const pt = ptByAgent.get(agent) || 0;
+          rateMap.set(agent, pt > 0 ? Math.max(0, (pt - qs) / pt) : 0);
+        }
+      }
+      setHotPassRateMap(rateMap);
 
       // Build RawParsedData from CRM data for downstream consumers (destinations, etc.)
       setRawParsedData(prev => crmToRawParsedData(crmData, prev));
 
       // Build unified metrics from all available reports
-      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport, hotPassResults?.queueStoppedCounts);
+      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport, rateMap);
       setMetrics(metricsData);
       setShowDataPanel(false);
 
@@ -803,7 +813,7 @@ function App() {
     setTimeSeriesData(null);
     setRawParsedData(null);
     setCrmParsedData(null);
-    setOwnerChangeRecords([]);
+    setHotPassRateMap(new Map());
     setHotPassAudit([]);
     setExcelDateRange('');
     setFiles({
@@ -844,19 +854,15 @@ function App() {
         quotes: filtered.quotes.length,
         bookings: filtered.bookings.length,
       });
-      // Re-classify hot passes (OC data is not date-filtered)
-      const hotPassResults = ownerChangeRecords.length > 0
-        ? classifyHotPasses(ownerChangeRecords)
-        : null;
       // Update rawParsedData with filtered CRM data for destinations etc.
       setRawParsedData(prev => crmToRawParsedData(filtered, prev));
+      // Use stored hot pass rates (computed from full data) so they scale correctly
       const metricsData = buildMetrics(
         { rows: filtered.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.bookings, reportTitle: '', reportDate: '', dateRange: '' },
-        hotPassResults?.queueStoppedCounts,
-        hotPassResults?.totalTripsAudited,
+        hotPassRateMap,
       );
       console.log('[App] Metrics sample (first agent):', metricsData[0] ? {
         agent: metricsData[0].agentName,
@@ -873,7 +879,7 @@ function App() {
       // Fall back to old CSV pipeline
       setDateRangeTrigger(prev => prev + 1);
     }
-  }, [pendingStartDate, pendingEndDate, crmParsedData, ownerChangeRecords]);
+  }, [pendingStartDate, pendingEndDate, crmParsedData, hotPassRateMap]);
 
   const handleClearDateRange = useCallback(() => {
     setPendingStartDate('');
@@ -883,25 +889,20 @@ function App() {
     setTimeframe('all');
 
     if (crmParsedData) {
-      // Re-classify hot passes
-      const hotPassResults = ownerChangeRecords.length > 0
-        ? classifyHotPasses(ownerChangeRecords)
-        : null;
-      // Rebuild metrics from unfiltered CRM data
+      // Rebuild metrics from unfiltered CRM data using stored hot pass rates
       setRawParsedData(prev => crmToRawParsedData(crmParsedData, prev));
       const metricsData = buildMetrics(
         { rows: crmParsedData.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.bookings, reportTitle: '', reportDate: '', dateRange: '' },
-        hotPassResults?.queueStoppedCounts,
-        hotPassResults?.totalTripsAudited,
+        hotPassRateMap,
       );
       setMetrics(metricsData);
     } else {
       setDateRangeTrigger(prev => prev + 1);
     }
-  }, [crmParsedData, ownerChangeRecords]);
+  }, [crmParsedData, hotPassRateMap]);
 
   const handleClearRecords = useCallback(() => {
     setRecords({ agents: {}, lastUpdated: new Date().toISOString() });
