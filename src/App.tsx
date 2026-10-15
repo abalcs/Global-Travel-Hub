@@ -47,7 +47,7 @@ import {
 import { parseDate } from './utils/dateParser';
 import { findColumn, COLUMN_PATTERNS } from './utils/columnDetection';
 import { parseCrmExcel, buildMetrics, filterCrmDataByDate, getCrmDateExtent, parseOwnerChanges, type CrmRow } from './utils/excelParser';
-import { classifyHotPasses } from './utils/hotPassClassifier';
+import { tagHotPasses } from './utils/hotPassClassifier';
 import { TamView } from './components/TamView';
 import { IncentiveView } from './components/IncentiveView';
 
@@ -182,8 +182,7 @@ function App() {
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | null>(null);
   const [rawParsedData, setRawParsedData] = useState<RawParsedData | null>(null);
   const [crmParsedData, setCrmParsedData] = useState<CrmParsedData | null>(null);
-  // ownerChangeRecords state removed — hot pass rates are now stored in hotPassRateMap
-  const [hotPassRateMap, setHotPassRateMap] = useState<Map<string, number>>(new Map());
+  // Hot pass tagging is done once on PT rows; no separate state needed
   const [activeView, setActiveView] = useState<'summary' | 'regional' | 'channels' | 'trends' | 'insights' | 'records' | 'tam' | 'incentive'>(() => {
     const saved = localStorage.getItem('gtt-active-view');
     if (saved === 'summary' || saved === 'regional' || saved === 'channels' || saved === 'trends' || saved === 'insights' || saved === 'records' || saved === 'tam' || saved === 'incentive') {
@@ -470,31 +469,20 @@ function App() {
       };
       setCrmParsedData(crmData);
 
-      // Parse owner changes file if uploaded
+      // Parse owner changes file and tag each passthrough row with isHotPass
       const ocRecords = excelFiles.ownerChanges
         ? parseOwnerChanges(await excelFiles.ownerChanges.arrayBuffer())
         : [];
-      // Classify hot passes: compute rate per agent from full data
-      const rateMap = new Map<string, number>();
       if (ocRecords.length > 0 && ptReport) {
-        const { queueStoppedCounts } = classifyHotPasses(ocRecords);
-        // Count passthroughs per agent from full (unfiltered) data
-        const ptByAgent = new Map<string, number>();
-        for (const row of ptReport.rows) {
-          ptByAgent.set(row.agentName, (ptByAgent.get(row.agentName) || 0) + 1);
-        }
-        for (const [agent, qs] of queueStoppedCounts) {
-          const pt = ptByAgent.get(agent) || 0;
-          rateMap.set(agent, pt > 0 ? Math.max(0, (pt - qs) / pt) : 0);
-        }
+        tagHotPasses(ptReport.rows, ocRecords);
+        // Also tag the rows stored in crmData (same references)
       }
-      setHotPassRateMap(rateMap);
 
       // Build RawParsedData from CRM data for downstream consumers (destinations, etc.)
       setRawParsedData(prev => crmToRawParsedData(crmData, prev));
 
       // Build unified metrics from all available reports
-      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport, rateMap);
+      const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
       setMetrics(metricsData);
       setShowDataPanel(false);
 
@@ -813,7 +801,7 @@ function App() {
     setTimeSeriesData(null);
     setRawParsedData(null);
     setCrmParsedData(null);
-    setHotPassRateMap(new Map());
+    // Hot pass tags live on CrmRow objects, cleared when crmParsedData is cleared
     setHotPassAudit([]);
     setExcelDateRange('');
     setFiles({
@@ -856,30 +844,19 @@ function App() {
       });
       // Update rawParsedData with filtered CRM data for destinations etc.
       setRawParsedData(prev => crmToRawParsedData(filtered, prev));
-      // Use stored hot pass rates (computed from full data) so they scale correctly
+      // isHotPass tags live on each PT row, so filtered rows carry their classification
       const metricsData = buildMetrics(
         { rows: filtered.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: filtered.bookings, reportTitle: '', reportDate: '', dateRange: '' },
-        hotPassRateMap,
       );
-      console.log('[App] Metrics sample (first agent):', metricsData[0] ? {
-        agent: metricsData[0].agentName,
-        trips: metricsData[0].trips,
-        passthroughs: metricsData[0].passthroughs,
-        quotes: metricsData[0].quotes,
-        bookings: metricsData[0].bookings,
-        epRate: metricsData[0].passthroughsFromTrips,
-        eqRate: metricsData[0].quotesFromTrips,
-        ebRate: metricsData[0].bookingsFromEnquiries,
-      } : 'no metrics');
       setMetrics(metricsData);
     } else {
       // Fall back to old CSV pipeline
       setDateRangeTrigger(prev => prev + 1);
     }
-  }, [pendingStartDate, pendingEndDate, crmParsedData, hotPassRateMap]);
+  }, [pendingStartDate, pendingEndDate, crmParsedData]);
 
   const handleClearDateRange = useCallback(() => {
     setPendingStartDate('');
@@ -889,20 +866,19 @@ function App() {
     setTimeframe('all');
 
     if (crmParsedData) {
-      // Rebuild metrics from unfiltered CRM data using stored hot pass rates
+      // Rebuild metrics from unfiltered CRM data — isHotPass tags on rows handle it
       setRawParsedData(prev => crmToRawParsedData(crmParsedData, prev));
       const metricsData = buildMetrics(
         { rows: crmParsedData.enquiries, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.passthroughs, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.quotes, reportTitle: '', reportDate: '', dateRange: '' },
         { rows: crmParsedData.bookings, reportTitle: '', reportDate: '', dateRange: '' },
-        hotPassRateMap,
       );
       setMetrics(metricsData);
     } else {
       setDateRangeTrigger(prev => prev + 1);
     }
-  }, [crmParsedData, hotPassRateMap]);
+  }, [crmParsedData]);
 
   const handleClearRecords = useCallback(() => {
     setRecords({ agents: {}, lastUpdated: new Date().toISOString() });

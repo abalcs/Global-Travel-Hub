@@ -39,6 +39,7 @@ export interface CrmRow {
   dropoutStage: string;
   dropoutNotes: string;
   travelAgentName: string;
+  isHotPass?: boolean;
 }
 
 export interface ParsedReport {
@@ -264,6 +265,7 @@ interface AgentStats {
   prospectPassthroughs: number;
   taPassthroughs: number;
   b2bPassthroughs: number;
+  hotPasses: number;
   quotes: number;
   quotesWithTripRef: number;
   repeatQuotes: number;
@@ -284,7 +286,7 @@ function emptyStats(): AgentStats {
     enquiries: 0, repeatEnquiries: 0, prospectEnquiries: 0,
     taEnquiries: 0, b2bEnquiries: 0,
     passthroughs: 0, repeatPassthroughs: 0, prospectPassthroughs: 0,
-    taPassthroughs: 0, b2bPassthroughs: 0,
+    taPassthroughs: 0, b2bPassthroughs: 0, hotPasses: 0,
     quotes: 0, quotesWithTripRef: 0, repeatQuotes: 0, prospectQuotes: 0,
     taQuotes: 0, b2bQuotes: 0,
     repeatQuotesWithTripRef: 0, prospectQuotesWithTripRef: 0, b2bQuotesWithTripRef: 0,
@@ -315,7 +317,6 @@ export function buildMetrics(
   ptReport: ParsedReport | null,
   quotesReport: ParsedReport | null,
   bookingsReport: ParsedReport | null,
-  queueStoppedCounts?: Map<string, number>,
 ): Metrics[] {
   const agentMap = new Map<string, AgentStats>();
 
@@ -342,6 +343,7 @@ export function buildMetrics(
       const s = ensure(row.agentName);
       const { isRepeat, isTA } = classifyRow(row);
       s.passthroughs++;
+      if (row.isHotPass) s.hotPasses++;
       if (isTA) { s.taPassthroughs++; s.b2bPassthroughs++; }
       else if (isRepeat) { s.repeatPassthroughs++; }
       else { s.prospectPassthroughs++; }
@@ -391,9 +393,6 @@ export function buildMetrics(
     // E>B rate: bookings / enquiries
     const ebRate = s.enquiries > 0 ? (s.bookings / s.enquiries) * 100 : 0;
 
-    const agentQueueStopped = queueStoppedCounts?.get(agentName) || 0;
-    const agentHotPasses = Math.max(0, s.passthroughs - agentQueueStopped);
-
     metrics.push({
       agentName,
       // "trips" field = enquiries (backward compat with TeamComparison/ResultsTable)
@@ -401,7 +400,7 @@ export function buildMetrics(
       quotes: s.quotesWithTripRef,
       quotesWithTripRef: s.quotesWithTripRef,
       passthroughs: s.passthroughs,
-      hotPasses: agentHotPasses,
+      hotPasses: s.hotPasses,
       totalTripsAudited: 0,
       bookings: s.bookings,
       nonConvertedLeads: 0,
@@ -411,7 +410,7 @@ export function buildMetrics(
       passthroughsFromTrips: epRate,  // E>P %
       quotesFromPassthroughs: pqRate,  // P>Q %
       bookingsFromEnquiries: ebRate,   // E>B %
-      hotPassRate: s.passthroughs > 0 ? (agentHotPasses / s.passthroughs) * 100 : 0,
+      hotPassRate: s.passthroughs > 0 ? (s.hotPasses / s.passthroughs) * 100 : 0,
       nonConvertedRate: 0,
       // Repeat client metrics
       repeatTrips: s.repeatEnquiries,
