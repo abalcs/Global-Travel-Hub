@@ -473,13 +473,8 @@ function App() {
       const ocRecords = excelFiles.ownerChanges
         ? parseOwnerChanges(await excelFiles.ownerChanges.arrayBuffer())
         : [];
-      console.log('[HotPass] OC records:', ocRecords.length, 'PT rows:', ptReport?.rows.length ?? 0);
       if (ocRecords.length > 0 && ptReport) {
         tagHotPasses(ptReport.rows, ocRecords);
-        const tagged = ptReport.rows.filter(r => r.isHotPass === true).length;
-        const stopped = ptReport.rows.filter(r => r.isHotPass === false).length;
-        const unset = ptReport.rows.filter(r => r.isHotPass === undefined).length;
-        console.log('[HotPass] Tagged:', { hotPass: tagged, queueStopped: stopped, unset });
       } else {
         // No OC data: default all passthroughs to hot pass
         if (ptReport) {
@@ -492,7 +487,6 @@ function App() {
 
       // Build unified metrics from all available reports
       const metricsData = buildMetrics(enquiriesReport, ptReport, quotesReport, bookingsReport);
-      console.log('[HotPass] Metrics sample:', metricsData.slice(0, 3).map(m => ({ agent: m.agentName, hp: m.hotPasses, pt: m.passthroughs, rate: m.hotPassRate.toFixed(1) })));
       setMetrics(metricsData);
       setShowDataPanel(false);
 

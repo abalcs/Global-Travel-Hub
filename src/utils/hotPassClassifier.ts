@@ -4,32 +4,26 @@
  * Tags each passthrough row with isHotPass by matching its tripRef to
  * Owner Change (OC) records.
  *
- * A passthrough is NOT a hot pass (i.e. queue-stopped) if:
- * - Its tripRef matches an OC group where any change involves "Opportunity"
+ * Classification:
+ * - tripRef matches a queue-stopped OC group → NOT hot pass
+ * - tripRef matches a non-queue-stopped OC group → IS hot pass
+ * - No OC match, within blank-group QS date range → proportional distribution
+ * - No OC match, outside that range → hot pass (no queue-stop data)
  *
- * A passthrough IS a hot pass if:
- * - Its tripRef matches an OC group with no "Opportunity" involvement
- * - Its tripRef doesn't appear in OC at all (no queue stop detected)
- *
- * The OC "blank group" (trips without trip reference numbers) contains
- * additional queue-stopped trips that can't be matched to specific PT rows.
- * These are distributed among unmatched PT rows per agent so totals stay correct.
+ * The OC "blank group" queue-stopped trips are distributed proportionally
+ * among unmatched PT rows BY DATE so daily/weekly filters show correct rates.
  */
 import type { CrmRow, OwnerChangeRecord } from './excelParser';
+import { formatDateString } from './dateParser';
 
 /**
  * Tag each passthrough row's `isHotPass` field in place.
- *
- * After calling this, every row in `passthroughRows` will have
- * `isHotPass` set to `true` or `false`. Date filtering on the PT rows
- * will naturally preserve the per-row classification.
  */
 export function tagHotPasses(
   passthroughRows: CrmRow[],
   ownerChanges: OwnerChangeRecord[],
 ): void {
-  // ── Build OC lookup: agent → tripRecordName → isQueueStopped ──
-  // Also track blank-group queue-stopped count per agent
+  // ── Build OC lookup: agent → tripRecordName → changes ──
   const agentTrips = new Map<string, Map<string, OwnerChangeRecord[]>>();
 
   for (const oc of ownerChanges) {
@@ -42,9 +36,11 @@ export function tagHotPasses(
     tripMap.get(key)!.push(oc);
   }
 
-  // Per-agent: set of queue-stopped trip names + blank-group count
+  // Per-agent: queue-stopped trip names, blank-group count, and
+  // the date range of blank-group "→ Opportunity" transitions
   const queueStoppedNames = new Map<string, Set<string>>();
   const blankGroupCounts = new Map<string, number>();
+  const blankQSStartDate = new Map<string, string>(); // agent → YYYY-MM-DD
 
   for (const [agent, tripMap] of agentTrips) {
     const stoppedSet = new Set<string>();
@@ -55,6 +51,12 @@ export function tagHotPasses(
         for (const c of changes) {
           if (c.newValue.toLowerCase().includes('opportunity')) {
             blankStopped++;
+            // Track the date range of blank QS transitions
+            const d = formatDateString(c.editDate);
+            if (d) {
+              const cur = blankQSStartDate.get(agent);
+              if (!cur || d < cur) blankQSStartDate.set(agent, d);
+            }
           }
         }
       } else {
@@ -71,7 +73,6 @@ export function tagHotPasses(
   }
 
   // ── Tag each passthrough row ──
-  // Group PT rows by agent so we can distribute blank-group counts
   const ptByAgent = new Map<string, CrmRow[]>();
   for (const row of passthroughRows) {
     if (!ptByAgent.has(row.agentName)) ptByAgent.set(row.agentName, []);
@@ -80,31 +81,59 @@ export function tagHotPasses(
 
   for (const [agent, rows] of ptByAgent) {
     const stoppedSet = queueStoppedNames.get(agent);
-    let blankRemaining = blankGroupCounts.get(agent) || 0;
-    const unmatchedRows: CrmRow[] = [];
+    const blankCount = blankGroupCounts.get(agent) || 0;
+    const periodStart = blankQSStartDate.get(agent) || '';
+
+    // Phase 1: tag definitively matched rows, collect unmatched
+    const unmatchedInPeriod: CrmRow[] = [];
 
     for (const row of rows) {
       const ref = row.tripRef.trim();
       if (ref && stoppedSet?.has(ref)) {
-        // Matched to a queue-stopped OC group
         row.isHotPass = false;
       } else if (ref && agentTrips.get(agent)?.has(ref)) {
-        // Matched to an OC group that was NOT queue-stopped → hot pass
         row.isHotPass = true;
       } else {
-        // No OC match — collect for blank-group distribution
-        unmatchedRows.push(row);
+        // No OC match — check if within blank-group QS date range
+        const ptDate = formatDateString(row.passthroughDate);
+        if (ptDate && periodStart && ptDate >= periodStart) {
+          unmatchedInPeriod.push(row);
+        } else {
+          // Before blank QS period → no queue-stop data → hot pass
+          row.isHotPass = true;
+        }
       }
     }
 
-    // Distribute blank-group queue-stopped count among unmatched rows.
-    // Mark the first N unmatched rows as not-hot-pass, rest as hot pass.
-    for (const row of unmatchedRows) {
-      if (blankRemaining > 0) {
-        row.isHotPass = false;
-        blankRemaining--;
-      } else {
-        row.isHotPass = true;
+    // Phase 2: distribute blank-group QS among in-period unmatched rows
+    // Group by date and distribute proportionally per date
+    if (blankCount === 0 || unmatchedInPeriod.length === 0) {
+      for (const row of unmatchedInPeriod) row.isHotPass = true;
+    } else if (blankCount >= unmatchedInPeriod.length) {
+      for (const row of unmatchedInPeriod) row.isHotPass = false;
+    } else {
+      // Distribute QS proportionally using error accumulation (Bresenham-style)
+      // so any date subset gets the correct proportion without rounding bias.
+      // Sort by date so rows on the same day cluster together.
+      unmatchedInPeriod.sort((a, b) => {
+        const da = formatDateString(a.passthroughDate) || '';
+        const db = formatDateString(b.passthroughDate) || '';
+        return da.localeCompare(db);
+      });
+
+      const qsRate = blankCount / unmatchedInPeriod.length;
+      let accumulated = 0;
+      let qsAssigned = 0;
+
+      for (const row of unmatchedInPeriod) {
+        accumulated += qsRate;
+        if (accumulated >= 0.5 && qsAssigned < blankCount) {
+          row.isHotPass = false;
+          accumulated -= 1;
+          qsAssigned++;
+        } else {
+          row.isHotPass = true;
+        }
       }
     }
   }
