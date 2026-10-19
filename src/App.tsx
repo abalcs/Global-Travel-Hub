@@ -473,10 +473,15 @@ function App() {
       const ocRecords = excelFiles.ownerChanges
         ? parseOwnerChanges(await excelFiles.ownerChanges.arrayBuffer())
         : [];
+      console.log('[HotPass] Owner Changes file:', excelFiles.ownerChanges ? excelFiles.ownerChanges.name : 'NOT UPLOADED');
+      console.log('[HotPass] OC records parsed:', ocRecords.length);
       if (ocRecords.length > 0 && ptReport) {
         tagHotPasses(ptReport.rows, ocRecords);
+        const hp = ptReport.rows.filter(r => r.isHotPass === true).length;
+        const qs = ptReport.rows.filter(r => r.isHotPass === false).length;
+        console.log(`[HotPass] Tagged: ${hp} hot passes, ${qs} queue-stopped out of ${ptReport.rows.length} total`);
       } else {
-        // No OC data: default all passthroughs to hot pass
+        console.warn('[HotPass] No Owner Changes data — defaulting all passthroughs to hot pass (100% rate)');
         if (ptReport) {
           for (const row of ptReport.rows) row.isHotPass = true;
         }

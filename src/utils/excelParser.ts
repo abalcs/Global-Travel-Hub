@@ -549,7 +549,8 @@ export function parseOwnerChanges(file: ArrayBuffer): OwnerChangeRecord[] {
   const headerRow = data[headerIdx];
   // Detect column indices
   let agentCol = -1;
-  let tripRefCol = -1;
+  let tripGroupCol = -1;   // Grouped column (may be "Trip: Trip Number" or "Trip Reference Number")
+  let tripRefNumCol = -1;  // Separate "Trip Reference Number" column (numeric, for matching)
   let oldValueCol = -1;
   let newValueCol = -1;
   let editedByCol = -1;
@@ -560,27 +561,31 @@ export function parseOwnerChanges(file: ArrayBuffer): OwnerChangeRecord[] {
       .replace(/\s*↑\s*$/, '').replace(/\s*↓\s*$/, '');
     if (!h) continue;
     if (agentCol === -1 && (h.includes('full name') || h.includes('last gtt action by') || h.includes('enquiry owner'))) agentCol = i;
-    if (tripRefCol === -1 && (h.includes('trip record name') || h.includes('trip number'))) tripRefCol = i;
+    // Detect grouped trip column (col 2 area) — could be "Trip: Trip Number" or "Trip Reference Number"
+    if (tripGroupCol === -1 && (h.includes('trip record name') || h.includes('trip number') || h.includes('trip reference number'))) tripGroupCol = i;
+    // Detect separate "Trip Reference Number" column (non-grouped, numeric IDs for matching)
+    else if (h.includes('trip reference number')) tripRefNumCol = i;
     if (oldValueCol === -1 && h.includes('old value')) oldValueCol = i;
     if (newValueCol === -1 && h.includes('new value')) newValueCol = i;
     if (editedByCol === -1 && (h.includes('edited by') || h.includes('modified by'))) editedByCol = i;
     if (editDateCol === -1 && (h.includes('edit date') || h.includes('modified date') || h.includes('date'))) editDateCol = i;
   }
 
-  // Agent column often is col 1 (grouped), trip ref col 2
+  // Agent column often is col 1 (grouped), trip group col 2
   if (agentCol === -1) agentCol = 1;
-  if (tripRefCol === -1) tripRefCol = 2;
+  if (tripGroupCol === -1) tripGroupCol = 2;
 
   const records: OwnerChangeRecord[] = [];
   let currentAgent = '';
-  let currentTrip = '';
+  let currentTripGroup = '';
+  let currentTripRef = '';  // Numeric trip reference number (for matching against PT tripRef)
 
   for (let i = headerIdx + 1; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0) continue;
 
     const col1 = String(row[agentCol] ?? '').trim();
-    const col2 = String(row[tripRefCol] ?? '').trim();
+    const col2 = String(row[tripGroupCol] ?? '').trim();
 
     // Skip subtotal/total/count rows
     if (/^(Subtotal|Total|Grand Total)/i.test(col1) || /^(Subtotal|Total|Grand Total)/i.test(col2)) continue;
@@ -592,11 +597,17 @@ export function parseOwnerChanges(file: ArrayBuffer): OwnerChangeRecord[] {
     // Fill-down agent name (level 1 grouping)
     if (col1 && col1 !== currentAgent && !/^(count|avg|sum)$/i.test(col1)) {
       currentAgent = col1;
-      currentTrip = ''; // Reset trip ref when agent changes
+      currentTripGroup = ''; // Reset trip group when agent changes
+      currentTripRef = '';
     }
-    // Fill-down trip record name (level 2 grouping)
-    if (col2 && col2 !== currentTrip && !/^(count|avg|sum)$/i.test(col2)) {
-      currentTrip = col2;
+    // Fill-down trip group (level 2 grouping)
+    if (col2 && col2 !== currentTripGroup && !/^(count|avg|sum)$/i.test(col2)) {
+      currentTripGroup = col2;
+      currentTripRef = ''; // Reset trip ref when group changes
+      // If there's a separate Trip Reference Number column, grab the numeric ID
+      if (tripRefNumCol !== -1) {
+        currentTripRef = String(row[tripRefNumCol] ?? '').trim();
+      }
     }
 
     if (!currentAgent) continue;
@@ -606,9 +617,19 @@ export function parseOwnerChanges(file: ArrayBuffer): OwnerChangeRecord[] {
     const newVal = safeStr(row, newValueCol);
     if (!oldVal && !newVal) continue;
 
+    // Use the numeric trip reference (col 8) when available, otherwise the group key (col 2).
+    // The group key may be "Trip-XXXXXXX" (new format) or a numeric ID (old format).
+    // For matching against PT tripRef, we need the numeric ID.
+    // If the group key is "Trip-XXXXXXX" with no numeric ref, treat as blank (unmatched)
+    // so the classifier handles it like the old blank-group queue-stopped trips.
+    let tripName = currentTripRef || currentTripGroup;
+    if (!currentTripRef && /^Trip-/i.test(currentTripGroup)) {
+      tripName = ''; // Can't match PT tripRef → treat as blank group
+    }
+
     records.push({
       agentName: currentAgent,
-      tripRecordName: currentTrip,
+      tripRecordName: tripName,
       oldValue: oldVal,
       newValue: newVal,
       editedBy: safeStr(row, editedByCol),
