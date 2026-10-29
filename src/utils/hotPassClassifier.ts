@@ -7,11 +7,10 @@
  * Classification:
  * - tripRef matches a queue-stopped OC group → NOT hot pass
  * - tripRef matches a non-queue-stopped OC group → IS hot pass
- * - No OC match, within blank-group QS date range → proportional distribution
- * - No OC match, outside that range → hot pass (no queue-stop data)
- *
- * The OC "blank group" queue-stopped trips are distributed proportionally
- * among unmatched PT rows BY DATE so daily/weekly filters show correct rates.
+ * - No tripRef match → match PT owner name against blank-group queue-exit
+ *   records ("Opportunity → Person"). If matched → NOT hot pass.
+ * - No match at all, within OC period → hot pass
+ * - Before OC period → hot pass (no queue-stop data available)
  */
 import type { CrmRow, OwnerChangeRecord } from './excelParser';
 import { formatDateString } from './dateParser';
@@ -36,22 +35,30 @@ export function tagHotPasses(
     tripMap.get(key)!.push(oc);
   }
 
-  // Per-agent: queue-stopped trip names, blank-group count, and
-  // the date range of blank-group "→ Opportunity" transitions
+  // Per-agent: queue-stopped trip names, blank-group queue-exit recipients,
+  // and the earliest date of blank-group queue activity
   const queueStoppedNames = new Map<string, Set<string>>();
-  const blankGroupCounts = new Map<string, number>();
+  const blankQSRecipients = new Map<string, Map<string, number>>(); // agent → name → count
   const blankQSStartDate = new Map<string, string>(); // agent → YYYY-MM-DD
 
   for (const [agent, tripMap] of agentTrips) {
     const stoppedSet = new Set<string>();
-    let blankStopped = 0;
+    const recipients = new Map<string, number>();
 
     for (const [key, changes] of tripMap) {
       if (key === '__blank__') {
         for (const c of changes) {
-          if (c.newValue.toLowerCase().includes('opportunity')) {
-            blankStopped++;
-            // Track the date range of blank QS transitions
+          // Queue EXIT: "Opportunity → Person" — tells us who received the trip
+          if (c.oldValue.toLowerCase().includes('opportunity') &&
+              !c.newValue.toLowerCase().includes('opportunity')) {
+            const recipient = c.newValue.trim();
+            if (recipient) {
+              recipients.set(recipient, (recipients.get(recipient) || 0) + 1);
+            }
+          }
+          // Track the date range of any blank-group queue activity
+          if (c.oldValue.toLowerCase().includes('opportunity') ||
+              c.newValue.toLowerCase().includes('opportunity')) {
             const d = formatDateString(c.editDate);
             if (d) {
               const cur = blankQSStartDate.get(agent);
@@ -69,7 +76,7 @@ export function tagHotPasses(
     }
 
     queueStoppedNames.set(agent, stoppedSet);
-    blankGroupCounts.set(agent, blankStopped);
+    blankQSRecipients.set(agent, recipients);
   }
 
   // ── Tag each passthrough row ──
@@ -81,57 +88,36 @@ export function tagHotPasses(
 
   for (const [agent, rows] of ptByAgent) {
     const stoppedSet = queueStoppedNames.get(agent);
-    const blankCount = blankGroupCounts.get(agent) || 0;
+    const recipients = blankQSRecipients.get(agent) || new Map<string, number>();
     const periodStart = blankQSStartDate.get(agent) || '';
 
-    // Phase 1: tag definitively matched rows, collect unmatched
-    const unmatchedInPeriod: CrmRow[] = [];
+    // Clone the recipients map so we can decrement counts as we match
+    const remainingRecipients = new Map(recipients);
 
     for (const row of rows) {
       const ref = row.tripRef.trim();
+
       if (ref && stoppedSet?.has(ref)) {
+        // Named trip matched to a queue-stopped OC group
         row.isHotPass = false;
       } else if (ref && agentTrips.get(agent)?.has(ref)) {
+        // Named trip matched to a non-queue-stopped OC group
         row.isHotPass = true;
       } else {
-        // No OC match — check if within blank-group QS date range
+        // No tripRef match — try owner-name matching against queue exits
         const ptDate = formatDateString(row.passthroughDate);
         if (ptDate && periodStart && ptDate >= periodStart) {
-          unmatchedInPeriod.push(row);
+          // Within OC period: match by owner name
+          const owner = (row.owner || '').trim();
+          const count = owner ? (remainingRecipients.get(owner) || 0) : 0;
+          if (count > 0) {
+            row.isHotPass = false;
+            remainingRecipients.set(owner, count - 1);
+          } else {
+            row.isHotPass = true;
+          }
         } else {
-          // Before blank QS period → no queue-stop data → hot pass
-          row.isHotPass = true;
-        }
-      }
-    }
-
-    // Phase 2: distribute blank-group QS among in-period unmatched rows
-    // Group by date and distribute proportionally per date
-    if (blankCount === 0 || unmatchedInPeriod.length === 0) {
-      for (const row of unmatchedInPeriod) row.isHotPass = true;
-    } else if (blankCount >= unmatchedInPeriod.length) {
-      for (const row of unmatchedInPeriod) row.isHotPass = false;
-    } else {
-      // Distribute QS proportionally using error accumulation (Bresenham-style)
-      // so any date subset gets the correct proportion without rounding bias.
-      // Sort by date so rows on the same day cluster together.
-      unmatchedInPeriod.sort((a, b) => {
-        const da = formatDateString(a.passthroughDate) || '';
-        const db = formatDateString(b.passthroughDate) || '';
-        return da.localeCompare(db);
-      });
-
-      const qsRate = blankCount / unmatchedInPeriod.length;
-      let accumulated = 0;
-      let qsAssigned = 0;
-
-      for (const row of unmatchedInPeriod) {
-        accumulated += qsRate;
-        if (accumulated >= 0.5 && qsAssigned < blankCount) {
-          row.isHotPass = false;
-          accumulated -= 1;
-          qsAssigned++;
-        } else {
+          // Before OC period → no queue-stop data → hot pass
           row.isHotPass = true;
         }
       }
