@@ -42,13 +42,14 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
   const nonSeniorMetrics = useMemo(() => metrics.filter(m => !seniors.includes(m.agentName)), [metrics, seniors]);
 
   // Helper to pick the right field based on filter
-  const getFilteredField = useCallback((m: Metrics, field: 'trips' | 'passthroughs' | 'quotes' | 'quotesWithTripRef' | 'bookings', filter: ClientFilter) => {
+  const getFilteredField = useCallback((m: Metrics, field: 'trips' | 'passthroughs' | 'quotes' | 'quotesWithTripRef' | 'bookings' | 'hotPasses', filter: ClientFilter) => {
     const fieldMap = {
       trips:            { all: m.trips, repeat: m.repeatTrips, prospect: m.prospectTrips, b2b: m.b2bTrips },
       passthroughs:     { all: m.passthroughs, repeat: m.repeatPassthroughs, prospect: m.prospectPassthroughs, b2b: m.b2bPassthroughs },
       quotes:           { all: m.quotes, repeat: m.repeatQuotesWithTripRef, prospect: m.prospectQuotesWithTripRef, b2b: m.b2bQuotesWithTripRef },
       quotesWithTripRef:{ all: m.quotesWithTripRef, repeat: m.repeatQuotesWithTripRef, prospect: m.prospectQuotesWithTripRef, b2b: m.b2bQuotesWithTripRef },
       bookings:         { all: m.bookings, repeat: m.repeatBookings, prospect: m.prospectBookings, b2b: m.b2bBookings },
+      hotPasses:        { all: m.hotPasses, repeat: m.repeatHotPasses, prospect: m.prospectHotPasses, b2b: m.b2bHotPasses },
     };
     return fieldMap[field][filter];
   }, []);
@@ -66,7 +67,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, bookings: 0 }
     );
 
-    const totalHotPasses = groupMetrics.reduce((sum, m) => sum + m.hotPasses, 0);
+    const totalHotPasses = groupMetrics.reduce((sum, m) => sum + getFilteredField(m, 'hotPasses', filter), 0);
     const totalPassthroughs = totals.passthroughs;
 
     return {
@@ -106,7 +107,7 @@ export const TeamComparison: React.FC<TeamComparisonProps> = ({ metrics, teams, 
       { trips: 0, quotes: 0, quotesWithTripRef: 0, passthroughs: 0, bookings: 0 }
     );
 
-    const teamHotPasses = teamMetrics.reduce((sum, m) => sum + m.hotPasses, 0);
+    const teamHotPasses = teamMetrics.reduce((sum, m) => sum + getFilteredField(m, 'hotPasses', clientFilter), 0);
 
     return {
       id: team.id,

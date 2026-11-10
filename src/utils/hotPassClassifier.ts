@@ -9,8 +9,11 @@
  * - tripRef matches a non-queue-stopped OC group → IS hot pass
  * - No tripRef match → match PT owner name against blank-group queue-exit
  *   records ("Opportunity → Person"). If matched → NOT hot pass.
- * - No match at all, within OC period → hot pass
- * - Before OC period → hot pass (no queue-stop data available)
+ * - No match at all, within OC coverage period → hot pass
+ * - Before OC coverage period → hot pass (no queue-stop data available)
+ *
+ * OC coverage start = earliest Edit Date from ANY OC record (named or blank)
+ * where Old Value or New Value mentions "opportunity".
  */
 import type { CrmRow, OwnerChangeRecord } from './excelParser';
 import { formatDateString } from './dateParser';
@@ -36,16 +39,28 @@ export function tagHotPasses(
   }
 
   // Per-agent: queue-stopped trip names, blank-group queue-exit recipients,
-  // and the earliest date of blank-group queue activity
+  // and the earliest date of ANY OC record mentioning "opportunity"
   const queueStoppedNames = new Map<string, Set<string>>();
   const blankQSRecipients = new Map<string, Map<string, number>>(); // agent → name → count
-  const blankQSStartDate = new Map<string, string>(); // agent → YYYY-MM-DD
+  const ocCoverageStart = new Map<string, string>(); // agent → YYYY-MM-DD
 
   for (const [agent, tripMap] of agentTrips) {
     const stoppedSet = new Set<string>();
     const recipients = new Map<string, number>();
 
     for (const [key, changes] of tripMap) {
+      // Track coverage start from ALL OC records that mention opportunity
+      for (const c of changes) {
+        if (c.oldValue.toLowerCase().includes('opportunity') ||
+            c.newValue.toLowerCase().includes('opportunity')) {
+          const d = formatDateString(c.editDate);
+          if (d) {
+            const cur = ocCoverageStart.get(agent);
+            if (!cur || d < cur) ocCoverageStart.set(agent, d);
+          }
+        }
+      }
+
       if (key === '__blank__') {
         for (const c of changes) {
           // Queue EXIT: "Opportunity → Person" — tells us who received the trip
@@ -54,15 +69,6 @@ export function tagHotPasses(
             const recipient = c.newValue.trim();
             if (recipient) {
               recipients.set(recipient, (recipients.get(recipient) || 0) + 1);
-            }
-          }
-          // Track the date range of any blank-group queue activity
-          if (c.oldValue.toLowerCase().includes('opportunity') ||
-              c.newValue.toLowerCase().includes('opportunity')) {
-            const d = formatDateString(c.editDate);
-            if (d) {
-              const cur = blankQSStartDate.get(agent);
-              if (!cur || d < cur) blankQSStartDate.set(agent, d);
             }
           }
         }
@@ -89,7 +95,7 @@ export function tagHotPasses(
   for (const [agent, rows] of ptByAgent) {
     const stoppedSet = queueStoppedNames.get(agent);
     const recipients = blankQSRecipients.get(agent) || new Map<string, number>();
-    const periodStart = blankQSStartDate.get(agent) || '';
+    const periodStart = ocCoverageStart.get(agent) || '';
 
     // Clone the recipients map so we can decrement counts as we match
     const remainingRecipients = new Map(recipients);

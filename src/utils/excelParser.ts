@@ -266,6 +266,9 @@ interface AgentStats {
   taPassthroughs: number;
   b2bPassthroughs: number;
   hotPasses: number;
+  repeatHotPasses: number;
+  prospectHotPasses: number;
+  b2bHotPasses: number;
   quotes: number;
   quotesWithTripRef: number;
   repeatQuotes: number;
@@ -286,7 +289,8 @@ function emptyStats(): AgentStats {
     enquiries: 0, repeatEnquiries: 0, prospectEnquiries: 0,
     taEnquiries: 0, b2bEnquiries: 0,
     passthroughs: 0, repeatPassthroughs: 0, prospectPassthroughs: 0,
-    taPassthroughs: 0, b2bPassthroughs: 0, hotPasses: 0,
+    taPassthroughs: 0, b2bPassthroughs: 0,
+    hotPasses: 0, repeatHotPasses: 0, prospectHotPasses: 0, b2bHotPasses: 0,
     quotes: 0, quotesWithTripRef: 0, repeatQuotes: 0, prospectQuotes: 0,
     taQuotes: 0, b2bQuotes: 0,
     repeatQuotesWithTripRef: 0, prospectQuotesWithTripRef: 0, b2bQuotesWithTripRef: 0,
@@ -343,7 +347,12 @@ export function buildMetrics(
       const s = ensure(row.agentName);
       const { isRepeat, isTA } = classifyRow(row);
       s.passthroughs++;
-      if (row.isHotPass) s.hotPasses++;
+      if (row.isHotPass) {
+        s.hotPasses++;
+        if (isTA) { s.b2bHotPasses++; }
+        else if (isRepeat) { s.repeatHotPasses++; }
+        else { s.prospectHotPasses++; }
+      }
       if (isTA) { s.taPassthroughs++; s.b2bPassthroughs++; }
       else if (isRepeat) { s.repeatPassthroughs++; }
       else { s.prospectPassthroughs++; }
@@ -415,6 +424,7 @@ export function buildMetrics(
       // Repeat client metrics
       repeatTrips: s.repeatEnquiries,
       repeatPassthroughs: s.repeatPassthroughs,
+      repeatHotPasses: s.repeatHotPasses,
       repeatTpRate: s.repeatEnquiries > 0 ? (s.repeatPassthroughs / s.repeatEnquiries) * 100 : 0,
       repeatQuotes: s.repeatQuotes,
       repeatQuotesWithTripRef: s.repeatQuotesWithTripRef,
@@ -422,6 +432,7 @@ export function buildMetrics(
       // Prospect client metrics
       prospectTrips: s.prospectEnquiries,
       prospectPassthroughs: s.prospectPassthroughs,
+      prospectHotPasses: s.prospectHotPasses,
       prospectTpRate: s.prospectEnquiries > 0 ? (s.prospectPassthroughs / s.prospectEnquiries) * 100 : 0,
       prospectQuotes: s.prospectQuotes,
       prospectQuotesWithTripRef: s.prospectQuotesWithTripRef,
@@ -429,6 +440,7 @@ export function buildMetrics(
       // B2B metrics
       b2bTrips: s.b2bEnquiries,
       b2bPassthroughs: s.b2bPassthroughs,
+      b2bHotPasses: s.b2bHotPasses,
       b2bTpRate: s.b2bEnquiries > 0 ? (s.b2bPassthroughs / s.b2bEnquiries) * 100 : 0,
       b2bQuotes: s.b2bQuotes,
       b2bQuotesWithTripRef: s.b2bQuotesWithTripRef,

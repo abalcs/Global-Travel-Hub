@@ -35,6 +35,7 @@ export interface Metrics {
   // Repeat client metrics
   repeatTrips: number;
   repeatPassthroughs: number;
+  repeatHotPasses: number;
   repeatTpRate: number;
   repeatQuotes: number;
   repeatQuotesWithTripRef: number;
@@ -42,6 +43,7 @@ export interface Metrics {
   // Prospect client metrics (derived: total - repeat)
   prospectTrips: number;
   prospectPassthroughs: number;
+  prospectHotPasses: number;
   prospectTpRate: number;
   prospectQuotes: number;
   prospectQuotesWithTripRef: number;
@@ -49,6 +51,7 @@ export interface Metrics {
   // B2B metrics
   b2bTrips: number;
   b2bPassthroughs: number;
+  b2bHotPasses: number;
   b2bTpRate: number;
   b2bQuotes: number;
   b2bQuotesWithTripRef: number;

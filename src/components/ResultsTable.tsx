@@ -214,6 +214,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
       const pt = clientFilter === 'repeat' ? m.repeatPassthroughs : clientFilter === 'prospect' ? m.prospectPassthroughs : m.b2bPassthroughs;
       const q = clientFilter === 'repeat' ? m.repeatQuotesWithTripRef : clientFilter === 'prospect' ? m.prospectQuotesWithTripRef : m.b2bQuotesWithTripRef;
       const bk = clientFilter === 'repeat' ? m.repeatBookings : clientFilter === 'prospect' ? m.prospectBookings : m.b2bBookings;
+      const hp = clientFilter === 'repeat' ? m.repeatHotPasses : clientFilter === 'prospect' ? m.prospectHotPasses : m.b2bHotPasses;
 
       return {
         ...m,
@@ -222,6 +223,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ metrics, teams, seni
         quotes: q,
         quotesWithTripRef: q,
         bookings: bk,
+        hotPasses: hp,
+        hotPassRate: pt > 0 ? (hp / pt) * 100 : 0,
         passthroughsFromTrips: enq > 0 ? (pt / enq) * 100 : 0,
         quotesFromTrips: enq > 0 ? (q / enq) * 100 : 0,
         quotesFromPassthroughs: pt > 0 ? (q / pt) * 100 : 0,
